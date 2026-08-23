@@ -11,4 +11,10 @@ public enum AgendaFilter {
                 && item.hasEnded(at: now) == false
         }
     }
+
+    /// Removes events left with only a generic title after merging: a lone `Busy` block is not a
+    /// meeting, and several of them never combine into one.
+    public static func named(_ items: [AgendaItem], rules: MatchingRules) -> [AgendaItem] {
+        items.filter { $0.kind == .reminder || rules.isGeneric($0.title) == false }
+    }
 }

@@ -45,6 +45,8 @@ public final class AgendaModel {
     public private(set) var errorMessage: String?
     /// Called with every new agenda; the app points this at the takeover scheduler.
     public var onRebuild: (Agenda, Date) -> Void = { _, _ in }
+    /// Shows an item as a takeover preview; the app points this at `TakeoverModel.preview`.
+    public var preview: (AgendaItem) -> Void = { _ in }
 
     /// The menu bar title, or nil for the icon alone.
     public var title: String? {
@@ -81,7 +83,8 @@ public final class AgendaModel {
         hasSelection = selection.isEmpty == false
         let horizon = horizon(around: rebuildTime)
         let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection, rules: rules)
-        let items = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
+        let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
+        let items = AgendaFilter.named(merged, rules: rules)
             .sorted { ($0.start, $0.title) < ($1.start, $1.title) }
         agenda = Agenda(items: items, horizon: horizon)
         onRebuild(agenda, rebuildTime)

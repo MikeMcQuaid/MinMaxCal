@@ -19,12 +19,18 @@ struct MinMaxCalApp: App {
             presenter: windows,
         )
         windows.content = { AnyView(TakeoverView(model: takeover)) }
-        agenda = AgendaModel(source: source, settings: store, opener: opener, wake: WakeNotifications.stream)
-        agenda.onRebuild = takeover.schedule
-        takeover.onAction = agenda.requestRefresh
-        settings = SettingsModel(source: source, store: store, loginItem: SMAppServiceLoginItem())
-        settings.preview = takeover.preview
-        settings.registerLoginItemOnFirstInstalledLaunch()
+        let agendaModel = AgendaModel(source: source, settings: store, opener: opener, wake: WakeNotifications.stream)
+        agendaModel.onRebuild = takeover.schedule
+        agendaModel.preview = takeover.preview
+        takeover.onAction = agendaModel.requestRefresh
+        let settingsModel = SettingsModel(source: source, store: store, loginItem: SMAppServiceLoginItem())
+        settingsModel.preview = takeover.preview
+        settingsModel.registerLoginItemOnFirstInstalledLaunch()
+        // The loop lives as long as the app: nothing in a menu bar app
+        // owns a view that is reliably alive to host it as a `.task`.
+        Task { await agendaModel.run() }
+        agenda = agendaModel
+        settings = settingsModel
     }
 
     // MARK: Internal

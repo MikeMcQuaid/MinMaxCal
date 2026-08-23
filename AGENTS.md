@@ -59,8 +59,9 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 ### UI Principles
 
 - One implementation per concern: the agenda row, the join button,
-  the countdown text and the calendar colour dots each have exactly
-  one shared view used by the agenda and the takeover alike. Before
+  the countdown text, the calendar colour dots and the item details
+  each have exactly one shared view used by the agenda and the
+  takeover alike (an expanded agenda row shows `ItemDetails`). Before
   adding a second approach to any such concern, get explicit
   confirmation.
 - The menu bar title is the app: it must be correct within a minute
@@ -106,6 +107,9 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   directory.
 - SwiftUI `List`/`Section` crash AppKit's outline diff when rows are
   removed conditionally; the agenda is a plain `ScrollView`.
+- A `Label` as the `MenuBarExtra` label shows its icon only, and
+  `.task`/`.onAppear` on that label never run; the label is a bare
+  `Image` then `Text`, and the refresh loop starts from the app.
 - The `MenuBarExtra` window proposes no height to flexible views, so
   a `ScrollView` there collapses to nothing; the agenda's carries
   `fixedSize(horizontal: false, vertical: true)` under its

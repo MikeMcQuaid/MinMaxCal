@@ -4,7 +4,8 @@ import Foundation
 public enum Countdown {
     // MARK: Public
 
-    /// `2d3h`, `1h52m`, `45m`, `<1m` or `now` for the interval from `now` to `target`.
+    /// `2d3h`, `1h52`, `45m`, `<1m` or `now` for the interval from `now` to `target`; minutes
+    /// after hours read like a clock, so they carry no unit.
     public static func format(from now: Date, to target: Date) -> String {
         let seconds = target.timeIntervalSince(now)
         guard seconds > 0 else {
@@ -23,7 +24,7 @@ public enum Countdown {
             return hours > 0 ? "\(days)d\(hours)h" : "\(days)d"
         }
         if hours > 0 {
-            return remainder > 0 ? "\(hours)h\(remainder)m" : "\(hours)h"
+            return remainder > 0 ? "\(hours)h\(remainder)" : "\(hours)h"
         }
         return "\(remainder)m"
     }

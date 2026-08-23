@@ -216,10 +216,12 @@ is marked `@concurrent`: the heaviest work is merging a day of events,
 which is not worth moving off the main actor.
 
 Events flow as `AsyncStream`s (the store's change notification, the
-minute tick, wake and settings changes) consumed by `AgendaModel` via
-`.task` on the `MenuBarExtra` label, which is the one view that is
-always alive; cancellation therefore follows app lifetime. `run()`
-merges the streams in one task group and rebuilds on every element.
+minute tick, wake and settings changes) consumed by `AgendaModel.run()`,
+which the app starts in one `Task` from its initialiser: a menu bar app
+has no view that is reliably alive to host the loop as a `.task`, and
+modifiers on the `MenuBarExtra` label never run. The task lives as long
+as the process. `run()` merges the streams in one task group and
+rebuilds on every element.
 The takeover scheduler is one `Task` stored on `TakeoverModel`,
 sleeping until the planned moment, cancelled and replaced on every
 agenda rebuild, so a changed or deleted event can never fire a stale
@@ -278,8 +280,10 @@ Complete action from SwiftUI button callbacks.
    generic copy is never the source of truth for an invitation.
    Acceptance is true when any such member is accepted, since the user
    accepted the meeting somewhere.
-5. The result is sorted by start, reminders and events interleaved, and
-   published as the new `Agenda`.
+5. `AgendaFilter.named` then drops any event left with only a generic
+   title, since a lone `Busy` block is not a meeting and several never
+   combine into one, and the result is sorted by start, reminders and
+   events interleaved, and published as the new `Agenda`.
 
 ### The menu bar title (Glance)
 
@@ -289,10 +293,11 @@ in the middle to the configured limit (24 grapheme clusters by default,
 a single `…` between the kept head and tail) and appends
 `Countdown.format(from:to:)` to the start, or to the end once the start
 has passed. A reminder has no end, so it counts down to its due time
-and then reads `now` until completed. The `MenuBarExtra` label is an `Image` of
-the template icon followed by that `Text`; SwiftUI re-renders it when
-`AgendaModel` publishes, which the minute tick guarantees at least
-once a minute. A long title is capped rather than truncated by the
+and then reads `now` until completed. The `MenuBarExtra` label is an
+`Image` of the template icon followed by that `Text`, written as two
+sibling views: wrapped in a `Label`, SwiftUI shows the icon alone.
+SwiftUI re-renders it when `AgendaModel` publishes, which the minute
+tick guarantees at least once a minute. A long title is capped rather than truncated by the
 system because status items push their neighbours off the bar.
 
 ### Completing a reminder (Agenda and Takeover)

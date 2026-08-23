@@ -38,13 +38,16 @@ public struct AgendaRow: View {
                 .help("Complete in Reminders")
             }
             CalendarDots(calendars: item.calendars)
-            titleAndTime
+            title
             Spacer(minLength: Self.spacing)
-            CountdownText(item: item, now: now)
+            joinColumn
+            Text(timeRange)
                 .font(style == .agenda ? .body : .title2)
-            if let link = item.joinLink {
-                JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
-            }
+                .monospacedDigit()
+            CountdownText(item: item, now: now)
+                .font(style == .agenda ? .caption : .title3)
+                .foregroundStyle(.secondary)
+                .frame(width: Self.countdownWidth, alignment: .leading)
         }
     }
 
@@ -52,8 +55,9 @@ public struct AgendaRow: View {
 
     private static let statusPadding: CGFloat = 6
     private static let spacing: CGFloat = 8
-    private static let lineSpacing: CGFloat = 2
     private static let takeoverTitleLines = 2
+    private static let joinColumnWidth: CGFloat = 32
+    private static let countdownWidth: CGFloat = 44
 
     private let item: AgendaItem
     private let now: Date
@@ -101,23 +105,29 @@ public struct AgendaRow: View {
         return "\(start)–\(end.formatted(date: .omitted, time: .shortened))"
     }
 
-    private var titleAndTime: some View {
-        VStack(alignment: .leading, spacing: Self.lineSpacing) {
-            HStack(spacing: Self.statusPadding) {
-                Text(item.title.isEmpty ? "Untitled" : item.title)
-                    .font(style == .agenda ? .body : .title)
-                    .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
-                if let status {
-                    Text(status)
-                        .font(.caption)
-                        .padding(.horizontal, Self.statusPadding)
-                        .padding(.vertical, 1)
-                        .background(.quaternary, in: Capsule())
-                }
+    private var title: some View {
+        HStack(spacing: Self.statusPadding) {
+            Text(item.title.isEmpty ? "Untitled" : item.title)
+                .font(style == .agenda ? .body : .title)
+                .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
+            if let status {
+                Text(status)
+                    .font(.caption)
+                    .padding(.horizontal, Self.statusPadding)
+                    .padding(.vertical, 1)
+                    .background(.quaternary, in: Capsule())
             }
-            Text(timeRange)
-                .font(style == .agenda ? .caption : .title3)
-                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// A fixed-width column keeps every row's time aligned whether or not it has a call.
+    @ViewBuilder private var joinColumn: some View {
+        if let link = item.joinLink {
+            JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
+                .frame(minWidth: Self.joinColumnWidth)
+        } else {
+            Color.clear
+                .frame(width: Self.joinColumnWidth, height: 1)
         }
     }
 }

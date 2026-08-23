@@ -113,6 +113,17 @@ struct TakeoverModelTests {
     }
 
     @Test
+    func `previews a real item as its own takeover`() {
+        let reminder = Fixtures.reminder("reminder", dueIn: 30)
+
+        model.preview(reminder)
+
+        #expect(model.current?.isPreview == true)
+        #expect(model.current?.entries.first?.trigger == .due)
+        #expect(model.current?.moment == reminder.start)
+    }
+
+    @Test
     func `a live takeover is never replaced by a preview`() {
         let event = Fixtures.event("event", startingIn: 0)
         let live = Takeover(entries: [Takeover.Entry(item: event, trigger: .start)], moment: event.start)

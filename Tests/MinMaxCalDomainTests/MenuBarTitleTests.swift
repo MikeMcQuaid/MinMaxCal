@@ -24,7 +24,7 @@ struct MenuBarTitleTests {
             Fixtures.event("next", title: "Weekly planning", startingIn: 112),
             Fixtures.event("later", title: "Later", startingIn: 200),
         ])
-        #expect(MenuBarTitle.render(agenda: agenda, now: Fixtures.now) == "Weekly planning 1h52m")
+        #expect(MenuBarTitle.render(agenda: agenda, now: Fixtures.now) == "Weekly planning 1h52")
     }
 
     @Test

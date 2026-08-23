@@ -28,28 +28,39 @@ what it does and the order the pieces land in.
 ### 👀 Glance
 
 The menu bar item shows the app icon, then the next item's title and the
-time until it starts: `Weekly planning 1h52m`. The title keeps its
+time until it starts: `Weekly planning 1h52`. The title keeps its
 beginning and end and drops the middle (`Quarterly rev…th finance`), so
 a run of similarly prefixed meetings still tells apart. The countdown
-uses the two largest units that apply (`2d3h`, `1h52m`, `45m`, `<1m`)
-and ticks on the minute.
+uses the two largest units that apply and reads like a clock once hours
+are involved, so minutes after hours carry no unit: `2d3h`, `1h52`,
+`45m`, `<1m`. It ticks on the minute.
 
-The next item is the soonest event or timed reminder that has not yet
-ended, across every selected calendar and list. Once an event starts the
-countdown turns into the time until it ends (`Weekly planning 28m`), so
-the title always answers "how long have I got". All-day events and
-reminders without a due time never appear in the title. When nothing is
-upcoming today or tomorrow the item is the icon alone.
+The text is shown exactly when there is a next item: the soonest event
+or timed reminder that has not yet ended, across every selected
+calendar and list, today or tomorrow. Once an event starts the countdown
+turns into the time until it ends (`Weekly planning 28m`), so the title
+always answers "how long have I got". The text is absent, leaving the
+icon alone, when no calendar or list is selected, when nothing timed is
+left today or tomorrow, when the only candidates are all-day events or
+reminders without a due time, or when everything left is an event whose
+only title is a generic one such as `Busy`.
 
 ### 🗓️ Agenda
 
 Clicking the item opens the agenda: today and tomorrow, in time order,
-with each row showing its calendar colours, title, time range, the time
-until it starts or, once it has, until it ends, and where there is one a
-join button. Past events and completed
-reminders are not listed. An overdue reminder is not past until it is
-done, so it stays at the top with its checkbox until ticked. Ticking a
-reminder's checkbox completes it in Reminders immediately.
+with each row showing its calendar colours, title, a join button where
+there is one, the time range and, small beside it, the time until it
+starts or, once it has, until it ends. The join buttons sit in a column
+of their own so the times line up. The Tomorrow header carries the full
+date (`Monday 24th August 2026`). Clicking a row expands it with the
+same details the takeover shows: calendars, location, organiser,
+attendees with their responses, your response and the notes with their
+links. Right-clicking a row offers those details and **Preview
+Takeover**, which shows that very item as a takeover without recording
+anything. Past events and completed reminders are not listed. An
+overdue reminder is not past until it is done, so it stays at the top
+with its checkbox until ticked. Ticking a reminder's checkbox completes
+it in Reminders immediately.
 
 The same meeting often exists in several calendars at once: a work
 invitation, its copy in a shared team calendar and a "Busy" block in a
@@ -63,7 +74,9 @@ merged row takes the most specific title and every member's calendar
 colours; its details, attendees and your response come from the members
 with a real title, so a `Busy` copy never decides whether you accepted
 an invitation. Two different real meetings at the same time stay two
-rows.
+rows. An event whose only title is generic is not a meeting at all: a
+lone `Busy` block is hidden, and several `Busy` blocks at the same time
+are hidden too rather than merged into one `Busy` row.
 
 Invitations you have not answered, or answered tentatively, are listed
 with that status and never taken over. Declined and cancelled events are

@@ -27,6 +27,16 @@ struct AgendaFilterTests {
     }
 
     @Test
+    func `drops events that only ever had a generic title`() {
+        let busy = Fixtures.event("busy", title: "Busy")
+        let blank = Fixtures.event("blank", title: " ")
+        let real = Fixtures.event("real", title: "Standup")
+        let reminder = Fixtures.reminder("reminder", title: "Busy")
+
+        #expect(AgendaFilter.named([busy, blank, real, reminder], rules: .default) == [real, reminder])
+    }
+
+    @Test
     func `keeps pending and tentative invitations`() {
         let pending = Fixtures.event(
             "pending",

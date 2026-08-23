@@ -24,12 +24,17 @@ public struct AgendaView: View {
                     } else {
                         section(
                             "Today",
+                            date: nil,
                             items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) == false },
                         )
-                        section("Tomorrow", items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) })
+                        section(
+                            "Tomorrow",
+                            date: calendar.date(byAdding: .day, value: 1, to: model.now),
+                            items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) },
+                        )
                     }
                 }
-                .padding()
+                .padding(Self.padding)
             }
             .frame(maxHeight: Self.maximumHeight)
             // The menu bar window proposes no height, so the list must
@@ -43,15 +48,18 @@ public struct AgendaView: View {
 
     // MARK: Private
 
-    private static let width: CGFloat = 360
+    private static let width: CGFloat = 380
     private static let maximumHeight: CGFloat = 480
-    private static let sectionSpacing: CGFloat = 12
+    private static let sectionSpacing: CGFloat = 8
+    private static let rowSpacing: CGFloat = 4
     private static let padding: CGFloat = 8
+    private static let detailIndent: CGFloat = 20
 
     @Environment(\.calendar)
     private var calendar
     @Environment(\.openSettings)
     private var openSettings
+    @State private var expanded: Set<AgendaItem.ID> = []
 
     private let model: AgendaModel
 
@@ -85,19 +93,53 @@ public struct AgendaView: View {
     }
 
     @ViewBuilder
-    private func section(_ title: String, items: [AgendaItem]) -> some View {
+    private func section(_ title: String, date: Date?, items: [AgendaItem]) -> some View {
         if items.isEmpty == false {
-            Text(title)
-                .font(.headline)
-            ForEach(items) { item in
-                AgendaRow(
-                    item: item,
-                    now: model.now,
-                    style: .agenda,
-                    onJoin: model.join,
-                    onComplete: { Task { await model.complete(item) } },
-                )
+            HStack(alignment: .firstTextBaseline, spacing: Self.padding) {
+                Text(title)
+                    .font(.headline)
+                if let date {
+                    Text(DayHeading.text(for: date, calendar: calendar))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
+            VStack(alignment: .leading, spacing: Self.rowSpacing) {
+                ForEach(items) { item in
+                    row(item)
+                }
+            }
+        }
+    }
+
+    private func row(_ item: AgendaItem) -> some View {
+        VStack(alignment: .leading, spacing: Self.rowSpacing) {
+            AgendaRow(
+                item: item,
+                now: model.now,
+                style: .agenda,
+                onJoin: model.join,
+                onComplete: { Task { await model.complete(item) } },
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { toggle(item) }
+            .accessibilityAddTraits(.isButton)
+            .contextMenu {
+                Button(expanded.contains(item.id) ? "Hide Details" : "Show Details") { toggle(item) }
+                Button("Preview Takeover") { model.preview(item) }
+            }
+            if expanded.contains(item.id) {
+                ItemDetails(item: item)
+                    .font(.callout)
+                    .padding(.leading, Self.detailIndent)
+                    .padding(.bottom, Self.rowSpacing)
+            }
+        }
+    }
+
+    private func toggle(_ item: AgendaItem) {
+        if expanded.remove(item.id) == nil {
+            expanded.insert(item.id)
         }
     }
 
