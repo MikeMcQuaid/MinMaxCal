@@ -14,7 +14,7 @@ to sign into and nothing it stores of yours beyond which lists you chose.
 [ARCHITECTURE.md](ARCHITECTURE.md) owns how it works; this document owns
 what it does and the order the pieces land in.
 
-## Requirements
+## 📋 Requirements
 
 - macOS 27 or later.
 - Full access to Calendars and to Reminders, asked for on first launch.
@@ -23,9 +23,9 @@ what it does and the order the pieces land in.
   and Jitsi calls. Links for anything else, or when those apps are
   missing, open in the default browser.
 
-## Features
+## ✨ Features
 
-### Glance
+### 👀 Glance
 
 The menu bar item shows the app icon, then the next item's title and the
 time until it starts: `Weekly planning 1h52m`. The title keeps its
@@ -41,7 +41,7 @@ the title always answers "how long have I got". All-day events and
 reminders without a due time never appear in the title. When nothing is
 upcoming today or tomorrow the item is the icon alone.
 
-### Agenda
+### 🗓️ Agenda
 
 Clicking the item opens the agenda: today and tomorrow, in time order,
 with each row showing its calendar colours, title, time range, the time
@@ -70,7 +70,7 @@ with that status and never taken over. Declined and cancelled events are
 not listed. Unanswered invitations can only be answered in Calendar, as
 before.
 
-### Takeover
+### 🖥️ Takeover
 
 When it is time, MinMaxCal covers every connected display, over
 full-screen apps and whichever Space is showing, with one panel:
@@ -115,7 +115,7 @@ a recognised call link anywhere wins over a plain web link found
 earlier, so an agenda link in the URL field does not hide the Zoom link
 in the notes. The same join button sits on agenda rows.
 
-### Settings
+### ⚙️ Settings
 
 Settings opens from the agenda's footer or Cmd-, and has four tabs:
 
@@ -138,7 +138,7 @@ Settings opens from the agenda's footer or Cmd-, and has four tabs:
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.
 
-### Always there
+### 🟢 Always there
 
 MinMaxCal registers itself as a login item the first time the installed
 app runs, so it is in the menu bar from the moment you log in; the
@@ -152,7 +152,7 @@ template image so it follows the menu bar's light and dark appearance.
 The app icon is the same leaf on a Liquid Glass tile for the Finder,
 Launchpad and the Applications folder; the app never shows in the Dock.
 
-## Installation
+## 📦 Installation
 
 Releases will ship as a Homebrew cask. Until then:
 
@@ -164,11 +164,12 @@ script/install
 The first launch asks for Calendars, then Reminders. Grant full access to
 both, or Calendars alone if you do not use Reminders.
 
-## Development
+## 🛠️ Development
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate the
   Xcode project with XcodeGen
-- `script/build`: build the app
+- `script/build`: build the app; `MinMaxCal.app` in the repository
+  root symlinks its output for quick development runs
 - `script/install`: build, then copy the app to /Applications
 - `script/test`: unit tests
 - `script/style [--fix]`: SwiftLint and SwiftFormat, every rule on
@@ -179,7 +180,7 @@ both, or Calendars alone if you do not use Reminders.
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
 
-## Status
+## 🚧 Status
 
 Both slices are implemented and covered by unit tests, in this order,
 each usable on its own:
@@ -195,6 +196,6 @@ calendars and displays after `script/install`: the permission prompts,
 the menu bar label's rendering, the takeover windows over full-screen
 apps and the Zoom, Edge and browser hand-offs.
 
-## Licence
+## 📄 Licence
 
 [AGPL-3.0](LICENSE).

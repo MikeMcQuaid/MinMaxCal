@@ -41,4 +41,7 @@ app=.build/DerivedData/Build/Products/Release/MinMaxCal.app
   echo "Build failed: ${app} is missing" >&2
   exit 1
 }
+# Icon caches key on the bundle's modification time; bump it so the
+# Finder notices icon changes through the repository-root symlink.
+touch MinMaxCal.app
 echo "${app}"

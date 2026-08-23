@@ -17,7 +17,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate
   `MinMaxCal.xcodeproj` with XcodeGen
-- `script/build`: build the app with xcodebuild
+- `script/build`: build the app with xcodebuild; `MinMaxCal.app` in
+  the repository root symlinks its output
 - `script/install`: build, then copy the app into /Applications so
   the login item and the running copy survive rebuilds
 - `script/test`: run the unit tests
