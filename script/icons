@@ -1,0 +1,56 @@
+#!/bin/bash
+# Render the icon sources to PNG previews in .test-scratch/icons at menu
+# bar (18 and 36 pixels) and Dock (512 pixels) sizes.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+leaf=App/Icons/AppIcon.icon/Assets/Leaf.svg
+output=.test-scratch/icons
+rm -rf "${output}"
+mkdir -p "${output}"
+
+swift - "${leaf}" "${output}" <<'SWIFT'
+import AppKit
+
+let arguments = CommandLine.arguments
+let leaf = NSImage(contentsOf: URL(filePath: arguments[1]))!
+let output = URL(filePath: arguments[2])
+
+func write(_ image: NSImage, size: Int, name: String, draw: (NSRect) -> Void) {
+    let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8,
+        samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+    )!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+    draw(NSRect(x: 0, y: 0, width: size, height: size))
+    NSGraphicsContext.restoreGraphicsState()
+    let file = output.appending(path: "\(name)-\(size).png")
+    try! bitmap.representation(using: .png, properties: [:])!.write(to: file)
+    print(file.path())
+}
+
+for size in [18, 36] {
+    write(leaf, size: size, name: "menu-bar") { rect in
+        NSColor.white.setFill()
+        rect.fill()
+        leaf.draw(in: rect)
+    }
+}
+
+write(leaf, size: 512, name: "dock") { rect in
+    let tile = NSBezierPath(roundedRect: rect.insetBy(dx: 26, dy: 26), xRadius: 112, yRadius: 112)
+    NSGradient(starting: NSColor(red: 0.35, green: 0.6, blue: 0.98, alpha: 1), ending: NSColor(red: 0.12, green: 0.35, blue: 0.85, alpha: 1))!
+        .draw(in: tile, angle: -90)
+    let leafRect = rect.insetBy(dx: 98, dy: 98)
+    let white = NSImage(size: leaf.size, flipped: false) { drawRect in
+        leaf.draw(in: drawRect)
+        NSColor.white.set()
+        drawRect.fill(using: .sourceIn)
+        return true
+    }
+    white.draw(in: leafRect)
+}
+SWIFT

@@ -59,9 +59,11 @@ system exposes, which the same invite keeps in every calendar it lands
 in), and also when they have exactly the same start and end and their
 titles match or one of the titles is generic (`Busy`, `Untitled`, `New
 Event`, `Private`, `Tentative` and blank, editable in Settings). The
-merged row takes the most specific title, every member's calendar
-colours and the details of whichever member has them. Two different
-real meetings at the same time stay two rows.
+merged row takes the most specific title and every member's calendar
+colours; its details, attendees and your response come from the members
+with a real title, so a `Busy` copy never decides whether you accepted
+an invitation. Two different real meetings at the same time stay two
+rows.
 
 Invitations you have not answered, or answered tentatively, are listed
 with that status and never taken over. Declined and cancelled events are
@@ -80,9 +82,10 @@ full-screen apps and whichever Space is showing, with one panel:
 - The notes, with links clickable.
 - One primary button: **Join** for a meeting with a call link and
   **Complete** for a reminder. Return presses it, Escape dismisses.
-- For reminders, **Snooze** for 5, 15 or 60 minutes. Snoozing is the
-  app's own: the reminder in Reminders is not changed, and the takeover
-  comes back at the chosen time even across a relaunch.
+- For reminders, **Snooze** for 5, 15 or 60 minutes, as often as you
+  like. Snoozing is the app's own: the reminder in Reminders is not
+  changed, and the takeover comes back at the chosen time even across
+  a relaunch.
 
 Two moments trigger a takeover, each switchable in Settings:
 
@@ -107,8 +110,10 @@ anything overdue. Two items due at the same minute share one panel.
 | Jitsi (`meet.jit.si/…` and any host listed in Settings) | Microsoft Edge |
 | anything else the event links to | the default browser |
 
-Links are found in the event's URL, location and notes, in that order.
-The same join button sits on agenda rows.
+Links are found in the event's URL, location and notes, in that order;
+a recognised call link anywhere wins over a plain web link found
+earlier, so an agenda link in the URL field does not hide the Zoom link
+in the notes. The same join button sits on agenda rows.
 
 ### Settings
 
@@ -128,7 +133,7 @@ Settings opens from the agenda's footer or Cmd-, and has four tabs:
   Snooze on a reminder preview only dismiss it, since there is nothing
   in Reminders to complete, and no preview is remembered as dismissed.
 - **Matching**: the generic titles that merge into a real one and the
-  Jitsi hosts that open in Edge.
+  Jitsi hosts that open in Edge, each a comma-separated list.
 - **General**: launch at login, the menu bar title length and the
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.
@@ -176,14 +181,19 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 
 ## Status
 
-Nothing is built yet. The slices land in this order, each usable on its
-own:
+Both slices are implemented and covered by unit tests, in this order,
+each usable on its own:
 
 1. **Glance and agenda**: permissions, the Calendars tab, the menu bar
    title and countdown, the agenda with merging and reminder checkboxes,
    launch at login and both icons.
 2. **Takeover**: the full-screen panel on every display at event start
    and reminder due, join links, complete, snooze and dismiss.
+
+What the tests cannot cover is still to be checked by hand against real
+calendars and displays after `script/install`: the permission prompts,
+the menu bar label's rendering, the takeover windows over full-screen
+apps and the Zoom, Edge and browser hand-offs.
 
 ## Licence
 

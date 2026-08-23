@@ -1,0 +1,44 @@
+#!/bin/bash
+# Build MinMaxCal.app into .build/DerivedData and print its path.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+[[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
+
+# Capped parallelism inside the sandbox: full-width builds have
+# triggered resource kills that tore down the whole sandbox user.
+JOBS="$(sysctl -n hw.ncpu)"
+[[ -n "${SV_SESSION_ID:-}" ]] && JOBS=6
+
+ARGS=(
+  -project MinMaxCal.xcodeproj
+  -scheme MinMaxCal
+  -configuration Release
+  -destination "${XCODE_DESTINATION:-platform=macOS,arch=arm64}"
+  -derivedDataPath .build/DerivedData
+  -jobs "${JOBS}"
+)
+
+if [[ -n "${SV_SESSION_ID:-}" ]]; then
+  export SWIFTPM_DISABLE_SANDBOX=1
+  export SWIFT_BUILD_USE_SANDBOX=0
+  # A sandvault session cannot nest macOS sandboxes, so package
+  # manifests, plugins and the macro plugin server run unsandboxed.
+  # The literal $(inherited) is for xcodebuild, not the shell.
+  # shellcheck disable=SC2016
+  ARGS+=(
+    -IDEPackageSupportDisableManifestSandbox=1
+    -IDEPackageSupportDisablePackageSandbox=1
+    'OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox'
+  )
+fi
+
+xcodebuild "${ARGS[@]}" build | grep -E 'error:|warning:|BUILD' || true
+
+app=.build/DerivedData/Build/Products/Release/MinMaxCal.app
+[[ -d "${app}" ]] || {
+  echo "Build failed: ${app} is missing" >&2
+  exit 1
+}
+echo "${app}"

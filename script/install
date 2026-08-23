@@ -1,0 +1,15 @@
+#!/bin/bash
+# Build the app, then replace /Applications/MinMaxCal.app and relaunch
+# it, so the login item and the running copy always point at one path.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+app="$(script/build | tail -1)"
+destination=/Applications/MinMaxCal.app
+
+osascript -e 'quit app "MinMaxCal"' &>/dev/null || true
+rm -rf "${destination}"
+ditto "${app}" "${destination}"
+open "${destination}"
+echo "Installed ${destination}"

@@ -110,9 +110,31 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   them single-line or make the closure a non-final argument.
 - Length-limit splits use cross-file extensions; same-file grouping
   extensions are banned by SwiftLint.
-- `@AppStorage` keys are the cross-module signal bus for settings;
-  a repeated request needs a counter beside its value, since writing
-  the same string publishes no change.
+- `SettingsStore.changes` (`UserDefaults.didChangeNotification`) is
+  the cross-module signal bus for settings. The stream subscribes
+  when first iterated, not when created, so start consuming before
+  writing; a test that writes first hangs forever.
+- `UserDefaults` is not `Sendable` on the macOS 27 SDK, which is why
+  `SettingsStore` is `@MainActor` rather than a nonisolated class.
+- A MainActor type cannot conform to a `Sendable` port in an isolated
+  way (`cannot form main actor-isolated conformance ... to
+  SendableMetatype-inheriting protocol`); test fakes guard their state
+  with `Mutex` from `Synchronization` instead.
+- xcodebuild sandboxes the macro plugin server too, so `@Observable`
+  fails with `produced malformed response` in a sandvault session;
+  `script/build` passes `OTHER_SWIFT_FLAGS=$(inherited)
+  -disable-sandbox`. The `$(inherited)` matters: overriding the flags
+  outright drops the package's default isolation settings.
+- XcodeGen's `info.path` and `entitlements.path` generate those files;
+  hand-written ones are referenced through `INFOPLIST_FILE` and
+  `CODE_SIGN_ENTITLEMENTS` and excluded from the sources.
+- SwiftFormat's `propertyTypes` rule guesses a type from a static
+  member's name, so a factory such as `Fixtures.ledgerStore()` needs
+  an explicit type annotation or it becomes `: Fixtures`.
+- `--enable all` in `.swiftformat` cannot be narrowed by `--disable`;
+  clashes are settled on the SwiftLint side or per line.
+- `rm` is interactive in the sandbox shell; use `rm -f` in scripts
+  and agent commands or a deletion silently does nothing.
 - `cannot execute tool 'metal' due to missing Metal Toolchain` can
   break app builds inside a sandbox when the host user has the
   toolchain mounted. Eject the host user's mount, as the host user,

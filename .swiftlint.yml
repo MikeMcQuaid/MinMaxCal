@@ -1,0 +1,66 @@
+# Every rule is enabled. The exclusions below are rules that conflict
+# with another enabled rule or with SwiftFormat's output, each with the
+# conflict named; everything else is configured, not disabled.
+opt_in_rules:
+  - all
+
+disabled_rules:
+  # contrasted_opening_brace contradicts opening_brace.
+  - contrasted_opening_brace
+  # explicit_acl and explicit_top_level_acl add the `internal` keyword
+  # that SwiftFormat's redundantInternal rule removes.
+  - explicit_acl
+  - explicit_top_level_acl
+  # explicit_enum_raw_value asks for the raw values SwiftFormat's
+  # redundantRawValues rule removes.
+  - explicit_enum_raw_value
+  # explicit_self inserts the `self.` that SwiftFormat's redundantSelf
+  # rule removes.
+  - explicit_self
+  # explicit_type_interface adds the annotations that SwiftFormat's
+  # redundantType rule removes.
+  - explicit_type_interface
+  # indentation_width rejects the five-space alignment SwiftFormat's
+  # wrapSwitchCases rule gives wrapped case patterns.
+  - indentation_width
+  # no_extension_access_modifier contradicts extension_access_modifier,
+  # which matches SwiftFormat's extensionAccessControl rule.
+  - no_extension_access_modifier
+  # required_deinit forces an empty `deinit {}`, which no_empty_block
+  # rejects.
+  - required_deinit
+  # type_contents_order contradicts the order SwiftFormat's
+  # organizeDeclarations rule produces.
+  - type_contents_order
+
+excluded:
+  - .build
+  - .test-scratch
+  - MinMaxCal.xcodeproj
+
+file_header:
+  forbidden_pattern: "^//\\s*(Created by|Copyright)"
+
+identifier_name:
+  excluded:
+    - id
+    - to
+    - at
+
+# `public init() {}` on dependency-free adapters and `= {}` default
+# callbacks are intentionally empty.
+no_empty_block:
+  disabled_block_types:
+    - initializer_bodies
+    - closure_blocks
+
+number_separator:
+  minimum_length: 4
+
+trailing_comma:
+  mandatory_comma: true
+
+# Trailing closures after multiline calls fight SwiftFormat's wrapping,
+# so only the `foo { }` shape is required.
+trailing_closure:
+  only_single_muted_parameter: true
