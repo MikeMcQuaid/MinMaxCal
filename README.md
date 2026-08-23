@@ -1,6 +1,6 @@
 # MinMaxCal
 
-📅 A minimum, maximal calendar.
+📅 Minimal menu bar calendar, maximal full-screen takeover when due.
 
 MinMaxCal lives in the menu bar, not the Dock. Most of the time it is a
 few characters: the next thing on your calendar and how long until it.
@@ -180,8 +180,9 @@ remembered.
 
 The menu bar icon is a calendar leaf with a single filled day, drawn as a
 template image so it follows the menu bar's light and dark appearance.
-The app icon is the same leaf on a Liquid Glass tile for the Finder,
-Launchpad and the Applications folder; the app never shows in the Dock.
+The app icon puts a white leaf inside orange full-screen corners on a
+blue Liquid Glass tile for the Finder, Launchpad and the Applications
+folder; the app never shows in the Dock.
 
 ## 📦 Installation
 
@@ -205,8 +206,8 @@ both, or Calendars alone if you do not use Reminders.
 - `script/test`: unit tests
 - `script/style [--fix]`: SwiftLint and SwiftFormat, every rule on
 - `script/analyze`: static analysis and dead code
-- `script/icons`: render the icon sources to PNG previews at menu bar and
-  Dock sizes for review
+- `script/icons`: render the menu bar `Leaf.svg` and app `AppMark.svg` to
+  PNG previews, approximating the Icon Composer tile
 
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.

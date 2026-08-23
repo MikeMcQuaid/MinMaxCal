@@ -1,21 +1,23 @@
 #!/bin/bash
-# Render the icon sources to PNG previews in .test-scratch/icons at menu
-# bar (18 and 36 pixels) and Dock (512 pixels) sizes.
+# Render Leaf.svg and AppMark.svg to PNG previews in .test-scratch/icons,
+# approximating the Icon Composer tile for the 512-pixel Dock preview.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-leaf=App/Icons/AppIcon.icon/Assets/Leaf.svg
+menu_bar_icon=App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg
+app_icon=App/Icons/AppIcon.icon/Assets/AppMark.svg
 output=.test-scratch/icons
 rm -rf "${output}"
 mkdir -p "${output}"
 
-swift - "${leaf}" "${output}" <<'SWIFT'
+swift - "${menu_bar_icon}" "${app_icon}" "${output}" <<'SWIFT'
 import AppKit
 
 let arguments = CommandLine.arguments
-let leaf = NSImage(contentsOf: URL(filePath: arguments[1]))!
-let output = URL(filePath: arguments[2])
+let menuBarIcon = NSImage(contentsOf: URL(filePath: arguments[1]))!
+let appIcon = NSImage(contentsOf: URL(filePath: arguments[2]))!
+let output = URL(filePath: arguments[3])
 
 func write(_ image: NSImage, size: Int, name: String, draw: (NSRect) -> Void) {
     let bitmap = NSBitmapImageRep(
@@ -33,24 +35,17 @@ func write(_ image: NSImage, size: Int, name: String, draw: (NSRect) -> Void) {
 }
 
 for size in [18, 36] {
-    write(leaf, size: size, name: "menu-bar") { rect in
+    write(menuBarIcon, size: size, name: "menu-bar") { rect in
         NSColor.white.setFill()
         rect.fill()
-        leaf.draw(in: rect)
+        menuBarIcon.draw(in: rect)
     }
 }
 
-write(leaf, size: 512, name: "dock") { rect in
+write(appIcon, size: 512, name: "dock") { rect in
     let tile = NSBezierPath(roundedRect: rect.insetBy(dx: 26, dy: 26), xRadius: 112, yRadius: 112)
     NSGradient(starting: NSColor(red: 0.35, green: 0.6, blue: 0.98, alpha: 1), ending: NSColor(red: 0.12, green: 0.35, blue: 0.85, alpha: 1))!
         .draw(in: tile, angle: -90)
-    let leafRect = rect.insetBy(dx: 98, dy: 98)
-    let white = NSImage(size: leaf.size, flipped: false) { drawRect in
-        leaf.draw(in: drawRect)
-        NSColor.white.set()
-        drawRect.fill(using: .sourceIn)
-        return true
-    }
-    white.draw(in: leafRect)
+    appIcon.draw(in: rect.insetBy(dx: 72, dy: 72))
 }
 SWIFT
