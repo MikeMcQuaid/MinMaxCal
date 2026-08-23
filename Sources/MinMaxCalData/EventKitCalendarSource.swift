@@ -48,12 +48,12 @@ public actor EventKitCalendarSource: CalendarSource {
             + reminders(until: end, selection: selection, rules: rules)
     }
 
-    public func complete(reminder member: MemberIdentity) throws {
+    public func setCompleted(_ completed: Bool, reminder member: MemberIdentity) throws {
         guard let reminder = store.calendarItem(withIdentifier: member.calendarItemIdentifier) as? EKReminder else {
             throw CalendarSourceError.reminderNotFound
         }
 
-        reminder.isCompleted = true
+        reminder.isCompleted = completed
         try store.save(reminder, commit: true)
     }
 

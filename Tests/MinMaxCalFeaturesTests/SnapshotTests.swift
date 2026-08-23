@@ -53,7 +53,7 @@ struct SnapshotTests {
 
         let image = try #require(render(AgendaView(model: model)))
 
-        #expect(image.width == 380)
+        #expect(image.width == 420)
         #expect(image.height > Self.footerHeight, "the rows must give the list its height")
     }
 

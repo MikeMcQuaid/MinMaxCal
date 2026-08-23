@@ -103,6 +103,7 @@ public enum AgendaMerger {
         item.organiser = trusted.compactMap(\.organiser).first
         item.attendees = trusted.map(\.attendees).first { $0.isEmpty == false } ?? []
         item.joinLink = trusted.compactMap(\.joinLink).first
+        item.recurrence = trusted.compactMap(\.recurrence).first
         item.isAccepted = trusted.contains(where: \.isAccepted)
         item.currentUserResponse = trusted.compactMap(\.currentUserResponse).contains(.accepted)
             ? .accepted

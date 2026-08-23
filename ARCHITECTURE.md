@@ -303,11 +303,15 @@ system because status items push their neighbours off the bar.
 
 ### Completing a reminder (Agenda and Takeover)
 
-A checkbox in an agenda row, or Complete in a takeover, calls
-`CalendarSource.complete(reminder:)` with the member identifier. The
-actor loads the reminder by `calendarItem(withIdentifier:)`, sets
-`isCompleted` and saves with `commit: true`. The row is removed
-optimistically and the store's change notification confirms it; a save
+The tick in an agenda row, or Complete in a takeover, calls
+`CalendarSource.setCompleted(_:reminder:)` with the member identifier.
+The actor loads the reminder by `calendarItem(withIdentifier:)`, sets
+`isCompleted` and saves with `commit: true`. The row is marked
+completed optimistically and `AgendaModel` remembers it for five
+minutes: the store no longer returns a completed reminder, so every
+rebuild in that window puts the remembered item back, struck through
+and with an undo button that calls the same port with `false`.
+`MenuBarTitle` and `TakeoverPlanner` skip completed items. A save
 error restores the row and shows the message inline.
 
 ### Scheduling and showing a takeover (Takeover)
@@ -398,7 +402,7 @@ a terminal.
 | Fact | Source of truth | The app's role |
 |---|---|---|
 | Events, reminders, attendees, responses, calendars, accounts | EventKit | read on every change, convert, never cache across launches |
-| Reminder completion | EventKit | the only write |
+| Reminder completion, and its undo | EventKit | the only write |
 | Login item registration | launchd via `SMAppService` | register once, reflect status |
 | Selected calendars and lists, matching rules, takeover switches, snooze durations, title limit | `UserDefaults` | sole owner |
 | Dismissed and snoozed takeovers | `Application Support/MinMaxCal/takeovers.json` inside the app's sandbox container | sole owner, pruned daily |

@@ -41,6 +41,7 @@ public struct TakeoverView: View {
                 TakeoverEntryView(
                     entry: entry,
                     joinIsPrimary: joinIsPrimary && index == 0,
+                    rules: model.rules,
                     onJoin: model.join,
                 )
             }

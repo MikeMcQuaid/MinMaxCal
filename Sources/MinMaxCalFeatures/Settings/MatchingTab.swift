@@ -15,6 +15,13 @@ struct MatchingTab: View {
                 Text("Separate with commas.")
             }
             Section {
+                TextField("Home terms", text: homeTerms)
+            } footer: {
+                Text("Dropped from locations because they only say where you already are.")
+                Text("End a term with * to match a prefix such as a postcode.")
+                Text("Separate with commas.")
+            }
+            Section {
                 TextField("Jitsi hosts", text: jitsiHosts)
             } footer: {
                 Text("Links on these hosts open in Microsoft Edge, as \(MatchingRules.builtInJitsiHost) always does.")
@@ -30,6 +37,13 @@ struct MatchingTab: View {
         Binding(
             get: { model.rules.genericTitles.joined(separator: ", ") },
             set: { model.rules.genericTitles = ListField.strings(from: $0) },
+        )
+    }
+
+    private var homeTerms: Binding<String> {
+        Binding(
+            get: { model.rules.homeTerms.joined(separator: ", ") },
+            set: { model.rules.homeTerms = ListField.strings(from: $0) },
         )
     }
 

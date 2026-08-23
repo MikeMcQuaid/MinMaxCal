@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// Completes a reminder: prominent with Return in a takeover, a plain glass icon in a row.
+/// Completes a reminder: prominent with Return in a takeover, a plain glass icon in a row. Once
+/// completed, the same spot offers to undo it.
 public struct CompleteButton: View {
     // MARK: Lifecycle
 
-    public init(isPrimary: Bool, action: @escaping () -> Void) {
+    public init(isPrimary: Bool, undo: Bool = false, action: @escaping () -> Void) {
         self.isPrimary = isPrimary
+        self.undo = undo
         self.action = action
     }
 
@@ -18,16 +20,20 @@ public struct CompleteButton: View {
                 .keyboardShortcut(.defaultAction)
         } else {
             Button(action: action) {
-                Label("Complete", systemImage: "checkmark.circle")
+                Label(
+                    undo ? "Undo" : "Complete",
+                    systemImage: undo ? "arrow.uturn.backward.circle" : "checkmark.circle",
+                )
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
-            .help("Complete in Reminders")
+            .help(undo ? "Mark as not completed in Reminders" : "Complete in Reminders")
         }
     }
 
     // MARK: Private
 
     private let isPrimary: Bool
+    private let undo: Bool
     private let action: () -> Void
 }

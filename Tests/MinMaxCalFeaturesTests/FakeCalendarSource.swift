@@ -43,12 +43,16 @@ nonisolated final class FakeCalendarSource: CalendarSource {
         selection.isEmpty ? [] : items
     }
 
-    func complete(reminder: MemberIdentity) throws {
+    func setCompleted(_ completed: Bool, reminder: MemberIdentity) throws {
         try state.withLock { state in
             if let error = state.completionError {
                 throw error
             }
-            state.completed.append(reminder)
+            if completed {
+                state.completed.append(reminder)
+            } else {
+                state.completed.removeAll { $0 == reminder }
+            }
         }
     }
 

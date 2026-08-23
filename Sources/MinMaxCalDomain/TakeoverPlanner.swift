@@ -41,7 +41,7 @@ public enum TakeoverPlanner {
         ledger: TakeoverLedger,
         settings: TakeoverSettings,
     ) -> [Candidate] {
-        guard item.isTimed else {
+        guard item.isTimed, item.isCompleted == false else {
             return []
         }
 

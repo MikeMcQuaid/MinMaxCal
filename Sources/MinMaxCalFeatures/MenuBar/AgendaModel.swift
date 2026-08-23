@@ -26,6 +26,7 @@ public final class AgendaModel {
         self.calendar = calendar
         now = clock()
         titleLimit = settings.titleLimit
+        rules = settings.matchingRules
         (refreshRequests, refresh) = AsyncStream.makeStream()
     }
 
@@ -37,6 +38,8 @@ public final class AgendaModel {
     public private(set) var now: Date
     /// The grants the app was given at launch.
     public private(set) var access: AccessStatus = .notDetermined
+    /// The matching rules of the last rebuild, for the views that tidy what they show.
+    public private(set) var rules: MatchingRules
     /// The menu bar title length from Settings.
     public private(set) var titleLimit: Int
     /// Whether any calendar or list is selected, for the empty state.
@@ -79,33 +82,29 @@ public final class AgendaModel {
         now = rebuildTime
         titleLimit = settings.titleLimit
         let selection = settings.selection
-        let rules = settings.matchingRules
+        rules = settings.matchingRules
         hasSelection = selection.isEmpty == false
         let horizon = horizon(around: rebuildTime)
         let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection, rules: rules)
         let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
-        let items = AgendaFilter.named(merged, rules: rules)
+        recentlyCompleted.removeAll { rebuildTime.timeIntervalSince($0.at) > Self.undoWindow }
+        let undoable = recentlyCompleted.map(\.item)
+            .filter { completed in merged.contains { $0.id == completed.id } == false }
+        let items = (AgendaFilter.named(merged, rules: rules) + undoable)
             .sorted { ($0.start, $0.title) < ($1.start, $1.title) }
         agenda = Agenda(items: items, horizon: horizon)
         onRebuild(agenda, rebuildTime)
     }
 
-    /// Completes a reminder, removing its row first and restoring it on failure.
+    /// Completes a reminder. Its row stays, struck through, for a few minutes so the tick can be
+    /// undone; a failed save restores the row with the error.
     public func complete(_ item: AgendaItem) async {
-        guard let member = item.members.first else {
-            return
-        }
+        await setCompleted(true, item)
+    }
 
-        let previous = agenda
-        agenda.items.removeAll { $0.id == item.id }
-        do {
-            try await source.complete(reminder: member)
-            errorMessage = nil
-            requestRefresh()
-        } catch {
-            agenda = previous
-            errorMessage = error.localizedDescription
-        }
+    /// Reverses a recent completion in Reminders.
+    public func uncomplete(_ item: AgendaItem) async {
+        await setCompleted(false, item)
     }
 
     /// Opens a call link through the link opener.
@@ -122,6 +121,7 @@ public final class AgendaModel {
 
     private static let horizonDays = 2
     private static let secondsPerDay: TimeInterval = 86_400
+    private static let undoWindow: TimeInterval = 300
 
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
@@ -131,6 +131,31 @@ public final class AgendaModel {
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let refreshRequests: AsyncStream<Void>
     @ObservationIgnored private let refresh: AsyncStream<Void>.Continuation
+    @ObservationIgnored private var recentlyCompleted: [(item: AgendaItem, at: Date)] = []
+
+    private func setCompleted(_ completed: Bool, _ item: AgendaItem) async {
+        guard let member = item.members.first, let index = agenda.items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        let previous = agenda
+        var changed = item
+        changed.isCompleted = completed
+        agenda.items[index] = changed
+        recentlyCompleted.removeAll { $0.item.id == item.id }
+        if completed {
+            recentlyCompleted.append((item: changed, at: clock()))
+        }
+        do {
+            try await source.setCompleted(completed, reminder: member)
+            errorMessage = nil
+            requestRefresh()
+        } catch {
+            agenda = previous
+            recentlyCompleted.removeAll { $0.item.id == item.id }
+            errorMessage = error.localizedDescription
+        }
+    }
 
     private func horizon(around now: Date) -> DateInterval {
         let start = calendar.startOfDay(for: now)

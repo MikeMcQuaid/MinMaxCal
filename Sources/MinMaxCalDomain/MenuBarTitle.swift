@@ -20,7 +20,7 @@ public enum MenuBarTitle {
 
     /// The first timed item that has not ended.
     public static func nextItem(in agenda: Agenda, now: Date) -> AgendaItem? {
-        agenda.items.first { $0.isTimed && $0.hasEnded(at: now) == false }
+        agenda.items.first { $0.isTimed && $0.isCompleted == false && $0.hasEnded(at: now) == false }
     }
 
     /// Keeps the head and tail of a title over `limit` grapheme clusters, with an ellipsis between.

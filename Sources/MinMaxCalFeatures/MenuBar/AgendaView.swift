@@ -48,7 +48,7 @@ public struct AgendaView: View {
 
     // MARK: Private
 
-    private static let width: CGFloat = 380
+    private static let width: CGFloat = 420
     private static let maximumHeight: CGFloat = 480
     private static let sectionSpacing: CGFloat = 8
     private static let rowSpacing: CGFloat = 4
@@ -119,6 +119,7 @@ public struct AgendaView: View {
                 style: .agenda,
                 onJoin: model.join,
                 onComplete: { Task { await model.complete(item) } },
+                onUncomplete: { Task { await model.uncomplete(item) } },
             )
             .contentShape(Rectangle())
             .onTapGesture { toggle(item) }
@@ -128,7 +129,7 @@ public struct AgendaView: View {
                 Button("Preview Takeover") { model.preview(item) }
             }
             if expanded.contains(item.id) {
-                ItemDetails(item: item)
+                ItemDetails(item: item, rules: model.rules)
                     .font(.callout)
                     .padding(.leading, Self.detailIndent)
                     .padding(.bottom, Self.rowSpacing)

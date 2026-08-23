@@ -55,13 +55,22 @@ columns of their own so every row lines up. The countdown lives in the
 menu bar alone. The Tomorrow header carries the full date (`Monday 24th
 August 2026`). Clicking a row expands it with the
 same details the takeover shows: calendars, location, organiser,
-attendees with their responses, your response and the notes with their
-links. Right-clicking a row offers those details and **Preview
-Takeover**, which shows that very item as a takeover without recording
-anything. Past events and completed reminders are not listed. An
-overdue reminder is not past until it is done, so it stays at the top
-with its checkbox until ticked. Ticking a reminder's checkbox completes
-it in Reminders immediately.
+attendees, your response, how it repeats and the notes with their
+links. Attendees start as counts per response (accepted, tentative,
+declined, unanswered) and click through to everyone by name; an
+attendee the invitation only knows as `firstname.lastname@…` is shown
+as `Firstname Lastname`. When the join button already carries a call,
+the service's joining boilerplate in the notes is left out. The
+location drops the words that only say where you already are (your
+city, region and local postcodes, editable in Settings) and opens the
+full address in Apple Maps. Right-clicking a row offers those details
+and **Preview Takeover**, which shows that very item as a takeover
+without recording anything. Past events and completed reminders are
+not listed. An overdue reminder is not past until it is done, so it
+stays at the top with its tick until ticked. Ticking a reminder
+completes it in Reminders immediately; the row stays, struck through,
+for five minutes with an undo button in the tick's place in case it
+was a slip.
 
 The same meeting often exists in several calendars at once: a work
 invitation, its copy in a shared team calendar and a "Busy" block in a
@@ -93,7 +102,8 @@ full-screen apps and whichever Space is showing, with one panel:
 - The calendars it is in, its location and its organiser. The location
   is a link: a web address opens itself, anything else (an address, a
   room, a place name) is searched in Apple Maps.
-- The attendees, each with their response, and your own response.
+- The attendees as counts per response, clicking through to names,
+  your own response and how the item repeats.
 - The notes, with links clickable. Notes that arrive as HTML are shown
   as their text and links, with the markup, styling and any embedded
   resources left out.
@@ -149,8 +159,10 @@ Settings opens from the agenda's footer or Cmd-, and has four tabs:
   and `meet.jit.si` in Edge) rather than a live call; Complete and
   Snooze on a reminder preview only dismiss it, since there is nothing
   in Reminders to complete, and no preview is remembered as dismissed.
-- **Matching**: the generic titles that merge into a real one and the
-  Jitsi hosts that open in Edge, each a comma-separated list.
+- **Matching**: the generic titles that merge into a real one, the
+  home terms dropped from locations (a trailing `*` matches a prefix,
+  so `EH*` drops Edinburgh postcodes) and the Jitsi hosts that open in
+  Edge, each a comma-separated list.
 - **General**: launch at login, the menu bar title length and the
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.

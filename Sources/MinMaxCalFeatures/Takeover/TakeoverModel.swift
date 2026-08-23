@@ -37,6 +37,11 @@ public final class TakeoverModel {
     /// Called after every action so the agenda can rebuild and re-plan.
     public var onAction: () -> Void = {}
 
+    /// The matching rules, for the views that tidy what they show.
+    public var rules: MatchingRules {
+        settings.matchingRules
+    }
+
     /// The snooze durations offered, from Settings.
     public var snoozeMinutes: [Int] {
         settings.takeover.snoozeMinutes
@@ -108,7 +113,7 @@ public final class TakeoverModel {
         do {
             if current.isPreview == false {
                 for member in current.reminders.flatMap(\.item.members) {
-                    try await source.complete(reminder: member)
+                    try await source.setCompleted(true, reminder: member)
                 }
             }
             dismiss()

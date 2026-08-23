@@ -1,13 +1,14 @@
 import MinMaxCalDomain
 import SwiftUI
 
-/// The calendars, location, organiser, attendees, response and notes of an item, shared by an
-/// expanded agenda row and the takeover panel.
+/// The calendars, location, organiser, attendees, response, repeat and notes of an item, shared
+/// by an expanded agenda row and the takeover panel.
 public struct ItemDetails: View {
     // MARK: Lifecycle
 
-    public init(item: AgendaItem) {
+    public init(item: AgendaItem, rules: MatchingRules) {
         self.item = item
+        self.rules = rules
     }
 
     // MARK: Public
@@ -15,7 +16,7 @@ public struct ItemDetails: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Self.sectionSpacing) {
             grid
-            if let notes = item.notes, notes.isEmpty == false {
+            if let notes, notes.isEmpty == false {
                 NotesText(notes)
             }
         }
@@ -27,8 +28,18 @@ public struct ItemDetails: View {
     private static let columnSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
     private static let lineSpacing: CGFloat = 2
+    private static let countSpacing: CGFloat = 10
+    private static let counted: [AttendeeResponse] = [.accepted, .tentative, .declined, .pending]
+
+    @State private var showsAttendees = false
 
     private let item: AgendaItem
+    private let rules: MatchingRules
+
+    /// The join button already carries the call, so its boilerplate is not repeated here.
+    private var notes: String? {
+        item.notes.map { item.joinLink == nil ? $0 : NotesTidier.removingCallBoilerplate(from: $0) }
+    }
 
     private var grid: some View {
         Grid(
@@ -41,7 +52,7 @@ public struct ItemDetails: View {
                 GridRow {
                     Text("Location")
                         .foregroundStyle(.secondary)
-                    LocationLink(location)
+                    LocationLink(location, rules: rules)
                 }
             }
             if let organiser = item.organiser {
@@ -51,17 +62,43 @@ public struct ItemDetails: View {
                 GridRow {
                     Text("Attendees")
                         .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: Self.lineSpacing) {
-                        ForEach(item.attendees, id: \.self) { attendee in
-                            Label(attendee.name, systemImage: Self.symbol(for: attendee.response))
-                        }
-                    }
+                    attendees
                 }
             }
             if let response = item.currentUserResponse {
                 detail("Your response", Self.description(of: response))
             }
+            if let recurrence = item.recurrence {
+                detail("Repeats", recurrence.description)
+            }
         }
+    }
+
+    /// A count per response until clicked, then everyone by name.
+    private var attendees: some View {
+        Button {
+            showsAttendees.toggle()
+        } label: {
+            if showsAttendees {
+                VStack(alignment: .leading, spacing: Self.lineSpacing) {
+                    ForEach(item.attendees, id: \.self) { attendee in
+                        Label(attendee.name, systemImage: Self.symbol(for: attendee.response))
+                    }
+                }
+            } else {
+                HStack(spacing: Self.countSpacing) {
+                    ForEach(Self.counted, id: \.self) { response in
+                        let count = item.attendees.count { $0.response == response }
+                        if count > 0 {
+                            Label(String(count), systemImage: Self.symbol(for: response))
+                                .help(Self.description(of: response))
+                        }
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .help(showsAttendees ? "Show the counts" : "Show everyone")
     }
 
     private func detail(_ label: String, _ value: String) -> some View {

@@ -46,16 +46,43 @@ struct AgendaModelTests {
     }
 
     @Test
-    func `completing removes the row and writes through`() async {
+    func `completing strikes the row through and can be undone for a while`() async throws {
         let reminder = Fixtures.reminder("reminder")
         source.items = [reminder]
         await model.rebuild()
 
         await model.complete(reminder)
 
-        #expect(model.agenda.items.isEmpty)
+        #expect(model.agenda.items.map(\.isCompleted) == [true])
         #expect(source.completed == reminder.members)
         #expect(model.errorMessage == nil)
+        #expect(MenuBarTitle.render(agenda: model.agenda, now: Fixtures.now) == nil)
+
+        source.items = []
+        await model.rebuild()
+        #expect(model.agenda.items.map(\.isCompleted) == [true])
+
+        try await model.uncomplete(#require(model.agenda.items.first))
+        #expect(source.completed.isEmpty)
+        #expect(model.agenda.items.map(\.isCompleted) == [false])
+    }
+
+    @Test
+    func `a completed row leaves after five minutes`() async {
+        let reminder = Fixtures.reminder("reminder")
+        source.items = [reminder]
+        let timed = AgendaModel(source: source, settings: store, opener: opener, clock: clock.read)
+        await timed.rebuild()
+        await timed.complete(reminder)
+        source.items = []
+
+        clock.now = Fixtures.now.addingTimeInterval(4 * 60)
+        await timed.rebuild()
+        #expect(timed.agenda.items.count == 1)
+
+        clock.now = Fixtures.now.addingTimeInterval(6 * 60)
+        await timed.rebuild()
+        #expect(timed.agenda.items.isEmpty)
     }
 
     @Test
@@ -84,4 +111,5 @@ struct AgendaModelTests {
     private let opener: FakeLinkOpener = .init()
     private let store: SettingsStore
     private let model: AgendaModel
+    private let clock: AdjustableClock = .init()
 }

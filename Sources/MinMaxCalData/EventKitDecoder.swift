@@ -49,6 +49,7 @@ public enum EventKitDecoder {
                 notes: event.notes,
                 rules: rules,
             ),
+            recurrence: recurrence(event.recurrenceRules ?? []),
         )
     }
 
@@ -75,6 +76,7 @@ public enum EventKitDecoder {
                 notes: reminder.notes,
                 rules: rules,
             ),
+            recurrence: recurrence(reminder.recurrenceRules ?? []),
         )
     }
 
@@ -82,10 +84,38 @@ public enum EventKitDecoder {
 
     private static func attendee(_ participant: EKParticipant) -> Attendee {
         Attendee(
-            name: participant.name ?? participant.url.absoluteString.replacing("mailto:", with: ""),
+            name: AttendeeName.display(
+                name: participant.name,
+                email: participant.url.absoluteString.replacing("mailto:", with: ""),
+            ),
             response: response(participant.participantStatus),
             isCurrentUser: participant.isCurrentUser,
         )
+    }
+
+    private static func recurrence(_ rules: [EKRecurrenceRule]) -> Recurrence? {
+        guard let rule = rules.first else {
+            return nil
+        }
+
+        let frequency: Recurrence.Frequency? =
+            switch rule.frequency {
+            case .daily:
+                .daily
+
+            case .weekly:
+                .weekly
+
+            case .monthly:
+                .monthly
+
+            case .yearly:
+                .yearly
+
+            @unknown default:
+                nil
+            }
+        return frequency.map { Recurrence(frequency: $0, interval: rule.interval) }
     }
 
     private static func response(_ status: EKParticipantStatus) -> AttendeeResponse {

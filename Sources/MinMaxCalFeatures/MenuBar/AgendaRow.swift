@@ -12,6 +12,7 @@ public struct AgendaRow: View {
         style: Style,
         onJoin: @escaping (JoinLink) -> Void,
         onComplete: @escaping () -> Void = {},
+        onUncomplete: @escaping () -> Void = {},
         joinIsPrimary: Bool = false,
     ) {
         self.item = item
@@ -19,6 +20,7 @@ public struct AgendaRow: View {
         self.onJoin = onJoin
         self.joinIsPrimary = joinIsPrimary
         self.onComplete = onComplete
+        self.onUncomplete = onUncomplete
     }
 
     // MARK: Public
@@ -34,7 +36,7 @@ public struct AgendaRow: View {
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             actions
-                .frame(width: Self.actionColumnWidth)
+                .frame(minWidth: Self.actionColumnWidth)
             times
         }
     }
@@ -44,7 +46,8 @@ public struct AgendaRow: View {
     private static let statusPadding: CGFloat = 6
     private static let spacing: CGFloat = 8
     private static let takeoverTitleLines = 2
-    private static let actionColumnWidth: CGFloat = 64
+    private static let actionColumnWidth: CGFloat = 34
+    private static let dashColumnWidth: CGFloat = 10
 
     private static let agendaTimeWidth: CGFloat = 58
     private static let takeoverTimeWidth: CGFloat = 96
@@ -53,6 +56,7 @@ public struct AgendaRow: View {
     private let style: Style
     private let joinIsPrimary: Bool
     private let onComplete: () -> Void
+    private let onUncomplete: () -> Void
     private let onJoin: (JoinLink) -> Void
 
     private var timeColumnWidth: CGFloat {
@@ -84,6 +88,8 @@ public struct AgendaRow: View {
             Text(item.title.isEmpty ? "Untitled" : item.title)
                 .font(style == .agenda ? .body : .title)
                 .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
+                .strikethrough(item.isCompleted)
+                .foregroundStyle(item.isCompleted ? .secondary : .primary)
             if let status {
                 Text(status)
                     .font(.caption)
@@ -98,7 +104,11 @@ public struct AgendaRow: View {
     private var actions: some View {
         HStack(spacing: Self.spacing) {
             if style == .agenda, item.kind == .reminder {
-                CompleteButton(isPrimary: false, action: onComplete)
+                CompleteButton(
+                    isPrimary: false,
+                    undo: item.isCompleted,
+                    action: item.isCompleted ? onUncomplete : onComplete,
+                )
             }
             if let link = item.joinLink {
                 JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
@@ -111,13 +121,17 @@ public struct AgendaRow: View {
             Text("All day")
                 .font(timeFont)
                 .foregroundStyle(.secondary)
-                .frame(width: timeColumnWidth + timeColumnWidth, alignment: .leading)
+                .frame(width: timeColumnWidth + Self.dashColumnWidth + timeColumnWidth, alignment: .leading)
         } else {
             Text(item.start.formatted(date: .omitted, time: .shortened))
                 .font(timeFont)
                 .monospacedDigit()
                 .frame(width: timeColumnWidth, alignment: .trailing)
-            Text(item.end.map { "–\($0.formatted(date: .omitted, time: .shortened))" } ?? "")
+            Text(item.end == nil ? "" : "–")
+                .font(timeFont)
+                .foregroundStyle(.secondary)
+                .frame(width: Self.dashColumnWidth)
+            Text(item.end?.formatted(date: .omitted, time: .shortened) ?? "")
                 .font(timeFont)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)

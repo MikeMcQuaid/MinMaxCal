@@ -7,12 +7,13 @@ struct TakeoverEntryView: View {
 
     let entry: Takeover.Entry
     let joinIsPrimary: Bool
+    let rules: MatchingRules
     let onJoin: (JoinLink) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Self.sectionSpacing) {
             AgendaRow(item: entry.item, style: .takeover, onJoin: onJoin, joinIsPrimary: joinIsPrimary)
-            ItemDetails(item: entry.item)
+            ItemDetails(item: entry.item, rules: rules)
         }
     }
 
