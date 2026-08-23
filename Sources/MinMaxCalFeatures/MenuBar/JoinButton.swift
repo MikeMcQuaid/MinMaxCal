@@ -26,6 +26,7 @@ public struct JoinButton: View {
                 action(link)
             } label: {
                 Label("Join", systemImage: "video")
+                    .frame(width: Self.iconSide, height: Self.iconSide)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
@@ -34,6 +35,9 @@ public struct JoinButton: View {
     }
 
     // MARK: Private
+
+    /// Every icon button is the same square whatever the symbol's own width.
+    private static let iconSide: CGFloat = 16
 
     private let link: JoinLink
     private let isPrimary: Bool

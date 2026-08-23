@@ -4,27 +4,23 @@ import Foundation
 public enum TakeoverPlanner {
     // MARK: Public
 
-    /// The earliest takeover not yet dismissed whose moment is ahead or within the lookback,
-    /// grouping everything due in the same minute.
+    /// The earliest takeover not yet dismissed whose moment is ahead, within the lookback or after
+    /// `since`, the last time the scheduler ran, so nothing slept through is skipped. Items due at
+    /// the same moment come one at a time: dismissing the first makes the next the earliest.
     public static func next(
         agenda: Agenda,
         ledger: TakeoverLedger,
         now: Date,
         settings: TakeoverSettings,
+        since: Date? = nil,
     ) -> Takeover? {
-        let earliestAllowed = now.addingTimeInterval(-TakeoverSettings.lookback)
-        let candidates = agenda.items
+        let earliestAllowed = min(now.addingTimeInterval(-TakeoverSettings.lookback), since ?? now)
+        let earliest = agenda.items
             .flatMap { candidates(for: $0, ledger: ledger, settings: settings) }
             .filter { $0.moment >= earliestAllowed }
             .filter { ledger.isDismissed($0.entry.item, trigger: $0.entry.trigger, moment: $0.moment) == false }
-            .sorted { $0.moment < $1.moment }
-        guard let earliest = candidates.first else {
-            return nil
-        }
-
-        let minute = floorToMinute(earliest.moment)
-        let entries = candidates.filter { floorToMinute($0.moment) == minute }.map(\.entry)
-        return Takeover(entries: entries, moment: earliest.moment)
+            .min { ($0.moment, $0.entry.item.title) < ($1.moment, $1.entry.item.title) }
+        return earliest.map { Takeover(entries: [$0.entry], moment: $0.moment) }
     }
 
     // MARK: Private
@@ -33,8 +29,6 @@ public enum TakeoverPlanner {
         var entry: Takeover.Entry
         var moment: Date
     }
-
-    private static let secondsPerMinute: TimeInterval = 60
 
     private static func candidates(
         for item: AgendaItem,
@@ -65,10 +59,5 @@ public enum TakeoverPlanner {
 
             return [due, Candidate(entry: Takeover.Entry(item: item, trigger: .snooze), moment: snoozedUntil)]
         }
-    }
-
-    private static func floorToMinute(_ date: Date) -> Date {
-        Date(timeIntervalSinceReferenceDate: floor(date.timeIntervalSinceReferenceDate / secondsPerMinute) *
-            secondsPerMinute)
     }
 }

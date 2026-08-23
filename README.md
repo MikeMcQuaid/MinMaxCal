@@ -59,8 +59,9 @@ attendees, your response, how it repeats and the notes with their
 links. Attendees start as counts per response (accepted, tentative,
 declined, unanswered) and click through to everyone by name; an
 attendee the invitation only knows as `firstname.lastname@…` is shown
-as `Firstname Lastname`. When the join button already carries a call,
-the service's joining boilerplate in the notes is left out. The
+as `Firstname Lastname`. Scheduling tools' notices about the block they
+created are left out of the notes, and so is the call's own joining
+boilerplate once the join button carries the link. The
 location drops the words that only say where you already are (your
 city, region and local postcodes, editable in Settings) and opens the
 full address in Apple Maps. Right-clicking a row offers those details
@@ -123,10 +124,12 @@ Two moments trigger a takeover, each switchable in Settings:
 
 A takeover shows once per occurrence per trigger: dismissing it on one
 display dismisses it everywhere and it does not return after a relaunch.
-A takeover whose moment passed while the Mac was asleep or the app was
-not running still shows on wake or launch if the moment was within the
-last ten minutes; older ones are skipped, since the agenda already lists
-anything overdue. Two items due at the same minute share one panel.
+A takeover whose moment passed while the Mac was asleep still shows on
+wake, however long the sleep, since the app noticed nothing in between.
+One whose moment passed while the app was not running still shows on
+launch if the moment was within the last ten minutes; older ones are
+skipped, since the agenda already lists anything overdue. Items due at
+the same time queue up: dismissing the first shows the next.
 
 **Join** recognises the call and opens it where you want it:
 

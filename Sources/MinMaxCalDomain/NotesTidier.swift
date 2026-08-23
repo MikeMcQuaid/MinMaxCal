@@ -1,15 +1,23 @@
 import Foundation
 
-/// Removes the boilerplate a conferencing service appends to an invitation once the join button
-/// already carries its link.
+/// Removes the boilerplate calendar tools append to invitations: a scheduling assistant's
+/// visibility notice always, and a conferencing service's joining details once the join button
+/// already carries the link.
 public enum NotesTidier {
-    /// The notes without the rails a calendar service wrapped the joining details in.
-    public static func removingCallBoilerplate(from notes: String) -> String {
+    /// The notes without the rails, headers and notices other tools wrapped around them.
+    public static func removingBoilerplate(from notes: String, hasCallLink: Bool) -> String {
         var text = notes
-        // Google Calendar wraps Zoom's joining details in `-::~:~::~...::-` rails.
-        let zoomBlock = /-::~:~::~[:~]*::-[\s\S]*?-::~:~::~[:~]*::-\.?/
-        while let block = text.firstRange(of: zoomBlock) {
-            text.removeSubrange(block)
+        // Reclaim's notice about the block it created.
+        let visibilityNotice =
+            /(?:This time has been blocked on your calendar|This description is visible to anyone)[^\n]*\n?/
+        text = text.replacing(visibilityNotice, with: "")
+        if hasCallLink {
+            // Google Calendar wraps Zoom's joining details in `-::~:~::~...::-` rails.
+            let zoomRails = /-::~:~::~[:~]*::-[\s\S]*?-::~:~::~[:~]*::-\.?/
+            text = text.replacing(zoomRails, with: "")
+            // Zoom's own invitation text sits under an `Event Details` banner down to a rule.
+            let eventDetails = /~+ ?Event Details ?~+[\s\S]*?(?:\n-{3,}\s*|$)/
+            text = text.replacing(eventDetails, with: "")
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }

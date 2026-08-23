@@ -26,6 +26,7 @@ struct CalendarsTab: View {
     private static let groupSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
     private static let dotSpacing: CGFloat = 6
+    private static let dotDiameter: CGFloat = 12
 
     @ViewBuilder
     private func groups(_ title: String, _ groups: [AccountGroup]) -> some View {
@@ -40,7 +41,7 @@ struct CalendarsTab: View {
                     ForEach(group.lists) { list in
                         Toggle(isOn: model.isSelected(list)) {
                             HStack(spacing: Self.dotSpacing) {
-                                CalendarDots(calendars: [list])
+                                CalendarDots(calendars: [list], diameter: Self.dotDiameter)
                                 Text(list.title)
                             }
                         }

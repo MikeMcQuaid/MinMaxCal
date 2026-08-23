@@ -88,7 +88,9 @@ notification spool: a takeover needs the app running, which is what
 launch at login is for. A takeover whose moment passed while the app was
 not running is still shown on launch when the moment is within the last
 ten minutes (the README's rule), so a crash or an update during a
-meeting's first minutes still surfaces it.
+meeting's first minutes still surfaces it; while the app runs, anything
+that fell due since the scheduler last ran fires on the next rebuild,
+however long the Mac slept.
 
 ### Activation
 
@@ -318,10 +320,13 @@ error restores the row and shows the message inline.
 
 1. `TakeoverPlanner.next(agenda:ledger:now:settings:)` returns the
    earliest `Takeover` not recorded as dismissed whose moment is in the
-   future or within the last ten minutes: an accepted, non-all-day
-   event's start when start takeovers are on, or a timed reminder's due
-   date when reminder takeovers are on, or a snoozed reminder's snooze
-   time. Items due in the same minute form one takeover.
+   future, within the last ten minutes or after `since`, the last time
+   the scheduler ran: an accepted, non-all-day event's start when start
+   takeovers are on, or a timed reminder's due date when reminder
+   takeovers are on, or a snoozed reminder's snooze time. Each takeover
+   carries one item; items due together come one after another, since
+   dismissing one makes the next the earliest on the rebuild that
+   follows.
 2. `TakeoverModel` sleeps until that moment in a child task restarted
    on every rebuild, then activates the app and asks the window
    controller to show.

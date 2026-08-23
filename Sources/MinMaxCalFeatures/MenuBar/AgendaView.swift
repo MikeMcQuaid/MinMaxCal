@@ -59,7 +59,7 @@ public struct AgendaView: View {
     private var calendar
     @Environment(\.openSettings)
     private var openSettings
-    @State private var expanded: Set<AgendaItem.ID> = []
+    @State private var expanded: AgendaItem.ID?
 
     private let model: AgendaModel
 
@@ -125,10 +125,10 @@ public struct AgendaView: View {
             .onTapGesture { toggle(item) }
             .accessibilityAddTraits(.isButton)
             .contextMenu {
-                Button(expanded.contains(item.id) ? "Hide Details" : "Show Details") { toggle(item) }
+                Button(expanded == item.id ? "Hide Details" : "Show Details") { toggle(item) }
                 Button("Preview Takeover") { model.preview(item) }
             }
-            if expanded.contains(item.id) {
+            if expanded == item.id {
                 ItemDetails(item: item, rules: model.rules)
                     .font(.callout)
                     .padding(.leading, Self.detailIndent)
@@ -137,10 +137,9 @@ public struct AgendaView: View {
         }
     }
 
+    /// One row open at a time: opening another closes the last.
     private func toggle(_ item: AgendaItem) {
-        if expanded.remove(item.id) == nil {
-            expanded.insert(item.id)
-        }
+        expanded = expanded == item.id ? nil : item.id
     }
 
     private func showSettings() {

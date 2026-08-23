@@ -24,6 +24,7 @@ public struct CompleteButton: View {
                     undo ? "Undo" : "Complete",
                     systemImage: undo ? "arrow.uturn.backward.circle" : "checkmark.circle",
                 )
+                .frame(width: Self.iconSide, height: Self.iconSide)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
@@ -32,6 +33,9 @@ public struct CompleteButton: View {
     }
 
     // MARK: Private
+
+    /// Every icon button is the same square whatever the symbol's own width.
+    private static let iconSide: CGFloat = 16
 
     private let isPrimary: Bool
     private let undo: Bool

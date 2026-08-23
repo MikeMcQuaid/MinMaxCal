@@ -4,11 +4,14 @@ import Foundation
 public enum LocationTidier {
     // MARK: Public
 
-    /// The location without its home terms, or unchanged when nothing else would be left.
+    /// The location's parts (split on commas and line breaks) without home terms or repeats, joined
+    /// with commas; unchanged when nothing would be left.
     public static func display(_ location: String, rules: MatchingRules) -> String {
-        let parts = location.split(separator: ",").compactMap { part -> String? in
+        var seen = Set<String>()
+        let parts = location.split { $0 == "," || $0.isNewline }.compactMap { part -> String? in
             let kept = withoutHomeTerms(part.split(whereSeparator: \.isWhitespace).map(String.init), rules: rules)
-            return kept.isEmpty ? nil : kept.joined(separator: " ")
+            let text = kept.joined(separator: " ")
+            return kept.isEmpty || seen.insert(MatchingRules.normalise(text)).inserted == false ? nil : text
         }
         let tidied = parts.joined(separator: ", ")
         return tidied.isEmpty ? location : tidied

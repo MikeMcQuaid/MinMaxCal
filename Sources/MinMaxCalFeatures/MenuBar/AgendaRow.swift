@@ -35,9 +35,9 @@ public struct AgendaRow: View {
             CalendarDots(calendars: item.calendars)
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
-            actions
-                .frame(minWidth: Self.actionColumnWidth)
             times
+            actions
+                .frame(minWidth: Self.actionColumnWidth, alignment: .trailing)
         }
     }
 
@@ -100,7 +100,7 @@ public struct AgendaRow: View {
         }
     }
 
-    /// A fixed-width column keeps the times aligned whether a row has a call, a checkbox or neither.
+    /// The action column sits at the far right so the times stay aligned whatever a row offers.
     private var actions: some View {
         HStack(spacing: Self.spacing) {
             if style == .agenda, item.kind == .reminder {
@@ -135,7 +135,7 @@ public struct AgendaRow: View {
                 .font(timeFont)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .frame(width: timeColumnWidth, alignment: .leading)
+                .frame(width: timeColumnWidth, alignment: .trailing)
         }
     }
 }

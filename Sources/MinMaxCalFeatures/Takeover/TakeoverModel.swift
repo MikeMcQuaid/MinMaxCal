@@ -50,7 +50,14 @@ public final class TakeoverModel {
     /// Plans the next takeover from the agenda and sleeps until its moment.
     public func schedule(agenda: Agenda, now: Date) {
         alarm?.cancel()
-        planned = TakeoverPlanner.next(agenda: agenda, ledger: ledger.load(), now: now, settings: settings.takeover)
+        planned = TakeoverPlanner.next(
+            agenda: agenda,
+            ledger: ledger.load(),
+            now: now,
+            settings: settings.takeover,
+            since: lastScheduledAt,
+        )
+        lastScheduledAt = now
         guard let planned else {
             return
         }
@@ -144,6 +151,7 @@ public final class TakeoverModel {
     @ObservationIgnored private let presenter: any TakeoverPresenting
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private var alarm: Task<Void, Never>?
+    @ObservationIgnored private var lastScheduledAt: Date?
 
     private func finish(recording update: (TakeoverLedger, Takeover, Date) -> TakeoverLedger) {
         guard let takeover = current else {

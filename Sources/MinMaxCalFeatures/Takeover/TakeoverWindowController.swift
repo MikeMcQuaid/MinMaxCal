@@ -63,13 +63,9 @@ public final class TakeoverWindowController: TakeoverPresenting {
     }
 
     private func makeWindow(on screen: NSScreen) -> TakeoverWindow {
-        let window = TakeoverWindow(
-            contentRect: screen.frame,
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false,
-            screen: screen,
-        )
+        // The frame is in global coordinates; passing `screen:` too would offset it by the
+        // screen's origin, leaving every display but the first half covered.
+        let window = TakeoverWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.isOpaque = false

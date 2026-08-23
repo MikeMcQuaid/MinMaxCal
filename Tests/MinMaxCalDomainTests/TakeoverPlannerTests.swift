@@ -20,11 +20,28 @@ struct TakeoverPlannerTests {
     }
 
     @Test
-    func `groups items due in the same minute`() {
+    func `items due together come one at a time`() throws {
         let event = Fixtures.event("event", startingIn: 10)
-        let reminder = Fixtures.reminder("reminder", dueIn: 10.5)
-        let takeover = next([event, reminder])
-        #expect(takeover?.entries.map(\.trigger) == [.start, .due])
+        let reminder = Fixtures.reminder("reminder", dueIn: 10)
+        let first = try #require(next([event, reminder]))
+        #expect(first.entries.map(\.trigger) == [.start])
+
+        let ledger = TakeoverLedger.empty.dismissing(first, at: Fixtures.now)
+        #expect(next([event, reminder], ledger: ledger)?.entries.map(\.trigger) == [.due])
+    }
+
+    @Test
+    func `anything since the scheduler last ran still fires`() {
+        let sleptThrough = Fixtures.event("slept", startingIn: -90, duration: 120)
+        #expect(next([sleptThrough]) == nil)
+        let takeover = TakeoverPlanner.next(
+            agenda: Fixtures.agenda([sleptThrough]),
+            ledger: .empty,
+            now: Fixtures.now,
+            settings: settings,
+            since: Fixtures.now.addingTimeInterval(-2 * 60 * 60),
+        )
+        #expect(takeover?.entries.first?.item == sleptThrough)
     }
 
     @Test

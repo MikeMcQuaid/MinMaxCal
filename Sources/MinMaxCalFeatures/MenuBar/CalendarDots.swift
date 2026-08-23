@@ -5,8 +5,9 @@ import SwiftUI
 public struct CalendarDots: View {
     // MARK: Lifecycle
 
-    public init(calendars: [CalendarList]) {
+    public init(calendars: [CalendarList], diameter: CGFloat = 9) {
         self.calendars = calendars
+        self.diameter = diameter
     }
 
     // MARK: Public
@@ -19,17 +20,17 @@ public struct CalendarDots: View {
                 Circle()
                     .fill(Color(list.colour))
                     .overlay(Circle().strokeBorder(.background, lineWidth: 1))
-                    .frame(width: Self.diameter, height: Self.diameter)
+                    .frame(width: diameter, height: diameter)
             }
         }
-        .frame(width: Self.columnWidth, alignment: .leading)
+        .frame(width: max(Self.columnWidth, diameter), alignment: .leading)
         .accessibilityLabel(calendars.map(\.title).joined(separator: ", "))
     }
 
     // MARK: Private
 
-    private static let diameter: CGFloat = 9
     private static let overlap: CGFloat = 3
 
     private let calendars: [CalendarList]
+    private let diameter: CGFloat
 }

@@ -36,9 +36,8 @@ public struct ItemDetails: View {
     private let item: AgendaItem
     private let rules: MatchingRules
 
-    /// The join button already carries the call, so its boilerplate is not repeated here.
     private var notes: String? {
-        item.notes.map { item.joinLink == nil ? $0 : NotesTidier.removingCallBoilerplate(from: $0) }
+        item.notes.map { NotesTidier.removingBoilerplate(from: $0, hasCallLink: item.joinLink != nil) }
     }
 
     private var grid: some View {
