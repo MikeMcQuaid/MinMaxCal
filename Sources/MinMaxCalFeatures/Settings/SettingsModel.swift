@@ -69,9 +69,14 @@ public final class SettingsModel {
         }
     }
 
-    /// Every calendar and reminder list grouped by account.
-    public var groups: [AccountGroup] {
-        AccountGroup.grouping(lists)
+    /// The calendars grouped by account.
+    public var calendarGroups: [AccountGroup] {
+        AccountGroup.grouping(lists.filter { $0.kind == .event })
+    }
+
+    /// The reminder lists grouped by account.
+    public var reminderGroups: [AccountGroup] {
+        AccountGroup.grouping(lists.filter { $0.kind == .reminder })
     }
 
     /// Refreshes the lists, permissions and login item status.

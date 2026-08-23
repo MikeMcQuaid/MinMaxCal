@@ -102,6 +102,7 @@ public struct AgendaView: View {
             HStack(alignment: .firstTextBaseline, spacing: Self.padding) {
                 Text(title)
                     .font(.headline)
+                Spacer()
                 if let date {
                     Text(DayHeading.text(for: date, calendar: calendar))
                         .font(.subheadline)

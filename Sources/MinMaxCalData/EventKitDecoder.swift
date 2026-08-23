@@ -15,8 +15,6 @@ public enum EventKitDecoder {
             colour: colour(calendar.color),
             kind: kind,
             accountName: calendar.source?.title ?? "",
-            provider: provider(calendar),
-            isReadOnly: calendar.allowsContentModifications == false,
         )
     }
 
@@ -83,28 +81,6 @@ public enum EventKitDecoder {
     }
 
     // MARK: Private
-
-    private static func provider(_ calendar: EKCalendar) -> String {
-        switch calendar.type {
-        case .birthday:
-            "Birthdays"
-
-        case .calDAV:
-            calendar.source?.sourceType == .calDAV && calendar.source?.title == "iCloud" ? "iCloud" : "CalDAV"
-
-        case .exchange:
-            "Exchange"
-
-        case .local:
-            "Local"
-
-        case .subscription:
-            "Subscribed"
-
-        @unknown default:
-            ""
-        }
-    }
 
     private static func attendee(_ participant: EKParticipant) -> Attendee {
         Attendee(

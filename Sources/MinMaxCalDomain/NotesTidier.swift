@@ -23,6 +23,9 @@ public enum NotesTidier {
             // Zoom's own invitation text sits under an `Event Details` banner down to a rule.
             let eventDetails = /~+ ?Event Details ?~+[\s\S]*?(?:\n-{3,}\s*|$)/
             text = text.replacing(eventDetails, with: "")
+            // The invitation Zoom itself writes, from the host's name down to the rule.
+            let invitation = /[^\n]*is inviting you to a scheduled Zoom meeting\.[\s\S]*?(?:\n-{3,}\s*|$)/
+            text = text.replacing(invitation, with: "")
         }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }

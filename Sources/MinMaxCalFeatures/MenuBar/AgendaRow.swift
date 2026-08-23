@@ -47,7 +47,7 @@ public struct AgendaRow: View {
     private static let statusPadding: CGFloat = 6
     private static let spacing: CGFloat = 4
     private static let takeoverTitleLines = 2
-    private static let dashColumnWidth: CGFloat = 8
+    private static let dashColumnWidth: CGFloat = 6
     private static let agendaRowHeight: CGFloat = 24
     private static let takeoverRowHeight: CGFloat = 44
     /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.

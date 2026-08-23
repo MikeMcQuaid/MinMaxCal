@@ -15,18 +15,11 @@ struct CalendarsTab: View {
                     Text("No calendars are available. Check the permissions in the General tab.")
                         .foregroundStyle(.secondary)
                 }
-                ForEach(model.groups) { group in
-                    VStack(alignment: .leading, spacing: Self.rowSpacing) {
-                        Text(group.account)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        ForEach(group.lists) { list in
-                            Toggle(isOn: model.isSelected(list)) {
-                                row(list)
-                            }
-                        }
-                    }
+                groups(model.calendarGroups)
+                if model.calendarGroups.isEmpty == false, model.reminderGroups.isEmpty == false {
+                    Divider()
                 }
+                groups(model.reminderGroups)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -37,16 +30,24 @@ struct CalendarsTab: View {
 
     private static let groupSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
-    private static let markSpacing: CGFloat = 6
     private static let markSize: CGFloat = 13
 
-    private func row(_ list: CalendarList) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Self.markSpacing) {
-            CalendarMarks(calendars: [list], size: Self.markSize)
-            Text(list.title)
-                .fontWeight(.semibold)
-            Text(list.summary)
-                .foregroundStyle(.secondary)
+    private func groups(_ groups: [AccountGroup]) -> some View {
+        ForEach(groups) { group in
+            VStack(alignment: .leading, spacing: Self.rowSpacing) {
+                Text(group.account)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                ForEach(group.lists) { list in
+                    Toggle(isOn: model.isSelected(list)) {
+                        HStack(spacing: 0) {
+                            CalendarMarks(calendars: [list], size: Self.markSize, columnWidth: 0)
+                            Text(list.title)
+                                .fontWeight(.semibold)
+                        }
+                    }
+                }
+            }
         }
     }
 }

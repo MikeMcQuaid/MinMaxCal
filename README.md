@@ -150,12 +150,11 @@ link in the details. The same join button sits on agenda rows.
 
 Settings opens from the agenda's footer or Cmd-, and has four tabs:
 
-- **Calendars**: every calendar and reminder list on the Mac grouped
-  by account, with a checkbox each, its icon in the calendar's colour
-  (a calendar leaf for events, a list for reminders), and beneath the
-  name where it lives (iCloud, Exchange, CalDAV, Local, Subscribed,
-  Birthdays) and whether it is read-only. Nothing is selected until you
-  choose; the agenda stays empty rather than guessing.
+- **Calendars**: every calendar on the Mac grouped by account, then a
+  rule, then every reminder list the same way, with a checkbox each
+  and an icon in the calendar's colour (a calendar leaf for events, a
+  list for reminders). Nothing is selected until you choose; the agenda
+  stays empty rather than guessing.
 - **Takeover**: the two triggers and the snooze durations, each
   explained in place. To see a takeover, right-click any agenda row and
   choose Preview Takeover: a real takeover on every display built from

@@ -45,6 +45,18 @@ struct TidierTests {
         """
         #expect(NotesTidier.removingBoilerplate(from: notes, hasCallLink: true) == "Prep the deck.")
         let reclaimOnly = "Focus time.\nThis time has been blocked on your calendar and is marked as Default."
+        let bare = """
+        Bring questions.
+        JJ Cranston (he/him) is inviting you to a scheduled Zoom meeting.
+        Join Zoom Meeting
+        https://example.zoom.us/j/1?pwd=x
+
+        Meeting ID: 846 3823 6694
+        Passcode: 440326
+
+        ---
+        """
+        #expect(NotesTidier.removingBoilerplate(from: bare, hasCallLink: true) == "Bring questions.")
         #expect(NotesTidier.removingBoilerplate(from: reclaimOnly, hasCallLink: false) == "Focus time.")
     }
 
