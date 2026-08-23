@@ -15,13 +15,12 @@ public struct CalendarMarks: View {
     // MARK: Public
 
     public var body: some View {
-        HStack(spacing: -Self.overlap) {
+        HStack(spacing: -size * Self.overlap) {
             ForEach(calendars) { list in
                 Image(systemName: list.kind == .reminder ? "checklist" : "calendar")
                     .font(.system(size: size, weight: .semibold))
                     .foregroundStyle(Color(list.colour))
                     .frame(width: size + Self.inset, height: size + Self.inset)
-                    .background(.background, in: Circle())
             }
         }
         .frame(width: max(columnWidth, size + Self.inset), alignment: .leading)
@@ -30,7 +29,8 @@ public struct CalendarMarks: View {
 
     // MARK: Private
 
-    private static let overlap: CGFloat = 8
+    /// How much of a mark the next one covers.
+    private static let overlap: CGFloat = 0.55
     private static let inset: CGFloat = 4
 
     private let calendars: [CalendarList]

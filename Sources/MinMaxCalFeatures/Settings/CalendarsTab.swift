@@ -15,11 +15,8 @@ struct CalendarsTab: View {
                     Text("No calendars are available. Check the permissions in the General tab.")
                         .foregroundStyle(.secondary)
                 }
-                groups(model.calendarGroups)
-                if model.calendarGroups.isEmpty == false, model.reminderGroups.isEmpty == false {
-                    Divider()
-                }
-                groups(model.reminderGroups)
+                groups("Calendars", model.calendarGroups)
+                groups("Reminders", model.reminderGroups)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,8 +28,14 @@ struct CalendarsTab: View {
     private static let groupSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
     private static let markSize: CGFloat = 13
+    private static let markSpacing: CGFloat = 3
 
-    private func groups(_ groups: [AccountGroup]) -> some View {
+    @ViewBuilder
+    private func groups(_ title: String, _ groups: [AccountGroup]) -> some View {
+        if groups.isEmpty == false {
+            Text(title)
+                .font(.headline)
+        }
         ForEach(groups) { group in
             VStack(alignment: .leading, spacing: Self.rowSpacing) {
                 Text(group.account)
@@ -40,10 +43,9 @@ struct CalendarsTab: View {
                     .foregroundStyle(.secondary)
                 ForEach(group.lists) { list in
                     Toggle(isOn: model.isSelected(list)) {
-                        HStack(spacing: 0) {
+                        HStack(spacing: Self.markSpacing) {
                             CalendarMarks(calendars: [list], size: Self.markSize, columnWidth: 0)
                             Text(list.title)
-                                .fontWeight(.semibold)
                         }
                     }
                 }

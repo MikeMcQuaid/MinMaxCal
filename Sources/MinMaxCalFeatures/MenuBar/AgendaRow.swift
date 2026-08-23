@@ -32,7 +32,10 @@ public struct AgendaRow: View {
 
     public var body: some View {
         HStack(alignment: .center, spacing: Self.spacing) {
-            CalendarMarks(calendars: item.calendars)
+            CalendarMarks(
+                calendars: item.calendars,
+                size: style == .agenda ? Self.agendaMarkSize : Self.takeoverMarkSize,
+            )
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             times
@@ -48,14 +51,14 @@ public struct AgendaRow: View {
     private static let spacing: CGFloat = 4
     private static let takeoverTitleLines = 2
     private static let dashColumnWidth: CGFloat = 6
+    private static let agendaMarkSize: CGFloat = 13
+    private static let takeoverMarkSize: CGFloat = 24
     private static let agendaRowHeight: CGFloat = 24
     private static let takeoverRowHeight: CGFloat = 44
     /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.
     private static let agendaTimeWidth: CGFloat = usesTwelveHourClock ? twelveHourTimeWidth : twentyFourHourTimeWidth
     private static let twelveHourTimeWidth: CGFloat = 62
     private static let twentyFourHourTimeWidth: CGFloat = 40
-    private static let takeoverTimeWidth: CGFloat = agendaTimeWidth * takeoverScale
-    private static let takeoverScale: CGFloat = 1.7
     private static let usesTwelveHourClock = Date.now
         .formatted(date: .omitted, time: .shortened)
         .contains(where: \.isLetter)
@@ -66,10 +69,6 @@ public struct AgendaRow: View {
     private let onComplete: () -> Void
     private let onUncomplete: () -> Void
     private let onJoin: (JoinLink) -> Void
-
-    private var timeColumnWidth: CGFloat {
-        style == .agenda ? Self.agendaTimeWidth : Self.takeoverTimeWidth
-    }
 
     private var timeFont: Font {
         style == .agenda ? .body : .title2
@@ -89,6 +88,17 @@ public struct AgendaRow: View {
              .unknown:
             nil
         }
+    }
+
+    private var range: String {
+        if item.isAllDay {
+            return "All day"
+        }
+        guard let end = item.end else {
+            return Self.clock(item.start)
+        }
+
+        return "\(Self.clock(item.start)) – \(Self.clock(end))"
     }
 
     private var title: some View {
@@ -124,17 +134,22 @@ public struct AgendaRow: View {
         }
     }
 
+    /// Agenda rows align their times in columns; a takeover has one row, so its range is one text.
     @ViewBuilder private var times: some View {
-        if item.isAllDay {
+        if style == .takeover {
+            Text(range)
+                .font(timeFont)
+                .monospacedDigit()
+        } else if item.isAllDay {
             Text("All day")
                 .font(timeFont)
                 .foregroundStyle(.secondary)
-                .frame(width: timeColumnWidth + Self.dashColumnWidth + timeColumnWidth, alignment: .leading)
+                .frame(width: Self.agendaTimeWidth + Self.dashColumnWidth + Self.agendaTimeWidth, alignment: .leading)
         } else {
             Text(Self.clock(item.start))
                 .font(timeFont)
                 .monospacedDigit()
-                .frame(width: timeColumnWidth, alignment: .trailing)
+                .frame(width: Self.agendaTimeWidth, alignment: .trailing)
             Text(item.end == nil ? "" : "–")
                 .font(timeFont)
                 .foregroundStyle(.secondary)
@@ -143,7 +158,7 @@ public struct AgendaRow: View {
                 .font(timeFont)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .frame(width: timeColumnWidth, alignment: .trailing)
+                .frame(width: Self.agendaTimeWidth, alignment: .trailing)
         }
     }
 
