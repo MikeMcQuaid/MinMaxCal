@@ -24,7 +24,6 @@ public final class TakeoverModel {
         self.settings = settings
         self.presenter = presenter
         self.clock = clock
-        now = clock()
     }
 
     // MARK: Public
@@ -33,8 +32,6 @@ public final class TakeoverModel {
     public private(set) var current: Takeover?
     /// The next takeover the scheduler is waiting for.
     public private(set) var planned: Takeover?
-    /// The clock reading the countdown renders against, refreshed every second while showing.
-    public private(set) var now: Date
     /// Why the last Complete failed, shown in the panel until the next action.
     public private(set) var errorMessage: String?
     /// Called after every action so the agenda can rebuild and re-plan.
@@ -77,14 +74,6 @@ public final class TakeoverModel {
         }
         current = takeover
         errorMessage = nil
-        now = clock()
-        ticker?.cancel()
-        ticker = Task { [clock] in
-            while Task.isCancelled == false {
-                try? await Task.sleep(for: .seconds(1))
-                now = clock()
-            }
-        }
         presenter.show()
     }
 
@@ -150,7 +139,6 @@ public final class TakeoverModel {
     @ObservationIgnored private let presenter: any TakeoverPresenting
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private var alarm: Task<Void, Never>?
-    @ObservationIgnored private var ticker: Task<Void, Never>?
 
     private func finish(recording update: (TakeoverLedger, Takeover, Date) -> TakeoverLedger) {
         guard let takeover = current else {
@@ -162,7 +150,6 @@ public final class TakeoverModel {
             ledger.save(update(ledger.load(), takeover, actedAt), at: actedAt)
         }
         current = nil
-        ticker?.cancel()
         presenter.hide()
         onAction()
     }

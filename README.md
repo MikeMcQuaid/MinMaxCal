@@ -48,11 +48,12 @@ only title is a generic one such as `Busy`.
 ### 🗓️ Agenda
 
 Clicking the item opens the agenda: today and tomorrow, in time order,
-with each row showing its calendar colours, title, a join button where
-there is one, the time range and, small beside it, the time until it
-starts or, once it has, until it ends. The join buttons sit in a column
-of their own so the times line up. The Tomorrow header carries the full
-date (`Monday 24th August 2026`). Clicking a row expands it with the
+laid out as a table: the calendar colours (overlapping dots when a
+meeting is in several), the title, an action column holding the join
+button or a reminder's tick, then the start time and the end time in
+columns of their own so every row lines up. The countdown lives in the
+menu bar alone. The Tomorrow header carries the full date (`Monday 24th
+August 2026`). Clicking a row expands it with the
 same details the takeover shows: calendars, location, organiser,
 attendees with their responses, your response and the notes with their
 links. Right-clicking a row offers those details and **Preview
@@ -88,11 +89,14 @@ before.
 When it is time, MinMaxCal covers every connected display, over
 full-screen apps and whichever Space is showing, with one panel:
 
-- The title, the time range and a live countdown to the start, then to
-  the end.
-- The calendars it is in, its location and its organiser.
+- The title and the time range, laid out as the agenda row is.
+- The calendars it is in, its location and its organiser. The location
+  is a link: a web address opens itself, anything else (an address, a
+  room, a place name) is searched in Apple Maps.
 - The attendees, each with their response, and your own response.
-- The notes, with links clickable.
+- The notes, with links clickable. Notes that arrive as HTML are shown
+  as their text and links, with the markup, styling and any embedded
+  resources left out.
 - One primary button: **Join** for a meeting with a call link and
   **Complete** for a reminder. Return presses it, Escape dismisses.
 - For reminders, **Snooze** for 5, 15 or 60 minutes, as often as you

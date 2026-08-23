@@ -76,7 +76,8 @@ Boundary facts the design relies on:
    down in the README, or left out; private API is never called.
 6. **P6: Calendar data is untrusted input.** Titles, notes and URLs come
    from invitations anyone can send. Link detection only ever produces
-   URLs with known schemes and hosts, and notes render as text.
+   URLs with known schemes and hosts, and notes render as text, HTML
+   reduced to its characters and web anchors.
 
 ## Process model and lifecycles
 
@@ -417,7 +418,15 @@ in flight; everything else re-derives from EventKit (P1).
   when it has an `http` or `https` scheme. Any other scheme in an
   invitation is ignored, so an event cannot make the app open a
   `file:` or custom-scheme URL.
-- Notes render as plain text with data-detected links; never as HTML.
+- Notes render as text with `http(s)` links only. Plain notes get their
+  bare URLs detected; notes that look like HTML are first stripped of
+  every element that would load a resource (`img`, `link`, `script`,
+  `style`, `iframe`, `object`, `embed`, `video`, `audio`, `source`),
+  then reduced by AppKit's HTML importer to their characters and
+  anchors, of which only `http` and `https` survive, so no style,
+  script or remote fetch comes along. A location is a `Link` to its
+  own web URL when it contains one, otherwise to a `maps:` search for
+  its text, built by the app.
 - The app runs in the App Sandbox with the calendars entitlement
   (`com.apple.security.personal-information.calendars`, which covers
   reminders) and nothing else, and with the hardened runtime for

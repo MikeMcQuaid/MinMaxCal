@@ -59,9 +59,9 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 ### UI Principles
 
 - One implementation per concern: the agenda row, the join button,
-  the countdown text, the calendar colour dots and the item details
-  each have exactly one shared view used by the agenda and the
-  takeover alike (an expanded agenda row shows `ItemDetails`). Before
+  the complete button, the calendar colour dots and the item details
+  (with its notes and location links) each have exactly one shared
+  view used by the agenda and the takeover alike. Before
   adding a second approach to any such concern, get explicit
   confirmation.
 - The menu bar title is the app: it must be correct within a minute

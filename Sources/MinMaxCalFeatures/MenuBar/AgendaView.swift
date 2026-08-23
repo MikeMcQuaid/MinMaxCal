@@ -116,7 +116,6 @@ public struct AgendaView: View {
         VStack(alignment: .leading, spacing: Self.rowSpacing) {
             AgendaRow(
                 item: item,
-                now: model.now,
                 style: .agenda,
                 onJoin: model.join,
                 onComplete: { Task { await model.complete(item) } },

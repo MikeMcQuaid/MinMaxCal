@@ -1,8 +1,7 @@
 import MinMaxCalDomain
 import SwiftUI
 
-// MARK: - CalendarDots
-
+/// One dot per calendar, overlapping like a stack of coins, in a fixed-width column so titles align.
 public struct CalendarDots: View {
     // MARK: Lifecycle
 
@@ -12,27 +11,25 @@ public struct CalendarDots: View {
 
     // MARK: Public
 
+    public static let columnWidth: CGFloat = 22
+
     public var body: some View {
-        HStack(spacing: Self.spacing) {
-            ForEach(calendars) { calendar in
+        HStack(spacing: -Self.overlap) {
+            ForEach(calendars) { list in
                 Circle()
-                    .fill(Color(calendar.colour))
+                    .fill(Color(list.colour))
+                    .overlay(Circle().strokeBorder(.background, lineWidth: 1))
                     .frame(width: Self.diameter, height: Self.diameter)
             }
         }
+        .frame(width: Self.columnWidth, alignment: .leading)
         .accessibilityLabel(calendars.map(\.title).joined(separator: ", "))
     }
 
     // MARK: Private
 
-    private static let diameter: CGFloat = 8
-    private static let spacing: CGFloat = 3
+    private static let diameter: CGFloat = 9
+    private static let overlap: CGFloat = 3
 
     private let calendars: [CalendarList]
-}
-
-extension Color {
-    init(_ colour: ListColour) {
-        self.init(red: colour.red, green: colour.green, blue: colour.blue, opacity: colour.alpha)
-    }
 }

@@ -14,33 +14,7 @@ public struct ItemDetails: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: Self.sectionSpacing) {
-            Grid(
-                alignment: .leadingFirstTextBaseline,
-                horizontalSpacing: Self.columnSpacing,
-                verticalSpacing: Self.rowSpacing,
-            ) {
-                detail("Calendars", item.calendars.map(\.title).joined(separator: ", "))
-                if let location = item.location, location.isEmpty == false {
-                    detail("Location", location)
-                }
-                if let organiser = item.organiser {
-                    detail("Organiser", organiser.name)
-                }
-                if item.attendees.isEmpty == false {
-                    GridRow {
-                        Text("Attendees")
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: Self.lineSpacing) {
-                            ForEach(item.attendees, id: \.self) { attendee in
-                                Label(attendee.name, systemImage: Self.symbol(for: attendee.response))
-                            }
-                        }
-                    }
-                }
-                if let response = item.currentUserResponse {
-                    detail("Your response", Self.description(of: response))
-                }
-            }
+            grid
             if let notes = item.notes, notes.isEmpty == false {
                 NotesText(notes)
             }
@@ -55,6 +29,40 @@ public struct ItemDetails: View {
     private static let lineSpacing: CGFloat = 2
 
     private let item: AgendaItem
+
+    private var grid: some View {
+        Grid(
+            alignment: .leadingFirstTextBaseline,
+            horizontalSpacing: Self.columnSpacing,
+            verticalSpacing: Self.rowSpacing,
+        ) {
+            detail("Calendars", item.calendars.map(\.title).joined(separator: ", "))
+            if let location = item.location, location.isEmpty == false {
+                GridRow {
+                    Text("Location")
+                        .foregroundStyle(.secondary)
+                    LocationLink(location)
+                }
+            }
+            if let organiser = item.organiser {
+                detail("Organiser", organiser.name)
+            }
+            if item.attendees.isEmpty == false {
+                GridRow {
+                    Text("Attendees")
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: Self.lineSpacing) {
+                        ForEach(item.attendees, id: \.self) { attendee in
+                            Label(attendee.name, systemImage: Self.symbol(for: attendee.response))
+                        }
+                    }
+                }
+            }
+            if let response = item.currentUserResponse {
+                detail("Your response", Self.description(of: response))
+            }
+        }
+    }
 
     private func detail(_ label: String, _ value: String) -> some View {
         GridRow {

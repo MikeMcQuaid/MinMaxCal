@@ -18,10 +18,14 @@ public struct MenuBarLabel: View {
             .accessibilityLabel("MinMaxCal")
         if let title = model.title {
             Text(title)
+                .baselineOffset(Self.baselineOffset)
         }
     }
 
     // MARK: Private
+
+    /// The status item sets the text a little high against the icon; a negative offset lowers it.
+    private static let baselineOffset: CGFloat = -2
 
     private let model: AgendaModel
 }

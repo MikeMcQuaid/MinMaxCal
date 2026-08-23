@@ -2,19 +2,19 @@ import Foundation
 import MinMaxCalDomain
 import SwiftUI
 
+/// One item as a table row: colour dots, title, the action column, then the start and end
+/// times in columns of their own so every row's times line up.
 public struct AgendaRow: View {
     // MARK: Lifecycle
 
     public init(
         item: AgendaItem,
-        now: Date,
         style: Style,
         onJoin: @escaping (JoinLink) -> Void,
         onComplete: @escaping () -> Void = {},
         joinIsPrimary: Bool = false,
     ) {
         self.item = item
-        self.now = now
         self.style = style
         self.onJoin = onJoin
         self.joinIsPrimary = joinIsPrimary
@@ -30,24 +30,12 @@ public struct AgendaRow: View {
 
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Self.spacing) {
-            if style == .agenda, item.kind == .reminder {
-                Toggle(isOn: completion) {
-                    EmptyView()
-                }
-                .toggleStyle(.checkbox)
-                .help("Complete in Reminders")
-            }
             CalendarDots(calendars: item.calendars)
             title
-            Spacer(minLength: Self.spacing)
-            joinColumn
-            Text(timeRange)
-                .font(style == .agenda ? .body : .title2)
-                .monospacedDigit()
-            CountdownText(item: item, now: now)
-                .font(style == .agenda ? .caption : .title3)
-                .foregroundStyle(.secondary)
-                .frame(width: Self.countdownWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            actions
+                .frame(width: Self.actionColumnWidth)
+            times
         }
     }
 
@@ -56,25 +44,23 @@ public struct AgendaRow: View {
     private static let statusPadding: CGFloat = 6
     private static let spacing: CGFloat = 8
     private static let takeoverTitleLines = 2
-    private static let joinColumnWidth: CGFloat = 32
-    private static let countdownWidth: CGFloat = 44
+    private static let actionColumnWidth: CGFloat = 64
+
+    private static let agendaTimeWidth: CGFloat = 58
+    private static let takeoverTimeWidth: CGFloat = 96
 
     private let item: AgendaItem
-    private let now: Date
     private let style: Style
     private let joinIsPrimary: Bool
     private let onComplete: () -> Void
     private let onJoin: (JoinLink) -> Void
 
-    private var completion: Binding<Bool> {
-        Binding(
-            get: { false },
-            set: { ticked in
-                if ticked {
-                    onComplete()
-                }
-            },
-        )
+    private var timeColumnWidth: CGFloat {
+        style == .agenda ? Self.agendaTimeWidth : Self.takeoverTimeWidth
+    }
+
+    private var timeFont: Font {
+        style == .agenda ? .body : .title2
     }
 
     private var status: String? {
@@ -93,18 +79,6 @@ public struct AgendaRow: View {
         }
     }
 
-    private var timeRange: String {
-        if item.isAllDay {
-            return "All day"
-        }
-        let start = item.start.formatted(date: .omitted, time: .shortened)
-        guard let end = item.end else {
-            return start
-        }
-
-        return "\(start)–\(end.formatted(date: .omitted, time: .shortened))"
-    }
-
     private var title: some View {
         HStack(spacing: Self.statusPadding) {
             Text(item.title.isEmpty ? "Untitled" : item.title)
@@ -120,14 +94,34 @@ public struct AgendaRow: View {
         }
     }
 
-    /// A fixed-width column keeps every row's time aligned whether or not it has a call.
-    @ViewBuilder private var joinColumn: some View {
-        if let link = item.joinLink {
-            JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
-                .frame(minWidth: Self.joinColumnWidth)
+    /// A fixed-width column keeps the times aligned whether a row has a call, a checkbox or neither.
+    private var actions: some View {
+        HStack(spacing: Self.spacing) {
+            if style == .agenda, item.kind == .reminder {
+                CompleteButton(isPrimary: false, action: onComplete)
+            }
+            if let link = item.joinLink {
+                JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
+            }
+        }
+    }
+
+    @ViewBuilder private var times: some View {
+        if item.isAllDay {
+            Text("All day")
+                .font(timeFont)
+                .foregroundStyle(.secondary)
+                .frame(width: timeColumnWidth + timeColumnWidth, alignment: .leading)
         } else {
-            Color.clear
-                .frame(width: Self.joinColumnWidth, height: 1)
+            Text(item.start.formatted(date: .omitted, time: .shortened))
+                .font(timeFont)
+                .monospacedDigit()
+                .frame(width: timeColumnWidth, alignment: .trailing)
+            Text(item.end.map { "–\($0.formatted(date: .omitted, time: .shortened))" } ?? "")
+                .font(timeFont)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: timeColumnWidth, alignment: .leading)
         }
     }
 }

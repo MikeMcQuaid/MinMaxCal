@@ -13,7 +13,6 @@ struct SnapshotTests {
         let link = try JoinLink(service: .zoom, url: #require(URL(string: "zoommtg://zoom.us/join?confno=1")))
         let row = AgendaRow(
             item: Fixtures.event("e", title: "Weekly planning", link: link),
-            now: Fixtures.now,
             style: .agenda,
             onJoin: { _ in },
         )

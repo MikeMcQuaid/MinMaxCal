@@ -40,7 +40,6 @@ public struct TakeoverView: View {
                 }
                 TakeoverEntryView(
                     entry: entry,
-                    now: model.now,
                     joinIsPrimary: joinIsPrimary && index == 0,
                     onJoin: model.join,
                 )
@@ -59,17 +58,8 @@ public struct TakeoverView: View {
     private func actions(_ takeover: Takeover, completeIsPrimary: Bool) -> some View {
         HStack {
             if takeover.reminders.isEmpty == false {
-                if completeIsPrimary {
-                    Button("Complete") {
-                        Task { await model.complete() }
-                    }
-                    .buttonStyle(.glassProminent)
-                    .keyboardShortcut(.defaultAction)
-                } else {
-                    Button("Complete") {
-                        Task { await model.complete() }
-                    }
-                    .buttonStyle(.glass)
+                CompleteButton(isPrimary: completeIsPrimary) {
+                    Task { await model.complete() }
                 }
                 Menu("Snooze") {
                     ForEach(model.snoozeMinutes, id: \.self) { minutes in
