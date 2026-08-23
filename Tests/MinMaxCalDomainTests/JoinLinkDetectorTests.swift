@@ -6,7 +6,7 @@ struct JoinLinkDetectorTests {
     // MARK: Internal
 
     @Test
-    func `builds A zoom app link with the passcode`() {
+    func `builds a zoom app link with the passcode`() {
         let link = detect(url: "https://company.zoom.us/j/12345678901?pwd=abc.DEF_1-2")
         #expect(link?.service == .zoom)
         #expect(link?.app == .zoom)
@@ -26,7 +26,7 @@ struct JoinLinkDetectorTests {
     }
 
     @Test
-    func `ignores zoom links without A numeric meeting`() {
+    func `ignores zoom links without a numeric meeting`() {
         #expect(detect(url: "https://zoom.us/j/not-a-meeting")?.service == .other)
     }
 
@@ -43,7 +43,7 @@ struct JoinLinkDetectorTests {
     }
 
     @Test
-    func `prefers A call link over another link in an earlier field`() {
+    func `prefers a call link over another link in an earlier field`() {
         let link = detect(url: "https://example.com/agenda", notes: "Dial in at https://meet.google.com/abc")
         #expect(link?.service == .meet)
     }

@@ -4,7 +4,7 @@ import Testing
 
 struct TakeoverLedgerTests {
     @Test
-    func `prunes entries older than A day`() {
+    func `prunes entries older than a day`() {
         let item = Fixtures.reminder("r")
         let takeover = Takeover(entries: [Takeover.Entry(item: item, trigger: .due)], moment: item.start)
         let twoDaysAgo = Fixtures.now.addingTimeInterval(-2 * 24 * 60 * 60)

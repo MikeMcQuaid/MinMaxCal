@@ -14,6 +14,12 @@ public final class TakeoverWindowController: TakeoverPresenting {
         )
     }
 
+    deinit {
+        // Selector observers have unregistered themselves on deallocation since macOS 10.11, but
+        // being explicit costs nothing if this controller ever stops living for the app's lifetime.
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: Public
 
     public var content: () -> AnyView
