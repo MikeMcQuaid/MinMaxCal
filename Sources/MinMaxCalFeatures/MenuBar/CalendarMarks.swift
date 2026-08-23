@@ -19,7 +19,7 @@ public struct CalendarMarks: View {
             ForEach(calendars) { list in
                 // A solid tile in the calendar's colour, so a mark fully covers the one beneath it.
                 RoundedRectangle(cornerRadius: markWidth * Self.cornerShare)
-                    .fill(Color(list.colour))
+                    .fill(Color(list.colour.vivid))
                     .overlay {
                         Image(systemName: list.kind == .reminder ? "checklist" : "calendar")
                             .font(.system(size: size * Self.glyphShare, weight: .bold))
@@ -28,8 +28,6 @@ public struct CalendarMarks: View {
                     .frame(width: markWidth, height: markWidth)
             }
         }
-        // Calendar colours are pastel by convention; a little darker reads against any background.
-        .brightness(Self.darkening)
         .frame(width: max(columnWidth, stackWidth), alignment: .leading)
         .accessibilityLabel(calendars.map(\.title).joined(separator: ", "))
     }
@@ -40,7 +38,6 @@ public struct CalendarMarks: View {
     private static let overlap: CGFloat = 0.7
     private static let cornerShare: CGFloat = 0.25
     private static let glyphShare: CGFloat = 0.7
-    private static let darkening = -0.12
     private static let inset: CGFloat = 4
 
     private let calendars: [CalendarList]
