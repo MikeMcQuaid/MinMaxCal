@@ -41,11 +41,16 @@ docs_style() {
     echo "CLAUDE.md must be a symlink to AGENTS.md" >&2
     return 1
   fi
-  # The menu bar imageset must carry the same leaf as the app icon.
-  cmp -s App/Icons/AppIcon.icon/Assets/Leaf.svg App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg || {
-    echo "App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg differs from App/Icons/AppIcon.icon/Assets/Leaf.svg" >&2
+  # The app icon adds takeover corners that would be illegible in the menu bar.
+  [[ -f App/Icons/AppIcon.icon/Assets/AppMark.svg && -f App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg ]] || {
+    echo "The app and menu bar icon sources must exist" >&2
     return 1
   }
+  cmp -s App/Icons/AppIcon.icon/Assets/AppMark.svg App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg && {
+    echo "The app and menu bar icons must remain distinct" >&2
+    return 1
+  }
+  return 0
 }
 
 swift_style() {

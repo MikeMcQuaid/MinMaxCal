@@ -7,10 +7,10 @@
       "layers" : [
         {
           "fill" : "automatic",
-          "image-name" : "Leaf.svg",
-          "name" : "Leaf",
+          "image-name" : "AppMark.svg",
+          "name" : "Calendar Takeover",
           "position" : {
-            "scale" : 0.62,
+            "scale" : 0.72,
             "translation-in-points" : [
               0,
               0

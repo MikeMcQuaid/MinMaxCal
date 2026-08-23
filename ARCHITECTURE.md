@@ -382,19 +382,19 @@ directory breaks the moment the directory changes.
 
 ### Icons (Always there)
 
-Both icons derive from one drawing, committed as SVG under `App/Icons`:
-a calendar leaf (a rounded page with two binding rings and a header
-band) whose date area holds a single filled square in the lower right.
-The menu bar icon is that drawing alone in `App/Assets.xcassets/
-MenuBarIcon.imageset`, an SVG with `template-rendering-intent` set to
+The menu bar icon is a calendar leaf (a rounded page with two binding
+rings and a header band) whose date area holds a single filled square
+in the lower right. It lives in `App/Assets.xcassets/
+MenuBarIcon.imageset` as an SVG with `template-rendering-intent` set to
 template so it takes the menu bar's colour, at 18 points. The app icon
-is `App/Icons/AppIcon.icon`, an Icon Composer document layering the
-same leaf over a tinted glass tile, which Xcode 27 compiles into the
-asset catalogue with the flat fallbacks macOS needs. `script/icons`
-renders both sources to PNG at menu bar (1x and 2x) and Dock sizes
-into the gitignored `.test-scratch` so an agent or a reviewer can look
-at them without building, since neither a Dock nor a menu bar exists in
-a terminal.
+is `App/Icons/AppIcon.icon`, an Icon Composer document with a white
+calendar leaf inside orange full-screen corners over a blue tinted
+glass tile. Xcode 27 compiles it into the asset catalogue with the flat
+fallbacks macOS needs. `script/icons` renders the menu bar's `Leaf.svg`
+at 1x and 2x, and `AppMark.svg` over a hard-coded approximation of the
+gradient tile at Dock size, into the gitignored `.test-scratch`. It does
+not render the Icon Composer document; build the app to inspect the
+compiled icon.
 
 ## State and persistence
 
