@@ -13,7 +13,7 @@ struct TakeoverEntryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Self.sectionSpacing) {
             AgendaRow(item: entry.item, style: .takeover, onJoin: onJoin, joinIsPrimary: joinIsPrimary)
-            ItemDetails(item: entry.item, rules: rules)
+            ItemDetails(item: entry.item, rules: rules, showsAttendees: true)
         }
     }
 

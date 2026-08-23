@@ -83,9 +83,13 @@ public struct AgendaView: View {
             .help("Settings")
             .keyboardShortcut(",")
             Spacer()
-            Button("Quit") {
+            Button {
                 NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit", systemImage: "power")
             }
+            .labelStyle(.iconOnly)
+            .help("Quit MinMaxCal")
             .keyboardShortcut("q")
         }
         .buttonStyle(.glass)

@@ -21,6 +21,8 @@ struct LinkedTextTests {
         let text = LinkedText.attributed(html)
 
         #expect(String(text.characters).contains("Join the room or call."))
+        #expect(String(text.characters).hasSuffix("docs"))
+        #expect(String(LinkedText.attributed("<p>One</p><p></p><br>\n").characters) == "One")
         #expect(String(text.characters).contains("<") == false)
         #expect(links(in: text) == ["https://example.com/room", "https://example.com/docs"])
     }

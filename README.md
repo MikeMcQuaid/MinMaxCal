@@ -138,12 +138,13 @@ the same time queue up: dismissing the first shows the next.
 | Zoom (`zoom.us/j/…`, `*.zoom.us/j/…`, `zoommtg://`) | the Zoom app, straight into the meeting with its passcode |
 | Google Meet (`meet.google.com/…`) | Microsoft Edge |
 | Jitsi (`meet.jit.si/…` and any host listed in Settings) | Microsoft Edge |
-| anything else the event links to | the default browser |
+| the event's own URL, when it is a web address | the default browser |
 
-Links are found in the event's URL, location and notes, in that order;
-a recognised call link anywhere wins over a plain web link found
-earlier, so an agenda link in the URL field does not hide the Zoom link
-in the notes. The same join button sits on agenda rows.
+Call links are found in the event's URL, location and notes, in that
+order, so an agenda link in the URL field does not hide the Zoom link
+in the notes. A plain web link in the location or notes (a scheduling
+tool's planner, a document) is never mistaken for a call: it stays a
+link in the details. The same join button sits on agenda rows.
 
 ### ⚙️ Settings
 

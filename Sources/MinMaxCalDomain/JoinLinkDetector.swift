@@ -4,12 +4,13 @@ import Foundation
 public enum JoinLinkDetector {
     // MARK: Public
 
-    /// The first recognised call link, or failing that the first web link, in field order.
+    /// The first recognised call link in field order, or failing that the event's own URL when it
+    /// is a web address; a plain link in the location or notes is never a call.
     public static func detect(url: URL?, location: String?, notes: String?, rules: MatchingRules) -> JoinLink? {
         let candidates = [url].compactMap(\.self) + links(in: location ?? "").map(\.url) + links(in: notes ?? "")
             .map(\.url)
         let recognised = candidates.compactMap { classify($0, rules: rules) }
-        return recognised.first { $0.service != .other } ?? recognised.first
+        return recognised.first { $0.service != .other } ?? url.flatMap { classify($0, rules: rules) }
     }
 
     /// Every web and `zoommtg://` link in the text with its range, for rendering notes.

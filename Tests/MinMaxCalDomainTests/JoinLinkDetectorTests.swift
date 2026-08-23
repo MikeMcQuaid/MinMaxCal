@@ -39,7 +39,7 @@ struct JoinLinkDetectorTests {
 
         #expect(detect(notes: "https://meet.jit.si/Room")?.service == .jitsi)
         #expect(detect(notes: "https://jitsi.example.org/Room")?.service == .jitsi)
-        #expect(detect(notes: "https://jitsi.elsewhere.org/Room")?.service == .other)
+        #expect(detect(notes: "https://jitsi.elsewhere.org/Room") == nil)
     }
 
     @Test
@@ -49,10 +49,11 @@ struct JoinLinkDetectorTests {
     }
 
     @Test
-    func `falls back to the first web link in order`() {
-        let link = detect(location: "See https://example.com/room", notes: "https://example.com/other")
-        #expect(link?.url.absoluteString == "https://example.com/room")
-        #expect(link?.app == .browser)
+    func `falls back to the event's own web address but never to a link in the text`() {
+        let own = detect(url: "https://example.com/room", notes: "https://app.reclaim.ai/planner")
+        #expect(own?.url.absoluteString == "https://example.com/room")
+        #expect(own?.app == .browser)
+        #expect(detect(location: "See https://example.com/room", notes: "https://app.reclaim.ai/planner") == nil)
     }
 
     @Test

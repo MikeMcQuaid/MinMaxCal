@@ -6,9 +6,10 @@ import SwiftUI
 public struct ItemDetails: View {
     // MARK: Lifecycle
 
-    public init(item: AgendaItem, rules: MatchingRules) {
+    public init(item: AgendaItem, rules: MatchingRules, showsAttendees: Bool = false) {
         self.item = item
         self.rules = rules
+        _showsAttendees = State(initialValue: showsAttendees)
     }
 
     // MARK: Public

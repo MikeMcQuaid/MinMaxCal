@@ -9,6 +9,13 @@ enum LinkedText {
 
     static func attributed(_ notes: String) -> AttributedString {
         var result = looksLikeHTML(notes) ? fromHTML(notes) ?? AttributedString(notes) : AttributedString(notes)
+        // The importer ends every paragraph with a line break; the last line of text is the bottom.
+        while let last = result.characters.last, last.isWhitespace {
+            result.characters.removeLast()
+        }
+        while let first = result.characters.first, first.isWhitespace {
+            result.characters.removeFirst()
+        }
         let plain = String(result.characters)
         for link in JoinLinkDetector.links(in: plain) where link.url.scheme != "zoommtg" {
             guard let range = Range(link.range, in: result), result[range].runs.allSatisfy({ $0.link == nil }) else {

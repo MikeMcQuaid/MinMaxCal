@@ -45,15 +45,15 @@ public struct AgendaRow: View {
     // MARK: Private
 
     private static let statusPadding: CGFloat = 6
-    private static let spacing: CGFloat = 6
+    private static let spacing: CGFloat = 4
     private static let takeoverTitleLines = 2
     private static let dashColumnWidth: CGFloat = 8
     private static let agendaRowHeight: CGFloat = 24
     private static let takeoverRowHeight: CGFloat = 44
     /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.
     private static let agendaTimeWidth: CGFloat = usesTwelveHourClock ? twelveHourTimeWidth : twentyFourHourTimeWidth
-    private static let twelveHourTimeWidth: CGFloat = 66
-    private static let twentyFourHourTimeWidth: CGFloat = 44
+    private static let twelveHourTimeWidth: CGFloat = 62
+    private static let twentyFourHourTimeWidth: CGFloat = 40
     private static let takeoverTimeWidth: CGFloat = agendaTimeWidth * takeoverScale
     private static let takeoverScale: CGFloat = 1.7
     private static let usesTwelveHourClock = Date.now
@@ -131,7 +131,7 @@ public struct AgendaRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: timeColumnWidth + Self.dashColumnWidth + timeColumnWidth, alignment: .leading)
         } else {
-            Text(item.start.formatted(date: .omitted, time: .shortened))
+            Text(Self.clock(item.start))
                 .font(timeFont)
                 .monospacedDigit()
                 .frame(width: timeColumnWidth, alignment: .trailing)
@@ -139,11 +139,18 @@ public struct AgendaRow: View {
                 .font(timeFont)
                 .foregroundStyle(.secondary)
                 .frame(width: Self.dashColumnWidth)
-            Text(item.end?.formatted(date: .omitted, time: .shortened) ?? "")
+            Text(item.end.map(Self.clock) ?? "")
                 .font(timeFont)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(width: timeColumnWidth, alignment: .trailing)
         }
+    }
+
+    /// Two-digit hours keep every time the same width, so the dash sits evenly between them.
+    private static func clock(_ date: Date) -> String {
+        let hour: Date.FormatStyle.Symbol
+            .Hour = usesTwelveHourClock ? .twoDigits(amPM: .abbreviated) : .twoDigits(amPM: .omitted)
+        return date.formatted(.dateTime.hour(hour).minute(.twoDigits))
     }
 }
