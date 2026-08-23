@@ -36,6 +36,7 @@ public struct AgendaRow: View {
                 calendars: item.calendars,
                 size: style == .agenda ? Self.agendaMarkSize : Self.takeoverMarkSize,
             )
+            .padding(.trailing, style == .agenda ? 0 : Self.takeoverMarkGap)
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             times
@@ -53,6 +54,7 @@ public struct AgendaRow: View {
     private static let dashColumnWidth: CGFloat = 6
     private static let agendaMarkSize: CGFloat = 13
     private static let takeoverMarkSize: CGFloat = 24
+    private static let takeoverMarkGap: CGFloat = 8
     private static let agendaRowHeight: CGFloat = 24
     private static let takeoverRowHeight: CGFloat = 44
     /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.

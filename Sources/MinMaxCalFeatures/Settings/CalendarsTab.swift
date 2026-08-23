@@ -27,15 +27,22 @@ struct CalendarsTab: View {
 
     private static let groupSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
+    private static let headingSpacing: CGFloat = 6
     private static let markSize: CGFloat = 13
     private static let markSpacing: CGFloat = 3
 
     @ViewBuilder
     private func groups(_ title: String, _ groups: [AccountGroup]) -> some View {
         if groups.isEmpty == false {
-            Text(title)
-                .font(.headline)
+            VStack(alignment: .leading, spacing: Self.headingSpacing) {
+                Text(title)
+                    .font(.headline)
+                accounts(groups)
+            }
         }
+    }
+
+    private func accounts(_ groups: [AccountGroup]) -> some View {
         ForEach(groups) { group in
             VStack(alignment: .leading, spacing: Self.rowSpacing) {
                 Text(group.account)
