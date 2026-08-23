@@ -154,12 +154,10 @@ public struct AgendaRow: View {
                 .frame(width: Self.agendaTimeWidth, alignment: .trailing)
             Text(item.end == nil ? "" : "–")
                 .font(timeFont)
-                .foregroundStyle(.secondary)
                 .frame(width: Self.dashColumnWidth)
             Text(item.end.map(Self.clock) ?? "")
                 .font(timeFont)
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
                 .frame(width: Self.agendaTimeWidth, alignment: .trailing)
         }
     }
