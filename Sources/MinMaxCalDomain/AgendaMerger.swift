@@ -13,7 +13,9 @@ public enum AgendaMerger {
     // MARK: Private
 
     private struct Timing: Hashable {
+        // periphery:ignore - read only by the synthesised Hashable conformance, as a grouping key
         var start: Date
+        // periphery:ignore - read only by the synthesised Hashable conformance, as a grouping key
         var end: Date?
     }
 

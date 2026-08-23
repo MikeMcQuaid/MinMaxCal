@@ -1,4 +1,3 @@
-import MinMaxCalDomain
 import SwiftUI
 
 struct NotesText: View {
