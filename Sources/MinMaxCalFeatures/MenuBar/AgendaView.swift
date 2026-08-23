@@ -32,6 +32,9 @@ public struct AgendaView: View {
                 .padding()
             }
             .frame(maxHeight: Self.maximumHeight)
+            // The menu bar window proposes no height, so the list must
+            // size itself to its rows rather than collapse to nothing.
+            .fixedSize(horizontal: false, vertical: true)
             Divider()
             footer
         }

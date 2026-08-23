@@ -106,6 +106,10 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   directory.
 - SwiftUI `List`/`Section` crash AppKit's outline diff when rows are
   removed conditionally; the agenda is a plain `ScrollView`.
+- The `MenuBarExtra` window proposes no height to flexible views, so
+  a `ScrollView` there collapses to nothing; the agenda's carries
+  `fixedSize(horizontal: false, vertical: true)` under its
+  `frame(maxHeight:)` to size to its rows up to the cap.
 - `Text("\(someInt)")` applies digit grouping; use `String(_:)`.
 - Trailing closures after multiline calls fight SwiftFormat; keep
   them single-line or make the closure a non-final argument.

@@ -55,9 +55,12 @@ struct SnapshotTests {
         let image = try #require(render(AgendaView(model: model)))
 
         #expect(image.width == 360)
+        #expect(image.height > Self.footerHeight, "the rows must give the list its height")
     }
 
     // MARK: Private
+
+    private static let footerHeight = 60
 
     private func render(_ view: some View) -> CGImage? {
         let renderer = ImageRenderer(content: view)
