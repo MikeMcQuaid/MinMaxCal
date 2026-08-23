@@ -1,0 +1,84 @@
+import AppKit
+import SwiftUI
+
+public final class TakeoverWindowController: TakeoverPresenting {
+    // MARK: Lifecycle
+
+    public init(content: @escaping () -> AnyView) {
+        self.content = content
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screensChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+        )
+    }
+
+    deinit {
+        // Selector observers have unregistered themselves on deallocation since macOS 10.11, but
+        // being explicit costs nothing if this controller ever stops living for the app's lifetime.
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: Public
+
+    public var content: () -> AnyView
+
+    public func show() {
+        NSApplication.shared.activate()
+        fit()
+    }
+
+    public func hide() {
+        for window in windows {
+            window.orderOut(nil)
+        }
+        windows = []
+    }
+
+    // MARK: Private
+
+    private var windows: [TakeoverWindow] = []
+
+    @objc
+    private func screensChanged() {
+        if windows.isEmpty == false {
+            fit()
+        }
+    }
+
+    private func fit() {
+        let screens = NSScreen.screens
+        windows.removeAll { window in
+            guard let screen = window.screen, screens.contains(screen) else {
+                window.orderOut(nil)
+                return true
+            }
+
+            window.setFrame(screen.frame, display: true)
+            return false
+        }
+        for screen in screens where windows.contains(where: { $0.screen == screen }) == false {
+            windows.append(makeWindow(on: screen))
+        }
+        for window in windows {
+            window.orderFrontRegardless()
+        }
+        let mouse = NSEvent.mouseLocation
+        (windows.first { $0.frame.contains(mouse) } ?? windows.first)?.makeKeyAndOrderFront(nil)
+    }
+
+    private func makeWindow(on screen: NSScreen) -> TakeoverWindow {
+        // The frame is in global coordinates; passing `screen:` too would offset it by the
+        // screen's origin, leaving every display but the first half covered.
+        let window = TakeoverWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.level = .screenSaver
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: content())
+        return window
+    }
+}

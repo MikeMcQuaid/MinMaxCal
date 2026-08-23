@@ -1,0 +1,1 @@
+.build/DerivedData/Build/Products/Release/MinMaxCal.app

@@ -17,7 +17,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate
   `MinMaxCal.xcodeproj` with XcodeGen
-- `script/build`: build the app with xcodebuild
+- `script/build`: build the app with xcodebuild; `MinMaxCal.app` in
+  the repository root symlinks its output
 - `script/install`: build, then copy the app into /Applications so
   the login item and the running copy survive rebuilds
 - `script/test`: run the unit tests
@@ -58,8 +59,9 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 ### UI Principles
 
 - One implementation per concern: the agenda row, the join button,
-  the countdown text and the calendar colour dots each have exactly
-  one shared view used by the agenda and the takeover alike. Before
+  the complete button, the calendar marks and the item details
+  (with its notes and location links) each have exactly one shared
+  view used by the agenda and the takeover alike. Before
   adding a second approach to any such concern, get explicit
   confirmation.
 - The menu bar title is the app: it must be correct within a minute
@@ -105,14 +107,43 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   directory.
 - SwiftUI `List`/`Section` crash AppKit's outline diff when rows are
   removed conditionally; the agenda is a plain `ScrollView`.
+- A `Label` as the `MenuBarExtra` label shows its icon only, and
+  `.task`/`.onAppear` on that label never run; the label is a bare
+  `Image` then `Text`, and the refresh loop starts from the app.
+- The `MenuBarExtra` window proposes no height to flexible views, so
+  a `ScrollView` there collapses to nothing; the agenda's carries
+  `fixedSize(horizontal: false, vertical: true)` under its
+  `frame(maxHeight:)` to size to its rows up to the cap.
 - `Text("\(someInt)")` applies digit grouping; use `String(_:)`.
 - Trailing closures after multiline calls fight SwiftFormat; keep
   them single-line or make the closure a non-final argument.
 - Length-limit splits use cross-file extensions; same-file grouping
   extensions are banned by SwiftLint.
-- `@AppStorage` keys are the cross-module signal bus for settings;
-  a repeated request needs a counter beside its value, since writing
-  the same string publishes no change.
+- `SettingsStore.changes` (`UserDefaults.didChangeNotification`) is
+  the cross-module signal bus for settings. The stream subscribes
+  when first iterated, not when created, so start consuming before
+  writing; a test that writes first hangs forever.
+- `UserDefaults` is not `Sendable` on the macOS 27 SDK, which is why
+  `SettingsStore` is `@MainActor` rather than a nonisolated class.
+- A MainActor type cannot conform to a `Sendable` port in an isolated
+  way (`cannot form main actor-isolated conformance ... to
+  SendableMetatype-inheriting protocol`); test fakes guard their state
+  with `Mutex` from `Synchronization` instead.
+- xcodebuild sandboxes the macro plugin server too, so `@Observable`
+  fails with `produced malformed response` in a sandvault session;
+  `script/build` passes `OTHER_SWIFT_FLAGS=$(inherited)
+  -disable-sandbox`. The `$(inherited)` matters: overriding the flags
+  outright drops the package's default isolation settings.
+- XcodeGen's `info.path` and `entitlements.path` generate those files;
+  hand-written ones are referenced through `INFOPLIST_FILE` and
+  `CODE_SIGN_ENTITLEMENTS` and excluded from the sources.
+- SwiftFormat's `propertyTypes` rule guesses a type from a static
+  member's name, so a factory such as `Fixtures.ledgerStore()` needs
+  an explicit type annotation or it becomes `: Fixtures`.
+- `--enable all` in `.swiftformat` cannot be narrowed by `--disable`;
+  clashes are settled on the SwiftLint side or per line.
+- `rm` is interactive in the sandbox shell; use `rm -f` in scripts
+  and agent commands or a deletion silently does nothing.
 - `cannot execute tool 'metal' due to missing Metal Toolchain` can
   break app builds inside a sandbox when the host user has the
   toolchain mounted. Eject the host user's mount, as the host user,

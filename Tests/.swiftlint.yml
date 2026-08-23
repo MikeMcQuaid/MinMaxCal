@@ -1,0 +1,6 @@
+# Tests build fixtures from literal dates, durations and sizes and from
+# fixture functions whose defaults are the point, so the two rules that
+# police those in production code are off here.
+disabled_rules:
+  - discouraged_default_parameter
+  - no_magic_numbers

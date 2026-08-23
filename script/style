@@ -1,0 +1,95 @@
+#!/bin/bash
+# Run every linter across the repository; --fix also applies safe fixes.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+STYLE_FIX=""
+[[ "${1-}" == "--fix" ]] && STYLE_FIX="1"
+
+shell_style() {
+  shellcheck script/*
+  if [[ -n "${STYLE_FIX}" ]]; then
+    shfmt -i 2 -ci -w script/*
+  else
+    shfmt -i 2 -ci -d script/*
+  fi
+}
+
+github_actions_style() {
+  actionlint
+  zizmor --no-online-audits .github/workflows
+
+  # Only first-party (actions/*) and Homebrew (Homebrew/actions/*)
+  # actions are allowed; anything else needs a human decision, so add
+  # it here deliberately rather than letting it slip in.
+  local disallowed
+  disallowed="$(grep -rhoE 'uses:[[:space:]]*[^[:space:]#]+' .github/workflows |
+    sed -E 's/uses:[[:space:]]*//' |
+    grep -vE '^(actions/|Homebrew/actions/)' || true)"
+  if [[ -n "${disallowed}" ]]; then
+    echo "Only actions/* or Homebrew/actions/* actions are allowed:" >&2
+    echo "${disallowed}" >&2
+    return 1
+  fi
+}
+
+docs_style() {
+  awk 'length > 72 { print FILENAME ":" FNR ": longer than 72 characters"; failed = 1 } END { exit failed }' \
+    AGENTS.md || return 1
+  if [[ "$(readlink CLAUDE.md)" != "AGENTS.md" ]]; then
+    echo "CLAUDE.md must be a symlink to AGENTS.md" >&2
+    return 1
+  fi
+  # The menu bar imageset must carry the same leaf as the app icon.
+  cmp -s App/Icons/AppIcon.icon/Assets/Leaf.svg App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg || {
+    echo "App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg differs from App/Icons/AppIcon.icon/Assets/Leaf.svg" >&2
+    return 1
+  }
+}
+
+swift_style() {
+  if [[ -n "${STYLE_FIX}" ]]; then
+    swiftformat .
+    swiftlint --fix --quiet
+  else
+    swiftformat --lint .
+  fi
+  swiftlint --strict --quiet
+}
+
+# The families touch disjoint files with independent tools, so they run
+# concurrently; each writes its status to a file and keeps its output
+# whole so nothing interleaves.
+scratch="$(mktemp -d -t minmaxcal-style)"
+trap 'rm -rf "${scratch}"' EXIT
+run_family() {
+  case "$1" in
+    shell) shell_style ;;
+    github_actions) github_actions_style ;;
+    docs) docs_style ;;
+    swift) swift_style ;;
+    *) return 1 ;;
+  esac
+}
+
+families=(shell github_actions docs swift)
+for family in "${families[@]}"; do
+  (
+    status=0
+    (
+      set -e
+      run_family "${family}"
+    ) >"${scratch}/${family}.log" 2>&1 || status=$?
+    echo "${status}" >"${scratch}/${family}.status"
+  ) &
+done
+wait
+failed=0
+for family in "${families[@]}"; do
+  cat "${scratch}/${family}.log"
+  if [[ "$(cat "${scratch}/${family}.status" 2>/dev/null || echo 1)" != "0" ]]; then
+    failed=1
+  fi
+done
+exit "${failed}"

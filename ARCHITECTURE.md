@@ -76,7 +76,8 @@ Boundary facts the design relies on:
    down in the README, or left out; private API is never called.
 6. **P6: Calendar data is untrusted input.** Titles, notes and URLs come
    from invitations anyone can send. Link detection only ever produces
-   URLs with known schemes and hosts, and notes render as text.
+   URLs with known schemes and hosts, and notes render as text, HTML
+   reduced to its characters and web anchors.
 
 ## Process model and lifecycles
 
@@ -87,7 +88,9 @@ notification spool: a takeover needs the app running, which is what
 launch at login is for. A takeover whose moment passed while the app was
 not running is still shown on launch when the moment is within the last
 ten minutes (the README's rule), so a crash or an update during a
-meeting's first minutes still surfaces it.
+meeting's first minutes still surfaces it; while the app runs, anything
+that fell due since the scheduler last ran fires on the next rebuild,
+however long the Mac slept.
 
 ### Activation
 
@@ -95,7 +98,7 @@ meeting's first minutes still surfaces it.
 accessory from launch. The `MenuBarExtra` scene is the root; its window
 style (`.menuBarExtraStyle(.window)`) hosts the agenda as SwiftUI rather
 than as menu items, which is what allows checkboxes, join buttons and
-colour dots in rows. Opening Settings or a takeover calls
+colour marks in rows. Opening Settings or a takeover calls
 `NSApp.activate()` first, since an accessory app's windows otherwise
 open behind the frontmost app.
 
@@ -154,19 +157,23 @@ flowchart TD
   `Countdown` (two largest units, `<1m`, `now`, to the start or to the
   end of whatever is in progress), `JoinLinkDetector`
   and `TakeoverPlanner` (the next `Takeover` given an agenda, the
-  ledger, the clock and the settings). Foundation value types (Date,
-  URL and Data) are allowed; EventKit, AppKit, process, file and
-  network APIs are banned.
+  ledger, the clock and the settings). `TakeoverLedger` and
+  `TakeoverSettings` are Domain values too, so the planner is pure.
+  Foundation value types (Date, URL and Data) are allowed; EventKit,
+  AppKit, process, file and network APIs are banned.
 - **MinMaxCalData**: protocol ports with adapter implementations.
-  `CalendarSource` (`requestAccess`, `lists`, `agenda(from:to:
-  selection:)`, `complete(reminder:)`, `changes`) with
-  `EventKitCalendarSource`; `LoginItem` with `SMAppServiceLoginItem`;
-  `LinkOpener` with `WorkspaceLinkOpener` (opens a URL in a named
-  bundle identifier, falling back to the default handler when the app
-  is not installed); `SettingsStore` over `UserDefaults`; and
-  `TakeoverLedger`, a JSON file of dismissals and snoozes pruned of
-  anything older than a day. One module, split only if boundary
-  violations appear.
+  `CalendarSource` (`requestAccess`, `accessStatus`, `lists`,
+  `agenda(from:to:selection:rules:)`, `complete(reminder:)`,
+  `changes`) with `EventKitCalendarSource`, the rules being passed so
+  the decoder can run `JoinLinkDetector` with the configured Jitsi
+  hosts; `LoginItem` with `SMAppServiceLoginItem`; `LinkOpener` with
+  `WorkspaceLinkOpener` (opens a URL in a named bundle identifier,
+  falling back to the default handler when the app is not installed);
+  `SettingsStore` over `UserDefaults`, MainActor-isolated because
+  `UserDefaults` is not `Sendable` on the macOS 27 SDK; and
+  `TakeoverLedgerStore`, which reads and writes the `TakeoverLedger`
+  JSON file, pruning anything older than a day on every write. One
+  module, split only if boundary violations appear.
 - **MinMaxCalFeatures**: SwiftUI views and `@Observable` view models,
   MainActor by default, given ports via injection. Three folders, one
   per surface: `MenuBar` (the label, the agenda list and `AgendaModel`),
@@ -212,13 +219,19 @@ is marked `@concurrent`: the heaviest work is merging a day of events,
 which is not worth moving off the main actor.
 
 Events flow as `AsyncStream`s (the store's change notification, the
-minute tick, wake and settings changes) consumed by `AgendaModel` via
-`.task` on the `MenuBarExtra` label, which is the one view that is
-always alive; cancellation therefore follows app lifetime. The takeover
-scheduler is one structured child task sleeping until the planned
-moment, cancelled and restarted on every agenda rebuild, so a changed
-or deleted event can never fire a stale takeover. Unstructured `Task {}`
-appears only in the AppKit window controller's button callbacks.
+minute tick, wake and settings changes) consumed by `AgendaModel.run()`,
+which the app starts in one `Task` from its initialiser: a menu bar app
+has no view that is reliably alive to host the loop as a `.task`, and
+modifiers on the `MenuBarExtra` label never run. The task lives as long
+as the process. `run()` merges the streams in one task group and
+rebuilds on every element.
+The takeover scheduler is one `Task` stored on `TakeoverModel`,
+sleeping until the planned moment, cancelled and replaced on every
+agenda rebuild, so a changed or deleted event can never fire a stale
+takeover; a second stored task ticks the countdown once a second while
+a panel is showing. The only other unstructured tasks bridge
+`NotificationCenter` sequences into the streams and run the async
+Complete action from SwiftUI button callbacks.
 
 ## Key data flows
 
@@ -263,12 +276,17 @@ appears only in the AppKit window controller's button callbacks.
    or one side is in `MatchingRules.genericTitles`. A group with two
    distinct specific titles splits into one item per specific title,
    generic members attaching to the first by calendar order. The merged
-   item's title is the longest specific title, its calendars are the
-   union, and location, notes, URL, organiser and attendees come from
-   the first member that has each. Acceptance is true when any member
-   is accepted, since the user accepted the meeting somewhere.
-5. The result is sorted by start, reminders and events interleaved, and
-   published as the new `Agenda`.
+   item's title is the longest specific title and its calendars are
+   the union; location, notes, URL, organiser, attendees, the user's
+   response and acceptance come from the members with a specific title
+   (or from every member when none has one), in calendar order, so a
+   generic copy is never the source of truth for an invitation.
+   Acceptance is true when any such member is accepted, since the user
+   accepted the meeting somewhere.
+5. `AgendaFilter.named` then drops any event left with only a generic
+   title, since a lone `Busy` block is not a meeting and several never
+   combine into one, and the result is sorted by start, reminders and
+   events interleaved, and published as the new `Agenda`.
 
 ### The menu bar title (Glance)
 
@@ -278,29 +296,37 @@ in the middle to the configured limit (24 grapheme clusters by default,
 a single `…` between the kept head and tail) and appends
 `Countdown.format(from:to:)` to the start, or to the end once the start
 has passed. A reminder has no end, so it counts down to its due time
-and then reads `now` until completed. The `MenuBarExtra` label is an `Image` of
-the template icon followed by that `Text`; SwiftUI re-renders it when
-`AgendaModel` publishes, which the minute tick guarantees at least
-once a minute. A long title is capped rather than truncated by the
+and then reads `now` until completed. The `MenuBarExtra` label is an
+`Image` of the template icon followed by that `Text`, written as two
+sibling views: wrapped in a `Label`, SwiftUI shows the icon alone.
+SwiftUI re-renders it when `AgendaModel` publishes, which the minute
+tick guarantees at least once a minute. A long title is capped rather than truncated by the
 system because status items push their neighbours off the bar.
 
 ### Completing a reminder (Agenda and Takeover)
 
-A checkbox in an agenda row, or Complete in a takeover, calls
-`CalendarSource.complete(reminder:)` with the member identifier. The
-actor loads the reminder by `calendarItem(withIdentifier:)`, sets
-`isCompleted` and saves with `commit: true`. The row is removed
-optimistically and the store's change notification confirms it; a save
+The tick in an agenda row, or Complete in a takeover, calls
+`CalendarSource.setCompleted(_:reminder:)` with the member identifier.
+The actor loads the reminder by `calendarItem(withIdentifier:)`, sets
+`isCompleted` and saves with `commit: true`. The row is marked
+completed optimistically and `AgendaModel` remembers it for five
+minutes: the store no longer returns a completed reminder, so every
+rebuild in that window puts the remembered item back, struck through
+and with an undo button that calls the same port with `false`.
+`MenuBarTitle` and `TakeoverPlanner` skip completed items. A save
 error restores the row and shows the message inline.
 
 ### Scheduling and showing a takeover (Takeover)
 
 1. `TakeoverPlanner.next(agenda:ledger:now:settings:)` returns the
    earliest `Takeover` not recorded as dismissed whose moment is in the
-   future or within the last ten minutes: an accepted, non-all-day
-   event's start when start takeovers are on, or a timed reminder's due
-   date when reminder takeovers are on, or a snoozed reminder's snooze
-   time. Items due in the same minute form one takeover.
+   future, within the last ten minutes or after `since`, the last time
+   the scheduler ran: an accepted, non-all-day event's start when start
+   takeovers are on, or a timed reminder's due date when reminder
+   takeovers are on, or a snoozed reminder's snooze time. Each takeover
+   carries one item; items due together come one after another, since
+   dismissing one makes the next the earliest on the rebuild that
+   follows.
 2. `TakeoverModel` sleeps until that moment in a child task restarted
    on every rebuild, then activates the app and asks the window
    controller to show.
@@ -323,29 +349,25 @@ error restores the row and shows the message inline.
    anything else or a missing app goes through `NSWorkspace.open(_:)`.
    The takeover dismisses before the other app comes forward, so the
    call is on top.
-6. Dismiss, Complete and Join record the takeover's member identities
-   and trigger in `TakeoverLedger`; Snooze records a snooze time
-   instead. The ledger is re-read by the planner on the next rebuild,
-   which the action triggers, so nothing is shown twice and a snooze
-   survives a relaunch. Entries older than a day are pruned on write.
+6. Dismiss, Complete and Join record the takeover's member identities,
+   trigger and moment in `TakeoverLedger`, so an occurrence moved to a
+   new time shows again; Snooze records that dismissal plus a snooze
+   time, which the planner turns into a `.snooze` takeover. The ledger
+   is re-read by the planner on the next rebuild, which the action
+   triggers, so nothing is shown twice and a snooze survives a
+   relaunch. Entries older than a day are pruned on write.
 
-### Previewing a takeover (Settings)
+### Previewing a takeover (Agenda)
 
-Each Preview button in the Takeover tab calls `TakeoverModel.preview(_:)`
-with one of `AgendaItem.samples`, Domain fixtures shared with the unit
-tests and the `ImageRenderer` snapshots: an event with a Zoom link, one
-with a Meet link, one with a Jitsi link, one with no link, and a
-reminder, each with attendees, a location and notes filled in so every
-part of the panel is exercised. The preview goes through the same window
-controller and view as a live takeover; the only differences are the
-`Takeover.isPreview` flag, which makes Complete and Snooze dismiss
-without touching EventKit and keeps every action out of the ledger,
-and the sample links, which point at `https://zoom.us/test`,
-`https://meet.google.com` and `https://meet.jit.si` so Join proves the
-app routing without starting a call anyone is waiting in. The sample
-items carry a fixed start a minute in the future relative to the
-preview, so the countdown to the start and then to the end can both be
-seen by leaving the panel open.
+Preview Takeover in a row's context menu calls `TakeoverModel.preview(_:)`
+with that item. The preview goes through the same window controller and
+view as a live takeover; the only difference is the `Takeover.isPreview`
+flag, which makes Complete and Snooze dismiss without touching EventKit
+and keeps every action out of the ledger. `AgendaItem.Sample` keeps a
+Domain fixture per kind of takeover (Zoom, Meet, Jitsi, no call,
+reminder) with attendees, a location and notes filled in; the
+`ImageRenderer` snapshot tests render each through the panel so every
+part of it is exercised without a calendar.
 
 ### Launch at login (Always there)
 
@@ -379,10 +401,10 @@ a terminal.
 | Fact | Source of truth | The app's role |
 |---|---|---|
 | Events, reminders, attendees, responses, calendars, accounts | EventKit | read on every change, convert, never cache across launches |
-| Reminder completion | EventKit | the only write |
+| Reminder completion, and its undo | EventKit | the only write |
 | Login item registration | launchd via `SMAppService` | register once, reflect status |
 | Selected calendars and lists, matching rules, takeover switches, snooze durations, title limit | `UserDefaults` | sole owner |
-| Dismissed and snoozed takeovers | `~/Library/Application Support/MinMaxCal/takeovers.json` | sole owner, pruned daily |
+| Dismissed and snoozed takeovers | `Application Support/MinMaxCal/takeovers.json` inside the app's sandbox container | sole owner, pruned daily |
 
 Deleting the defaults and the ledger loses the selection and any snooze
 in flight; everything else re-derives from EventKit (P1).
@@ -399,7 +421,15 @@ in flight; everything else re-derives from EventKit (P1).
   when it has an `http` or `https` scheme. Any other scheme in an
   invitation is ignored, so an event cannot make the app open a
   `file:` or custom-scheme URL.
-- Notes render as plain text with data-detected links; never as HTML.
+- Notes render as text with `http(s)` links only. Plain notes get their
+  bare URLs detected; notes that look like HTML are first stripped of
+  every element that would load a resource (`img`, `link`, `script`,
+  `style`, `iframe`, `object`, `embed`, `video`, `audio`, `source`),
+  then reduced by AppKit's HTML importer to their characters and
+  anchors, of which only `http` and `https` survive, so no style,
+  script or remote fetch comes along. A location is a `Link` to its
+  own web URL when it contains one, otherwise to a `maps:` search for
+  its text, built by the app.
 - The app runs in the App Sandbox with the calendars entitlement
   (`com.apple.security.personal-information.calendars`, which covers
   reminders) and nothing else, and with the hardened runtime for
@@ -432,17 +462,30 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
 xcodebuild), `install` (build, then copy to /Applications), `test`
-(unit tests via `swift test`), `analyze` (static analysis), `style
-[--fix]` (all linters) and `icons` (PNG previews of the icon sources).
-Agent-driven builds inside a sandbox cannot nest macOS sandboxes, so
-build scripts gate on `SV_SESSION_ID` and pass `SWIFTPM_DISABLE_SANDBOX=1`,
-`SWIFT_BUILD_USE_SANDBOX=0` and the `-IDEPackageSupportDisable*Sandbox`
-xcodebuild flags.
+(unit tests via `swift test`, after sweeping `.test-scratch`),
+`analyze` (a from-scratch verbose build into `.build/analyze` so the
+SwiftLint analyzer sees every compiler invocation, then periphery
+outside a sandbox), `style [--fix]` (all linters) and `icons` (PNG
+previews of the icon sources, rendered by AppKit so no extra
+dependency is needed). Agent-driven builds inside a sandbox cannot nest
+macOS sandboxes, so build scripts gate on `SV_SESSION_ID` and pass
+`SWIFTPM_DISABLE_SANDBOX=1`, `SWIFT_BUILD_USE_SANDBOX=0`,
+`--disable-sandbox` to `swift build` and `swift test`, the
+`-IDEPackageSupportDisable*Sandbox` xcodebuild flags and
+`OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox`, the last because
+xcodebuild also sandboxes the macro plugin server that expands
+`@Observable`.
 
 The guardrails are layered so a mistake is caught as early as possible:
 Swift 6 strict concurrency and the type system at compile time;
-SwiftLint and SwiftFormat with every rule enabled at `script/style`;
-SwiftLint's analyzer (`unused_import`) plus periphery for dead code at
+SwiftLint and SwiftFormat with every rule enabled at `script/style`
+(`.swiftformat` enables everything and settles per-line disagreements
+in the code; `.swiftlint.yml` names each SwiftLint rule it turns off
+and the rule or SwiftFormat behaviour it conflicts with;
+`Tests/.swiftlint.yml` relaxes the magic number and default parameter
+rules for fixtures); shellcheck, shfmt, actionlint and zizmor over the
+scripts and workflows in the same `script/style`; SwiftLint's analyzer
+(`unused_import`, `unused_declaration`) plus periphery for dead code at
 `script/analyze`; and tests. Unit tests cover every Domain rule
 (`AgendaMerger`, `AgendaFilter`, `Acceptance`, `MenuBarTitle`,
 `Countdown`, `JoinLinkDetector` and `TakeoverPlanner`) over hand-built
@@ -454,11 +497,12 @@ that way, so acceptance is tested in the Domain over plain values and
 the decoder test only checks that attendee fields pass through), the
 ledger and settings stores
 over scratch directories, and the feature view models with the ports
-replaced by fakes, so the agenda, the title, completion and the
-takeover schedule test without a calendar account or a window. View
-rendering is checked with headless `ImageRenderer` snapshots. Nothing
-in the suite touches the user's real calendars: EventKit access is
-only ever requested by the app itself.
+replaced by fakes (plain classes guarding their state with a `Mutex`,
+since a MainActor type cannot conform to a `Sendable` port), so the
+agenda, the title, completion and the takeover schedule test without a
+calendar account or a window. View rendering is checked with headless
+`ImageRenderer` snapshots. Nothing in the suite touches the user's real
+calendars: EventKit access is only ever requested by the app itself.
 
 CI ("GitHub Actions CI" in `.github/workflows/tests.yml`) runs the style
 checks on every push and pull request. The build-and-test job and the
@@ -494,8 +538,10 @@ KVC (matches Calendar, unsupported, banned by P5). Event alarms are the
 natural next step if a leave alert is wanted later, since they are
 whatever the user already configured in Calendar.
 
-Other open questions: whether an overdue reminder should take over
-again at intervals or only once; whether the agenda should offer
+An overdue reminder takes over once at its due time and then only
+when snoozed, as many times as the user snoozes it; each snooze is a
+fresh takeover in the ledger, so there is no cap and no automatic
+repeat. Other open questions: whether the agenda should offer
 Accept and Decline for unanswered invitations (EventKit cannot answer
 an invitation, so this would open Calendar); and how many calendars
 is too many for a rebuild on every minute tick before the fetch needs

@@ -1,0 +1,8 @@
+brew "actionlint"
+brew "periphery"
+brew "shellcheck"
+brew "shfmt"
+brew "swiftformat"
+brew "swiftlint"
+brew "xcodegen"
+brew "zizmor"

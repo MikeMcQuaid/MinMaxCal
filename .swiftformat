@@ -1,0 +1,21 @@
+# Every rule is enabled; `--enable all` cannot be narrowed here, so rule
+# disagreements are disabled per line with a reason, never in this file.
+# The options only pick sides where a rule could otherwise disagree with
+# SwiftLint.
+--enable all
+--swiftversion 6.4
+--exclude .build,.test-scratch,MinMaxCal.xcodeproj
+--maxwidth 120
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--funcattributes prev-line
+--typeattributes prev-line
+# Group digits from four up so numberFormatting agrees with SwiftLint's
+# number_separator.
+--decimalgrouping 3,4
+--trailingcommas multi-element-lists
+--extensionacl on-extension
+--self remove
+# SwiftLint's modifier_order wants `nonisolated` ahead of access control.
+--modifierorder nonisolated,override,private,fileprivate,internal,package,public,open,private(set),fileprivate(set),internal(set),package(set),public(set),dynamic,mutating,nonmutating,lazy,final,required,convenience,static,class

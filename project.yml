@@ -1,0 +1,42 @@
+name: MinMaxCal
+options:
+  bundleIdPrefix: com.mikemcquaid
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "27.0"
+  xcodeVersion: "27.0"
+packages:
+  MinMaxCal:
+    path: .
+targets:
+  MinMaxCal:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - Icons/**
+          - Info.plist
+          - MinMaxCal.entitlements
+      - path: App/Icons/AppIcon.icon
+        type: file
+        buildPhase: resources
+    dependencies:
+      - package: MinMaxCal
+        product: MinMaxCalFeatures
+      - package: MinMaxCal
+        product: MinMaxCalData
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: App/MinMaxCal.entitlements
+        CODE_SIGN_IDENTITY: "-"
+        CURRENT_PROJECT_VERSION: 1
+        ENABLE_HARDENED_RUNTIME: YES
+        INFOPLIST_FILE: App/Info.plist
+        MARKETING_VERSION: 0.1.0
+        PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_VERSION: "6.0"

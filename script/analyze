@@ -1,0 +1,42 @@
+#!/bin/bash
+# Static analysis: unused declarations and imports via SwiftLint's
+# analyzer, plus dead-code detection via periphery outside the sandbox.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+[[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
+
+flags=(--build-tests --scratch-path .build/analyze -v)
+if [[ -n "${SV_SESSION_ID:-}" ]]; then
+  export SWIFTPM_DISABLE_SANDBOX=1
+  export SWIFT_BUILD_USE_SANDBOX=0
+  flags+=(--disable-sandbox --jobs 6)
+fi
+
+# The analyzer reads compiler invocations from the log, so every file
+# has to be compiled: build from scratch into its own directory. A
+# failed build must never be analysed, since a stale log reports a
+# confident "0 violations".
+log=.build/analyze-build.log
+mkdir -p .build
+rm -rf .build/analyze
+if ! swift build "${flags[@]}" >"${log}" 2>&1; then
+  echo "analyze aborted: the build failed, so there is nothing trustworthy to analyse" >&2
+  grep -E "error:" "${log}" | head -20 >&2
+  exit 1
+fi
+swiftlint analyze --compiler-log-path "${log}" --strict --quiet
+
+# periphery scans through the app scheme, since its SPM mode finds no
+# index store under the current build system; it re-drives xcodebuild,
+# whose package resolution cannot nest inside a sandvault session.
+if [[ -n "${SV_SESSION_ID:-}" ]]; then
+  echo "Skipping periphery: it cannot build inside a sandvault session" >&2
+else
+  periphery scan \
+    --project MinMaxCal.xcodeproj \
+    --schemes MinMaxCal \
+    --strict \
+    --disable-update-check
+fi

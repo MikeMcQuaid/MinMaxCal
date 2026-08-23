@@ -1,0 +1,18 @@
+#!/bin/bash
+# Run the Swift package tests after sweeping the test scratch directory.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+rm -rf .test-scratch
+mkdir -p .test-scratch
+
+if [[ -n "${SV_SESSION_ID:-}" ]]; then
+  export SWIFTPM_DISABLE_SANDBOX=1
+  export SWIFT_BUILD_USE_SANDBOX=0
+  # Capped parallelism: full-width builds inside the sandbox have
+  # triggered resource kills that tore down the whole sandbox user.
+  exec nice swift test --disable-sandbox --jobs 6 "$@"
+fi
+
+exec swift test "$@"
