@@ -31,26 +31,34 @@ public struct AgendaRow: View {
     }
 
     public var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Self.spacing) {
+        HStack(alignment: .center, spacing: Self.spacing) {
             CalendarDots(calendars: item.calendars)
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             times
-            actions
-                .frame(minWidth: Self.actionColumnWidth, alignment: .trailing)
+            action
+                .frame(width: style == .agenda ? GlassIconButtonStyle.side : nil)
         }
+        .frame(height: style == .agenda ? Self.agendaRowHeight : Self.takeoverRowHeight)
     }
 
     // MARK: Private
 
     private static let statusPadding: CGFloat = 6
-    private static let spacing: CGFloat = 8
+    private static let spacing: CGFloat = 6
     private static let takeoverTitleLines = 2
-    private static let actionColumnWidth: CGFloat = 34
-    private static let dashColumnWidth: CGFloat = 10
-
-    private static let agendaTimeWidth: CGFloat = 58
-    private static let takeoverTimeWidth: CGFloat = 96
+    private static let dashColumnWidth: CGFloat = 8
+    private static let agendaRowHeight: CGFloat = 24
+    private static let takeoverRowHeight: CGFloat = 44
+    /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.
+    private static let agendaTimeWidth: CGFloat = usesTwelveHourClock ? twelveHourTimeWidth : twentyFourHourTimeWidth
+    private static let twelveHourTimeWidth: CGFloat = 66
+    private static let twentyFourHourTimeWidth: CGFloat = 44
+    private static let takeoverTimeWidth: CGFloat = agendaTimeWidth * takeoverScale
+    private static let takeoverScale: CGFloat = 1.7
+    private static let usesTwelveHourClock = Date.now
+        .formatted(date: .omitted, time: .shortened)
+        .contains(where: \.isLetter)
 
     private let item: AgendaItem
     private let style: Style
@@ -101,18 +109,18 @@ public struct AgendaRow: View {
     }
 
     /// The action column sits at the far right so the times stay aligned whatever a row offers.
-    private var actions: some View {
-        HStack(spacing: Self.spacing) {
-            if style == .agenda, item.kind == .reminder {
-                CompleteButton(
-                    isPrimary: false,
-                    undo: item.isCompleted,
-                    action: item.isCompleted ? onUncomplete : onComplete,
-                )
-            }
-            if let link = item.joinLink {
-                JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
-            }
+    /// Exactly one square: a reminder's tick (or undo), else the call's join button, else air.
+    @ViewBuilder private var action: some View {
+        if style == .agenda, item.kind == .reminder {
+            CompleteButton(
+                isPrimary: false,
+                undo: item.isCompleted,
+                action: item.isCompleted ? onUncomplete : onComplete,
+            )
+        } else if let link = item.joinLink {
+            JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
+        } else {
+            Color.clear
         }
     }
 
