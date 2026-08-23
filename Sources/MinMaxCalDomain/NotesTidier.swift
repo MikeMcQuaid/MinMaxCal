@@ -4,6 +4,11 @@ import Foundation
 /// visibility notice always, and a conferencing service's joining details once the join button
 /// already carries the link.
 public enum NotesTidier {
+    /// Whether the notes are a scheduling assistant's, which only echo a block it created.
+    public static func isFromSchedulingTool(_ notes: String) -> Bool {
+        notes.contains("reclaim.ai") || notes.contains("This time has been blocked on your calendar")
+    }
+
     /// The notes without the rails, headers and notices other tools wrapped around them.
     public static func removingBoilerplate(from notes: String, hasCallLink: Bool) -> String {
         var text = notes

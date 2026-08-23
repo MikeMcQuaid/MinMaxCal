@@ -98,7 +98,7 @@ however long the Mac slept.
 accessory from launch. The `MenuBarExtra` scene is the root; its window
 style (`.menuBarExtraStyle(.window)`) hosts the agenda as SwiftUI rather
 than as menu items, which is what allows checkboxes, join buttons and
-colour dots in rows. Opening Settings or a takeover calls
+colour marks in rows. Opening Settings or a takeover calls
 `NSApp.activate()` first, since an accessory app's windows otherwise
 open behind the frontmost app.
 
@@ -357,23 +357,17 @@ error restores the row and shows the message inline.
    triggers, so nothing is shown twice and a snooze survives a
    relaunch. Entries older than a day are pruned on write.
 
-### Previewing a takeover (Settings)
+### Previewing a takeover (Agenda)
 
-Each Preview button in the Takeover tab calls `TakeoverModel.preview(_:)`
-with one case of `AgendaItem.Sample`, Domain fixtures shared with the
-`ImageRenderer` snapshot tests: an event with a Zoom link, one with a
-Meet link, one with a Jitsi link, one with no link, and a reminder, each
-with attendees, a location and notes filled in so every part of the
-panel is exercised. The preview goes through the same window controller
-and view as a live takeover; the only differences are the
-`Takeover.isPreview` flag, which makes Complete and Snooze dismiss
-without touching EventKit and keeps every action out of the ledger,
-and the sample links, which point at `https://zoom.us/test` (handed to
-the Zoom app, as a `zoommtg://` link would be), `https://meet.google.com`
-and `https://meet.jit.si` so Join proves the app routing without
-starting a call anyone is waiting in. `Sample.item(now:)` builds the
-item with a start a minute after the preview, so the countdown to the
-start and then to the end can both be seen by leaving the panel open.
+Preview Takeover in a row's context menu calls `TakeoverModel.preview(_:)`
+with that item. The preview goes through the same window controller and
+view as a live takeover; the only difference is the `Takeover.isPreview`
+flag, which makes Complete and Snooze dismiss without touching EventKit
+and keeps every action out of the ledger. `AgendaItem.Sample` keeps a
+Domain fixture per kind of takeover (Zoom, Meet, Jitsi, no call,
+reminder) with attendees, a location and notes filled in; the
+`ImageRenderer` snapshot tests render each through the panel so every
+part of it is exercised without a calendar.
 
 ### Launch at login (Always there)
 

@@ -32,7 +32,7 @@ public struct AgendaRow: View {
 
     public var body: some View {
         HStack(alignment: .center, spacing: Self.spacing) {
-            CalendarDots(calendars: item.calendars)
+            CalendarMarks(calendars: item.calendars)
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             times

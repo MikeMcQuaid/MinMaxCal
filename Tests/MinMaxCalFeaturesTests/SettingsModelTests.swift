@@ -27,8 +27,8 @@ struct SettingsModelTests {
 
         await model.load()
 
-        #expect(model.calendarGroups.map(\.account) == ["Work", "iCloud"])
-        #expect(model.reminderGroups.map(\.lists) == [[Fixtures.list]])
+        #expect(model.groups.map(\.account) == ["Work", "iCloud"])
+        #expect(model.groups.map(\.lists) == [[Fixtures.work], [personal, Fixtures.list]])
     }
 
     @Test

@@ -89,11 +89,6 @@ public final class TakeoverModel {
         presenter.show()
     }
 
-    /// Shows a sample takeover that touches neither the ledger nor EventKit.
-    public func preview(_ sample: AgendaItem.Sample) {
-        preview(sample.item(now: clock()))
-    }
-
     /// Shows a real agenda item as a takeover without recording anything.
     public func preview(_ item: AgendaItem) {
         let entry = Takeover.Entry(item: item, trigger: item.kind == .reminder ? .due : .start)

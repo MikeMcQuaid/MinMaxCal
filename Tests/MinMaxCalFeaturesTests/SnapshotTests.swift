@@ -32,7 +32,7 @@ struct SnapshotTests {
             clock: Fixtures.clock,
         )
         for sample in AgendaItem.Sample.allCases {
-            model.preview(sample)
+            model.preview(sample.item(now: Fixtures.now))
             let image = try #require(render(TakeoverView(model: model).frame(width: 1_200, height: 900)))
             #expect(image.width == 1_200)
             model.dismiss()

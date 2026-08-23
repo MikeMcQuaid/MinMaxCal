@@ -101,7 +101,7 @@ struct TakeoverModelTests {
 
     @Test
     func `previews never touch the ledger or reminders`() async {
-        model.preview(.reminder)
+        model.preview(AgendaItem.Sample.reminder.item(now: Fixtures.now))
         #expect(model.current?.isPreview == true)
         #expect(presenter.shown == 1)
 
@@ -129,7 +129,7 @@ struct TakeoverModelTests {
         let live = Takeover(entries: [Takeover.Entry(item: event, trigger: .start)], moment: event.start)
         model.present(live)
 
-        model.preview(.zoomEvent)
+        model.preview(AgendaItem.Sample.zoomEvent.item(now: Fixtures.now))
 
         #expect(model.current == live)
     }

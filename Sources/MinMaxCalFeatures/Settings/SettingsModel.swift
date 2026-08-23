@@ -30,8 +30,6 @@ public final class SettingsModel {
     public private(set) var loginItemStatus: LoginItemStatus = .notRegistered
     /// Why the last login item change failed.
     public private(set) var errorMessage: String?
-    /// Shows a sample takeover; the app points this at `TakeoverModel.preview`.
-    public var preview: (AgendaItem.Sample) -> Void = { _ in }
 
     /// The selected calendars and lists, written through to the store.
     public var selection: Selection {
@@ -71,14 +69,9 @@ public final class SettingsModel {
         }
     }
 
-    /// The calendars grouped by account.
-    public var calendarGroups: [AccountGroup] {
-        AccountGroup.grouping(lists, of: .event)
-    }
-
-    /// The reminder lists grouped by account.
-    public var reminderGroups: [AccountGroup] {
-        AccountGroup.grouping(lists, of: .reminder)
+    /// Every calendar and reminder list grouped by account.
+    public var groups: [AccountGroup] {
+        AccountGroup.grouping(lists)
     }
 
     /// Refreshes the lists, permissions and login item status.

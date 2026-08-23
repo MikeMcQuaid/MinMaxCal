@@ -8,9 +8,9 @@ public struct AccountGroup: Hashable, Identifiable, Sendable {
         account
     }
 
-    public static func grouping(_ lists: [CalendarList], of kind: ListKind) -> [Self] {
+    public static func grouping(_ lists: [CalendarList]) -> [Self] {
         var groups = [Self]()
-        for list in lists where list.kind == kind {
+        for list in lists {
             if let index = groups.firstIndex(where: { $0.account == list.accountName }) {
                 groups[index].lists.append(list)
             } else {

@@ -59,7 +59,7 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 ### UI Principles
 
 - One implementation per concern: the agenda row, the join button,
-  the complete button, the calendar colour dots and the item details
+  the complete button, the calendar marks and the item details
   (with its notes and location links) each have exactly one shared
   view used by the agenda and the takeover alike. Before
   adding a second approach to any such concern, get explicit

@@ -98,7 +98,8 @@ public enum AgendaMerger {
             }
         }
         item.location = trusted.compactMap(\.location).first { $0.isEmpty == false }
-        item.notes = trusted.compactMap(\.notes).first { $0.isEmpty == false }
+        let notes = trusted.compactMap(\.notes).filter { $0.isEmpty == false }
+        item.notes = notes.first { NotesTidier.isFromSchedulingTool($0) == false } ?? notes.first
         item.url = trusted.compactMap(\.url).first
         item.organiser = trusted.compactMap(\.organiser).first
         item.attendees = trusted.map(\.attendees).first { $0.isEmpty == false } ?? []

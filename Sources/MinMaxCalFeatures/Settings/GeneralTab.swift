@@ -9,26 +9,9 @@ struct GeneralTab: View {
 
     var body: some View {
         Form {
-            Section("Login") {
-                Toggle("Launch at login", isOn: $model.launchAtLogin)
-                if model.loginItemStatus == .requiresApproval {
-                    LabeledContent("macOS needs you to approve the login item.") {
-                        Button("Open Login Items", action: model.openLoginItemsSettings)
-                            .buttonStyle(.glass)
-                    }
-                }
-            }
-            Section("Menu bar") {
-                Stepper(
-                    "Title length: \(String(model.titleLimit)) characters",
-                    value: $model.titleLimit,
-                    in: MenuBarTitle.limitRange,
-                )
-            }
-            Section("Permissions") {
-                permission("Calendars", model.access.events, pane: "Privacy_Calendars")
-                permission("Reminders", model.access.reminders, pane: "Privacy_Reminders")
-            }
+            login
+            title
+            permissions
             if let message = model.errorMessage {
                 Text(message)
                     .foregroundStyle(.red)
@@ -41,6 +24,41 @@ struct GeneralTab: View {
 
     @Environment(\.openURL)
     private var openURL
+
+    private var login: some View {
+        Section {
+            Toggle("Launch at login", isOn: $model.launchAtLogin)
+            if model.loginItemStatus == .requiresApproval {
+                LabeledContent("macOS needs you to approve the login item.") {
+                    Button("Open Login Items", action: model.openLoginItemsSettings)
+                        .buttonStyle(.glass)
+                }
+            }
+        } footer: {
+            Text("A takeover needs the app running, so it starts with you and stays in the menu bar.")
+        }
+    }
+
+    private var title: some View {
+        Section {
+            Stepper(
+                "Title length: \(String(model.titleLimit)) characters",
+                value: $model.titleLimit,
+                in: MenuBarTitle.limitRange,
+            )
+        } footer: {
+            Text("Longer titles keep their start and end and drop the middle, so the menu bar never grows past this.")
+        }
+    }
+
+    private var permissions: some View {
+        Section {
+            permission("Calendars", model.access.events, pane: "Privacy_Calendars")
+            permission("Reminders", model.access.reminders, pane: "Privacy_Reminders")
+        } footer: {
+            Text("Full access to Calendars is needed to list anything; Reminders is optional.")
+        }
+    }
 
     private func permission(_ name: String, _ grant: AccessStatus.Grant, pane: String) -> some View {
         LabeledContent(name) {

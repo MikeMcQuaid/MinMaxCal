@@ -48,8 +48,8 @@ only title is a generic one such as `Busy`.
 ### 🗓️ Agenda
 
 Clicking the item opens the agenda: today and tomorrow, in time order,
-laid out as a table: the calendar colours (overlapping dots when a
-meeting is in several), the title, an action column holding the join
+laid out as a table: a small calendar or reminder icon per calendar in
+its colour (overlapping when a meeting is in several), the title, an action column holding the join
 button or a reminder's tick, then the start time and the end time in
 columns of their own so every row lines up. The countdown lives in the
 menu bar alone. The Tomorrow header carries the full date (`Monday 24th
@@ -150,19 +150,17 @@ link in the details. The same join button sits on agenda rows.
 
 Settings opens from the agenda's footer or Cmd-, and has four tabs:
 
-- **Calendars**: every calendar on the Mac grouped by account, with a
-  checkbox each, and the same for reminder lists. Nothing is selected
-  until you choose; the agenda stays empty rather than guessing.
-- **Takeover**: the two triggers, the snooze durations and a **Preview**
-  button for each kind of takeover (an event with a Zoom call, with a
-  Google Meet call, with a Jitsi call, an event with no call and a
-  reminder). A preview is a real takeover on every display, built from
-  sample data, so it looks exactly as the live one will. Its Join
-  button exercises the real routing against the vendor's own test or
-  landing page (Zoom's test meeting in the Zoom app, `meet.google.com`
-  and `meet.jit.si` in Edge) rather than a live call; Complete and
-  Snooze on a reminder preview only dismiss it, since there is nothing
-  in Reminders to complete, and no preview is remembered as dismissed.
+- **Calendars**: every calendar and reminder list on the Mac grouped
+  by account, with a checkbox each, its icon in the calendar's colour
+  (a calendar leaf for events, a list for reminders), and beneath the
+  name where it lives (iCloud, Exchange, CalDAV, Local, Subscribed,
+  Birthdays) and whether it is read-only. Nothing is selected until you
+  choose; the agenda stays empty rather than guessing.
+- **Takeover**: the two triggers and the snooze durations, each
+  explained in place. To see a takeover, right-click any agenda row and
+  choose Preview Takeover: a real takeover on every display built from
+  that item, whose Complete and Snooze only dismiss it and which is
+  never remembered as dismissed.
 - **Matching**: the generic titles that merge into a real one, the
   home terms dropped from locations (a trailing `*` matches a prefix,
   so `EH*` drops Edinburgh postcodes) and the Jitsi hosts that open in

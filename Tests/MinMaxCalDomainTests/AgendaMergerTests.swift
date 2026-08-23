@@ -112,6 +112,17 @@ struct AgendaMergerTests {
     }
 
     @Test
+    func `prefers the description that is not a scheduling tool's`() {
+        var reclaim = Fixtures.event("reclaim", title: "Planning", invite: "uid")
+        reclaim.notes = "Planning block. https://app.reclaim.ai/planner"
+        var real = Fixtures.event("real", title: "Planning", invite: "uid", calendar: Fixtures.team)
+        real.notes = "Agenda: roadmap."
+
+        #expect(AgendaMerger.merge([reclaim, real], rules: rules)[0].notes == "Agenda: roadmap.")
+        #expect(AgendaMerger.merge([reclaim], rules: rules)[0].notes == reclaim.notes)
+    }
+
+    @Test
     func `never merges reminders`() {
         let one = Fixtures.reminder("one", title: "Busy")
         let two = Fixtures.reminder("two", title: "Busy")
