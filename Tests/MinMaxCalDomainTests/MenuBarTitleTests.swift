@@ -34,6 +34,19 @@ struct MenuBarTitleTests {
     }
 
     @Test
+    func `skips a reminder more than one hour overdue`() {
+        let nextEvent = Fixtures.event("next", title: "Weekly planning", startingIn: 30)
+        #expect(MenuBarTitle.render(
+            agenda: Fixtures.agenda([Fixtures.reminder("old", dueIn: -61), nextEvent]),
+            now: Fixtures.now,
+        ) == "Weekly planning 30m")
+        #expect(MenuBarTitle.render(
+            agenda: Fixtures.agenda([Fixtures.reminder("recent", dueIn: -60), nextEvent]),
+            now: Fixtures.now,
+        ) == "Reminder now")
+    }
+
+    @Test
     func `is nil when nothing is upcoming`() {
         let agenda = Fixtures.agenda([Fixtures.reminder("undated", isAllDay: true)])
         #expect(MenuBarTitle.render(agenda: agenda, now: Fixtures.now) == nil)

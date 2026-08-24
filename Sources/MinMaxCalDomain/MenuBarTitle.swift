@@ -18,9 +18,14 @@ public enum MenuBarTitle {
         return "\(truncate(item.title, limit: limit)) \(Countdown.text(for: item, now: now))"
     }
 
-    /// The first timed item that has not ended.
+    /// The first timed item: an event that has not ended or a reminder no more than one hour overdue.
     public static func nextItem(in agenda: Agenda, now: Date) -> AgendaItem? {
-        agenda.items.first { $0.isTimed && $0.isCompleted == false && $0.hasEnded(at: now) == false }
+        agenda.items.first { item in
+            item.isTimed
+                && item.isCompleted == false
+                && item.hasEnded(at: now) == false
+                && (item.kind != .reminder || now.timeIntervalSince(item.start) <= reminderOverdueLimit)
+        }
     }
 
     /// Keeps the head and tail of a title over `limit` grapheme clusters, with an ellipsis between.
@@ -40,4 +45,5 @@ public enum MenuBarTitle {
     private static let minimumLimit = 8
     private static let maximumLimit = 60
     private static let halves = 2
+    private static let reminderOverdueLimit: TimeInterval = 3_600
 }
