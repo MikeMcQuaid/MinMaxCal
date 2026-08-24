@@ -36,14 +36,17 @@ are involved, so minutes after hours carry no unit: `2d3h`, `1h52`,
 `45m`, `<1m`. It ticks on the minute.
 
 The text is shown exactly when there is a next item: the soonest event
-or timed reminder that has not yet ended, across every selected
-calendar and list, today or tomorrow. Once an event starts the countdown
-turns into the time until it ends (`Weekly planning 28m`), so the title
-always answers "how long have I got". The text is absent, leaving the
-icon alone, when no calendar or list is selected, when nothing timed is
-left today or tomorrow, when the only candidates are all-day events or
-reminders without a due time, or when everything left is an event whose
-only title is a generic one such as `Busy`.
+that has not ended or a timed reminder that is no more than one hour
+overdue, across every selected calendar and list, today or tomorrow.
+Once an event starts the countdown turns into the time until it ends
+(`Weekly planning 28m`), so the title always answers "how long have I
+got". An incomplete reminder stays in the agenda however late it is,
+but after an hour the menu bar moves on to the next eligible item. The
+text is absent, leaving the icon alone, when no calendar or list is
+selected, when nothing timed is left today or tomorrow, when the only
+candidates are all-day events or reminders without a due time, or when
+everything left is an event whose only title is a generic one such as
+`Busy`.
 
 ### 🗓️ Agenda
 

@@ -290,15 +290,18 @@ Complete action from SwiftUI button callbacks.
 
 ### The menu bar title (Glance)
 
-`MenuBarTitle.render(agenda:now:limit:)` picks the first item with an
-end after now that is neither all-day nor undated, truncates its title
-in the middle to the configured limit (24 grapheme clusters by default,
-a single `…` between the kept head and tail) and appends
-`Countdown.format(from:to:)` to the start, or to the end once the start
-has passed. A reminder has no end, so it counts down to its due time
-and then reads `now` until completed. The `MenuBarExtra` label is an
-`Image` of the template icon followed by that `Text`, written as two
-sibling views: wrapped in a `Label`, SwiftUI shows the icon alone.
+`MenuBarTitle.render(agenda:now:limit:)` picks the first timed,
+incomplete item that is either an event which has not ended or a
+reminder no more than one hour overdue. It truncates the title in the
+middle to the configured limit (24 grapheme clusters by default, a
+single `…` between the kept head and tail) and appends
+`Countdown.text(for:now:)`, which counts down to the start, or to the end
+once an event has started. Once a reminder is due, `Countdown` continues
+to return `now`, but `MenuBarTitle` keeps it eligible for only one hour;
+older incomplete reminders remain in the agenda while the menu bar
+moves on. The `MenuBarExtra` label is an `Image` of the template icon
+followed by that `Text`, written as two sibling views: wrapped in a
+`Label`, SwiftUI shows the icon alone.
 SwiftUI re-renders it when `AgendaModel` publishes, which the minute
 tick guarantees at least once a minute. A long title is capped rather than truncated by the
 system because status items push their neighbours off the bar.
