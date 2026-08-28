@@ -37,13 +37,13 @@ struct TakeoverModelTests {
         model.onAction = { notified += 1 }
 
         model.present(takeover)
-        #expect(presenter.shown == 1)
+        #expect(presenter.announcements == ["Event is starting"])
         #expect(model.current == takeover)
 
         model.dismiss()
 
         #expect(model.current == nil)
-        #expect(presenter.hidden == 1)
+        #expect(presenter.focusReturns == [true])
         #expect(notified == 1)
         #expect(ledger.load().isDismissed(event, trigger: .start, moment: event.start))
         model.schedule(agenda: agenda([event]), now: Fixtures.now)
@@ -51,14 +51,14 @@ struct TakeoverModelTests {
     }
 
     @Test
-    func `join hides then opens the link`() throws {
+    func `join hides without returning focus then opens the link`() throws {
         let link = try JoinLink(service: .zoom, url: #require(URL(string: "zoommtg://zoom.us/join?confno=1")))
         let event = Fixtures.event("event", startingIn: 0, link: link)
         model.present(Takeover(entries: [Takeover.Entry(item: event, trigger: .start)], moment: event.start))
 
         model.join(link)
 
-        #expect(presenter.hidden == 1)
+        #expect(presenter.focusReturns == [false], "the call's app takes the front, not the app that was there")
         #expect(opener.opened == [link])
     }
 
@@ -87,9 +87,10 @@ struct TakeoverModelTests {
     }
 
     @Test
-    func `snooze brings the reminder back later`() {
+    func `snooze brings the reminder back later`() throws {
         let reminder = Fixtures.reminder("reminder", dueIn: 0)
         model.present(Takeover(entries: [Takeover.Entry(item: reminder, trigger: .due)], moment: reminder.start))
+        #expect(presenter.announcements == ["Reminder is due"])
 
         model.snooze(minutes: 15)
 
@@ -97,6 +98,9 @@ struct TakeoverModelTests {
         model.schedule(agenda: agenda([reminder]), now: Fixtures.now)
         #expect(model.planned?.entries.first?.trigger == .snooze)
         #expect(model.planned?.moment == Fixtures.now.addingTimeInterval(15 * 60))
+
+        try model.present(#require(model.planned))
+        #expect(presenter.announcements.last == "Reminder is due again")
     }
 
     @Test
@@ -110,6 +114,12 @@ struct TakeoverModelTests {
         #expect(source.completed.isEmpty)
         #expect(ledger.load() == .empty)
         #expect(model.current == nil)
+    }
+
+    @Test
+    func `announces an untitled item as such`() {
+        model.preview(Fixtures.reminder("reminder", title: "", dueIn: 0))
+        #expect(presenter.announcements == ["Untitled is due"])
     }
 
     @Test

@@ -7,7 +7,37 @@ import MinMaxCalDomain
 enum LinkedText {
     // MARK: Internal
 
+    /// Each notes string is converted once: the HTML importer is slow and bound to the main thread,
+    /// and every takeover window renders the same notes at the same moment.
     static func attributed(_ notes: String) -> AttributedString {
+        if let cached = cache[notes] {
+            return cached
+        }
+
+        let result = convert(notes)
+        if cache.count >= cacheLimit {
+            cache.removeAll()
+        }
+        cache[notes] = result
+        return result
+    }
+
+    static func looksLikeHTML(_ text: String) -> Bool {
+        text.contains(tagPattern)
+    }
+
+    // MARK: Private
+
+    private static let tagPattern = /<\/?[A-Za-z][^>]*>/
+    /// Anything that would make the importer fetch a resource is removed before it runs.
+    private static let loadingElementNames = "img|link|script|style|iframe|object|embed|video|audio|source"
+    private static let loadingElements = try? Regex("<(?:\\/?)(?:\(loadingElementNames))\\b[^>]*>").ignoresCase()
+    private static let scriptAndStyleBlocks = try? Regex("<(script|style)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>").ignoresCase()
+    private static let webSchemes: Set<String> = ["http", "https"]
+    private static let cacheLimit = 64
+    private static var cache: [String: AttributedString] = [:]
+
+    private static func convert(_ notes: String) -> AttributedString {
         var result = looksLikeHTML(notes) ? fromHTML(notes) ?? AttributedString(notes) : AttributedString(notes)
         // The importer ends every paragraph with a line break; the last line of text is the bottom.
         while let last = result.characters.last, last.isWhitespace {
@@ -26,19 +56,6 @@ enum LinkedText {
         }
         return result
     }
-
-    static func looksLikeHTML(_ text: String) -> Bool {
-        text.contains(tagPattern)
-    }
-
-    // MARK: Private
-
-    private static let tagPattern = /<\/?[A-Za-z][^>]*>/
-    /// Anything that would make the importer fetch a resource is removed before it runs.
-    private static let loadingElementNames = "img|link|script|style|iframe|object|embed|video|audio|source"
-    private static let loadingElements = try? Regex("<(?:\\/?)(?:\(loadingElementNames))\\b[^>]*>").ignoresCase()
-    private static let scriptAndStyleBlocks = try? Regex("<(script|style)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>").ignoresCase()
-    private static let webSchemes: Set<String> = ["http", "https"]
 
     private static func fromHTML(_ html: String) -> AttributedString? {
         guard let loadingElements, let scriptAndStyleBlocks else {

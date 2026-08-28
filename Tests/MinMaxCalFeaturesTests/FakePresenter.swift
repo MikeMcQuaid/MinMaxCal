@@ -1,14 +1,22 @@
 @testable import MinMaxCalFeatures
 
 final class FakePresenter: TakeoverPresenting {
-    var shown = 0
-    var hidden = 0
+    var announcements: [String] = []
+    var focusReturns: [Bool] = []
 
-    func show() {
-        shown += 1
+    var shown: Int {
+        announcements.count
     }
 
-    func hide() {
-        hidden += 1
+    var hidden: Int {
+        focusReturns.count
+    }
+
+    func show(announcing announcement: String) {
+        announcements.append(announcement)
+    }
+
+    func hide(returningFocus: Bool) {
+        focusReturns.append(returningFocus)
     }
 }

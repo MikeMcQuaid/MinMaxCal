@@ -63,13 +63,18 @@ public final class TakeoverModel {
         }
 
         alarm = Task { [clock] in
-            let delay = planned.moment.timeIntervalSince(clock())
-            if delay > 0 {
-                do {
-                    try await Task.sleep(for: .seconds(delay))
-                } catch {
-                    return
-                }
+            do {
+                try await Self.sleep(until: planned.moment.addingTimeInterval(-Self.armingLead), clock: clock)
+                // App Nap may defer a napped app's timers by seconds; for the final minutes the app
+                // asks not to be napped and sleeps strictly, so the moment itself is never late.
+                let activity = ProcessInfo.processInfo.beginActivity(
+                    options: .userInitiatedAllowingIdleSystemSleep,
+                    reason: "A takeover is due",
+                )
+                defer { ProcessInfo.processInfo.endActivity(activity) }
+                try await Self.sleep(until: planned.moment, clock: clock, tolerance: .zero)
+            } catch {
+                return
             }
             guard Task.isCancelled == false else {
                 return
@@ -86,7 +91,7 @@ public final class TakeoverModel {
         }
         current = takeover
         errorMessage = nil
-        presenter.show()
+        presenter.show(announcing: Self.announcement(for: takeover))
     }
 
     /// Shows a real agenda item as a takeover without recording anything.
@@ -97,12 +102,12 @@ public final class TakeoverModel {
 
     /// Hides the panel and records the dismissal.
     public func dismiss() {
-        finish { ledger, takeover, now in ledger.dismissing(takeover, at: now) }
+        dismiss(returningFocus: true)
     }
 
-    /// Hides the panel, records the dismissal and opens the call.
+    /// Hides the panel, records the dismissal and opens the call, which takes the front itself.
     public func join(_ link: JoinLink) {
-        dismiss()
+        dismiss(returningFocus: false)
         opener.open(link)
     }
 
@@ -138,6 +143,9 @@ public final class TakeoverModel {
     // MARK: Private
 
     private static let secondsPerMinute: TimeInterval = 60
+    /// How long before its moment a takeover is armed against App Nap.
+    private static let armingLeadMinutes: TimeInterval = 5
+    private static let armingLead: TimeInterval = armingLeadMinutes * secondsPerMinute
 
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let opener: any LinkOpener
@@ -148,7 +156,43 @@ public final class TakeoverModel {
     @ObservationIgnored private var alarm: Task<Void, Never>?
     @ObservationIgnored private var lastScheduledAt: Date?
 
-    private func finish(recording update: (TakeoverLedger, Takeover, Date) -> TakeoverLedger) {
+    /// Sleeps until `moment` by the injected clock, returning at once when it has passed.
+    private static func sleep(
+        until moment: Date,
+        clock: @Sendable () -> Date,
+        tolerance: Duration? = nil,
+    ) async throws {
+        let delay = moment.timeIntervalSince(clock())
+        if delay > 0 {
+            try await Task.sleep(for: .seconds(delay), tolerance: tolerance)
+        }
+    }
+
+    private static func announcement(for takeover: Takeover) -> String {
+        takeover.entries
+            .map { entry in
+                switch entry.trigger {
+                case .start:
+                    "\(entry.item.displayTitle) is starting"
+
+                case .due:
+                    "\(entry.item.displayTitle) is due"
+
+                case .snooze:
+                    "\(entry.item.displayTitle) is due again"
+                }
+            }
+            .joined(separator: ". ")
+    }
+
+    private func dismiss(returningFocus: Bool) {
+        finish(returningFocus: returningFocus) { ledger, takeover, now in ledger.dismissing(takeover, at: now) }
+    }
+
+    private func finish(
+        returningFocus: Bool = true,
+        recording update: (TakeoverLedger, Takeover, Date) -> TakeoverLedger,
+    ) {
         guard let takeover = current else {
             return
         }
@@ -158,7 +202,7 @@ public final class TakeoverModel {
             ledger.save(update(ledger.load(), takeover, actedAt), at: actedAt)
         }
         current = nil
-        presenter.hide()
+        presenter.hide(returningFocus: returningFocus)
         onAction()
     }
 }

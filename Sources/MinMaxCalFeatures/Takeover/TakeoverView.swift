@@ -54,27 +54,31 @@ public struct TakeoverView: View {
         .padding(Self.panelPadding)
         .frame(width: Self.panelWidth)
         .glassEffect(.regular, in: .rect(cornerRadius: Self.cornerRadius))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Takeover")
+        .accessibilityAddTraits(.isModal)
     }
 
+    /// Dismiss leads and the primary action trails, as in a system dialog.
     private func actions(_ takeover: Takeover, completeIsPrimary: Bool) -> some View {
         HStack {
+            Button("Dismiss", action: model.dismiss)
+                .buttonStyle(.glass)
+                .keyboardShortcut(.cancelAction)
+            Spacer()
             if takeover.reminders.isEmpty == false {
-                CompleteButton(isPrimary: completeIsPrimary) {
-                    Task { await model.complete() }
-                }
                 Menu("Snooze") {
                     ForEach(model.snoozeMinutes, id: \.self) { minutes in
-                        Button("\(String(minutes)) minutes") {
+                        Button("\(String(minutes)) Minutes") {
                             model.snooze(minutes: minutes)
                         }
                     }
                 }
                 .fixedSize()
+                CompleteButton(isPrimary: completeIsPrimary) {
+                    Task { await model.complete() }
+                }
             }
-            Spacer()
-            Button("Dismiss", action: model.dismiss)
-                .buttonStyle(.glass)
-                .keyboardShortcut(.cancelAction)
         }
     }
 }

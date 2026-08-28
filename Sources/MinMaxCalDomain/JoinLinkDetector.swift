@@ -18,7 +18,7 @@ public enum JoinLinkDetector {
         let zoomLinks = text.matches(of: /zoommtg:\/\/\S+/).compactMap { match in
             URL(string: String(match.output)).map { TextLink(range: match.range, url: $0) }
         }
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+        guard let detector else {
             return zoomLinks
         }
 
@@ -62,6 +62,8 @@ public enum JoinLinkDetector {
     // MARK: Private
 
     private static let webSchemes: Set<String> = ["http", "https"]
+    /// Built once: a detector compiles its grammar on creation, and every event's fields pass through here.
+    private static let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
     private static let zoomScheme = "zoommtg"
     private static let zoomHost = "zoom.us"
     private static let meetHost = "meet.google.com"

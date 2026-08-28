@@ -105,7 +105,7 @@ public struct AgendaRow: View {
 
     private var title: some View {
         HStack(spacing: Self.statusPadding) {
-            Text(item.title.isEmpty ? "Untitled" : item.title)
+            Text(item.displayTitle)
                 .font(style == .agenda ? .body : .title)
                 .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
                 .strikethrough(item.isCompleted)
@@ -155,6 +155,7 @@ public struct AgendaRow: View {
             Text(item.end == nil ? "" : "–")
                 .font(timeFont)
                 .frame(width: Self.dashColumnWidth)
+                .accessibilityHidden(true)
             Text(item.end.map(Self.clock) ?? "")
                 .font(timeFont)
                 .monospacedDigit()

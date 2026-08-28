@@ -1,7 +1,8 @@
 import Foundation
 import MinMaxCalDomain
 
-/// The app's own settings in `UserDefaults`, and a stream of their changes.
+/// The app's own settings, held in memory and written through to `UserDefaults`, and a stream of
+/// their changes.
 @preconcurrency
 @MainActor
 public final class SettingsStore {
@@ -10,6 +11,9 @@ public final class SettingsStore {
     /// Uses the standard defaults unless a suite is given, as the tests do.
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        selection = Self.decode(Key.selection, from: defaults) ?? .empty
+        matchingRules = Self.decode(Key.matchingRules, from: defaults) ?? .default
+        takeover = Self.decode(Key.takeover, from: defaults) ?? .default
     }
 
     // MARK: Public
@@ -30,20 +34,17 @@ public final class SettingsStore {
 
     /// The selected calendars and reminder lists.
     public var selection: Selection {
-        get { decode(Key.selection) ?? .empty }
-        set { encode(newValue, for: Key.selection) }
+        didSet { encode(selection, for: Key.selection) }
     }
 
     /// The generic titles and Jitsi hosts.
     public var matchingRules: MatchingRules {
-        get { decode(Key.matchingRules) ?? .default }
-        set { encode(newValue, for: Key.matchingRules) }
+        didSet { encode(matchingRules, for: Key.matchingRules) }
     }
 
     /// The takeover switches and snooze durations.
     public var takeover: TakeoverSettings {
-        get { decode(Key.takeover) ?? .default }
-        set { encode(newValue, for: Key.takeover) }
+        didSet { encode(takeover, for: Key.takeover) }
     }
 
     /// The menu bar title length, clamped to `MenuBarTitle.limitRange`.
@@ -77,7 +78,7 @@ public final class SettingsStore {
         notification.object.map { ObjectIdentifier($0 as AnyObject) }
     }
 
-    private func decode<Value: Decodable>(_ key: String) -> Value? {
+    private static func decode<Value: Decodable>(_ key: String, from defaults: UserDefaults) -> Value? {
         defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(Value.self, from: $0) }
     }
 

@@ -24,21 +24,36 @@ public final class TakeoverWindowController: TakeoverPresenting {
 
     public var content: () -> AnyView
 
-    public func show() {
+    public func show(announcing announcement: String) {
+        if let frontmost = NSWorkspace.shared.frontmostApplication, frontmost != .current {
+            previousApp = frontmost
+        }
         NSApplication.shared.activate()
         fit()
+        AccessibilityNotification.Announcement(announcement).post()
     }
 
-    public func hide() {
-        for window in windows {
-            window.orderOut(nil)
-        }
+    public func hide(returningFocus: Bool) {
+        let hidden = windows
         windows = []
+        if returningFocus, let previousApp, previousApp.isTerminated == false {
+            _ = previousApp.activate(from: .current, options: [])
+        }
+        previousApp = nil
+        fade(hidden, to: 0) {
+            for window in hidden {
+                window.orderOut(nil)
+            }
+        }
     }
 
     // MARK: Private
 
+    private static let fadeDuration: TimeInterval = 0.2
+
     private var windows: [TakeoverWindow] = []
+    /// The app that was in front when the panel came up, to give the front back to on dismissal.
+    private var previousApp: NSRunningApplication?
 
     @objc
     private func screensChanged() {
@@ -66,6 +81,7 @@ public final class TakeoverWindowController: TakeoverPresenting {
         }
         let mouse = NSEvent.mouseLocation
         (windows.first { $0.frame.contains(mouse) } ?? windows.first)?.makeKeyAndOrderFront(nil)
+        fade(windows, to: 1)
     }
 
     private func makeWindow(on screen: NSScreen) -> TakeoverWindow {
@@ -78,7 +94,25 @@ public final class TakeoverWindowController: TakeoverPresenting {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.isReleasedWhenClosed = false
+        window.alphaValue = 0
         window.contentView = NSHostingView(rootView: content())
         return window
+    }
+
+    /// A short fade, or none when the user asked for reduced motion. The completion is main actor
+    /// isolated so it may capture windows; AppKit's own handler type is merely `@Sendable`.
+    private func fade(
+        _ windows: [TakeoverWindow],
+        to alpha: CGFloat,
+        then completion: (@MainActor @Sendable () -> Void)? = nil,
+    ) {
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : Self.fadeDuration
+            for window in windows {
+                window.animator().alphaValue = alpha
+            }
+        }, completionHandler: completion.map { completion in
+            { @Sendable in MainActor.assumeIsolated { completion() } }
+        })
     }
 }
