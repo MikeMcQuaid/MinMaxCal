@@ -122,6 +122,16 @@ pure merge and filter rules and publishes the new `Agenda`. The menu bar
 title, the agenda list and the takeover scheduler all derive from that
 one value.
 
+Three rules keep an idle minute cheap. The merged trigger stream keeps
+only the newest pending element (`bufferingNewest(1)`), so a burst of
+sync notifications during a rebuild costs one more rebuild, not one per
+notification. The minute tick sleeps with a five-second tolerance so
+the system can coalesce the wake-up with others; a tolerance only ever
+lands late, never before the boundary. And a rebuild assigns only the
+values that changed, so a minute in which nothing moved re-renders the
+countdown alone. The fetch itself stays: calendar and reminder data is
+re-read every minute by decision.
+
 ## Package architecture
 
 One root `Package.swift` defines every library target; a thin app shell
@@ -155,7 +165,9 @@ flowchart TD
   (past, declined, cancelled, completed, all-day and undated rules),
   `Acceptance`, `MenuBarTitle` (middle truncation by grapheme cluster),
   `Countdown` (two largest units, `<1m`, `now`, to the start or to the
-  end of whatever is in progress), `JoinLinkDetector`
+  end of whatever is in progress), `JoinLinkDetector` (holding its
+  `NSDataDetector` as a static, since every event's fields pass
+  through it on every rebuild)
   and `TakeoverPlanner` (the next `Takeover` given an agenda, the
   ledger, the clock and the settings). `TakeoverLedger` and
   `TakeoverSettings` are Domain values too, so the planner is pure.
@@ -170,17 +182,25 @@ flowchart TD
   `WorkspaceLinkOpener` (opens a URL in a named bundle identifier,
   falling back to the default handler when the app is not installed);
   `SettingsStore` over `UserDefaults`, MainActor-isolated because
-  `UserDefaults` is not `Sendable` on the macOS 27 SDK; and
-  `TakeoverLedgerStore`, which reads and writes the `TakeoverLedger`
-  JSON file, pruning anything older than a day on every write. One
-  module, split only if boundary violations appear.
+  `UserDefaults` is not `Sendable` on the macOS 27 SDK, holding the
+  decoded values in memory and writing through so a read never decodes
+  JSON; and `TakeoverLedgerStore`, which reads the `TakeoverLedger`
+  JSON file once, serves it from memory behind a `Mutex` (it is the
+  file's only writer) and writes through on every save, pruning
+  anything older than a day. One module, split only if boundary
+  violations appear.
 - **MinMaxCalFeatures**: SwiftUI views and `@Observable` view models,
   MainActor by default, given ports via injection. Three folders, one
-  per surface: `MenuBar` (the label, the agenda list and `AgendaModel`),
+  per surface: `MenuBar` (the label, the agenda list and `AgendaModel`;
+  `LinkedText` converts each notes string once and keeps the result,
+  since AppKit's HTML importer is slow, main-thread bound and asked
+  for the same notes by every takeover window at once),
   `Takeover` (`TakeoverModel`, the panel view and the AppKit window
   controller that puts one borderless window on each screen) and
-  `Settings` (the four tabs and `SettingsModel`). Split into targets if
-  one surface grows a dependency the others must not see.
+  `Settings` (the four tabs and `SettingsModel`; the list fields are
+  `TextField`s over `ListField`'s `ParseableFormatStyle`s, so they
+  commit when editing ends rather than on every keystroke). Split into
+  targets if one surface grows a dependency the others must not see.
 - **MinMaxCalApp**: builds adapters, injects ports, declares the
   `MenuBarExtra` and `Settings` scenes and owns the single refresh loop.
   No logic.
@@ -210,8 +230,10 @@ may be used from any thread but `EKEvent`, `EKReminder` and `EKCalendar`
 objects must not cross threads, so the actor owns the store, performs
 every fetch and write, and converts to Domain values before returning;
 no EventKit object ever leaves it. Any further actor needs a written
-justification here. `@unchecked Sendable` and `nonisolated(unsafe)` are
-banned.
+justification here. `TakeoverLedgerStore` guards its in-memory ledger
+with a `Mutex` from `Synchronization` rather than a second actor,
+because its callers are synchronous and the critical section is a
+copy. `@unchecked Sendable` and `nonisolated(unsafe)` are banned.
 
 Under approachable concurrency, `nonisolated async` functions run on the
 caller's actor, so the ports are plain `nonisolated async` and nothing
@@ -228,8 +250,7 @@ rebuilds on every element.
 The takeover scheduler is one `Task` stored on `TakeoverModel`,
 sleeping until the planned moment, cancelled and replaced on every
 agenda rebuild, so a changed or deleted event can never fire a stale
-takeover; a second stored task ticks the countdown once a second while
-a panel is showing. The only other unstructured tasks bridge
+takeover. The only other unstructured tasks bridge
 `NotificationCenter` sequences into the streams and run the async
 Complete action from SwiftUI button callbacks.
 
@@ -331,20 +352,37 @@ error restores the row and shows the message inline.
    dismissing one makes the next the earliest on the rebuild that
    follows.
 2. `TakeoverModel` sleeps until that moment in a child task restarted
-   on every rebuild, then activates the app and asks the window
-   controller to show.
-3. The window controller creates one borderless `NSWindow` per
-   `NSScreen`, frame equal to the screen's frame, level `.screenSaver`,
-   collection behaviour `canJoinAllSpaces`, `fullScreenAuxiliary` and
+   on every rebuild. The sleep has two legs: an ordinary one until
+   five minutes before the moment, then, holding a
+   `ProcessInfo.beginActivity(.userInitiatedAllowingIdleSystemSleep)`
+   assertion so App Nap cannot defer the timer, a zero-tolerance one
+   to the moment itself. The assertion ends when the alarm fires or is
+   cancelled, so the app naps between takeovers and never keeps the
+   Mac awake. The task then asks the window controller to show, passing
+   the sentence VoiceOver should read (`Weekly planning is starting`,
+   `Call back is due`, `Call back is due again` after a snooze).
+3. The window controller remembers the frontmost app, activates
+   itself, then creates one borderless `NSWindow` per `NSScreen`, frame
+   equal to the screen's frame, level `.screenSaver`, collection
+   behaviour `canJoinAllSpaces`, `fullScreenAuxiliary` and
    `stationary`, each hosting the same `TakeoverView` through
    `NSHostingView`, with the key window on the screen holding the
-   mouse. It observes `didChangeScreenParametersNotification` and adds,
-   removes or refits windows while showing, since displays come and go
+   mouse. The windows fade in over 0.2 seconds through
+   `NSAnimationContext`, or appear at once when
+   `accessibilityDisplayShouldReduceMotion` is set, and the
+   announcement is posted as an `AccessibilityNotification`. It
+   observes `didChangeScreenParametersNotification` and adds, removes
+   or refits windows while showing, since displays come and go
    mid-meeting; a window left with no screen is closed rather than kept
-   black.
-4. The view shows the README's content. Return triggers the primary
-   action, Escape dismisses; every window forwards to the one model, so
-   a click on any display acts for all.
+   black. Hiding fades the windows out and, unless the action was
+   Join, hands activation back to the remembered app with
+   `NSRunningApplication.activate(from:options:)`, so typing resumes
+   where it stopped; Join leaves the front to the call's app.
+4. The view shows the README's content with Dismiss leading and the
+   primary action trailing, as in a system dialog, and marks the panel
+   modal for VoiceOver. Return triggers the primary action, Escape
+   dismisses; every window forwards to the one model, so a click on
+   any display acts for all.
 5. Join calls `LinkOpener.open(_:in:)`: Zoom links become
    `zoommtg://zoom.us/join?confno=<id>&pwd=<passcode>` opened by
    `us.zoom.xos`, Meet and Jitsi URLs open in `com.microsoft.edgemac`
@@ -392,12 +430,19 @@ MenuBarIcon.imageset` as an SVG with `template-rendering-intent` set to
 template so it takes the menu bar's colour, at 18 points. The app icon
 is `App/Icons/AppIcon.icon`, an Icon Composer document with a white
 calendar leaf inside orange full-screen corners over a blue tinted
-glass tile. Xcode 27 compiles it into the asset catalogue with the flat
+glass tile. Its `icon.json` specialises two slots by appearance: the
+background `fill-specializations` deepen the automatic gradient for
+`dark`, and the mark layer's `fill-specializations` replace its own
+colours with solid white for `tinted`, the appearance Icon Composer
+labels Mono and from which the system derives its tinted and clear
+icon styles. Every other appearance inherits the base entry. Xcode 27
+compiles it into the asset catalogue with the flat
 fallbacks macOS needs. `script/icons` renders the menu bar's `Leaf.svg`
 at 1x and 2x, and `AppMark.svg` over a hard-coded approximation of the
 gradient tile at Dock size, into the gitignored `.test-scratch`. It does
-not render the Icon Composer document; build the app to inspect the
-compiled icon.
+not render the Icon Composer document or its appearance variants;
+build the app and switch the icon style in System Settings to inspect
+the compiled icon.
 
 ## State and persistence
 
@@ -547,5 +592,6 @@ fresh takeover in the ledger, so there is no cap and no automatic
 repeat. Other open questions: whether the agenda should offer
 Accept and Decline for unanswered invitations (EventKit cannot answer
 an invitation, so this would open Calendar); and how many calendars
-is too many for a rebuild on every minute tick before the fetch needs
-to move off the main actor.
+is too many for a fetch on every minute tick, which already runs on
+the EventKit actor, before the per-minute re-read itself has to be
+revisited.

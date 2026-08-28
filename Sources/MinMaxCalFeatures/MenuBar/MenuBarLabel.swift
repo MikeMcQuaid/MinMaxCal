@@ -18,6 +18,7 @@ public struct MenuBarLabel: View {
             .accessibilityLabel("MinMaxCal")
         if let title = model.title {
             Text(title)
+                .monospacedDigit()
                 .baselineOffset(Self.baselineOffset)
         }
     }

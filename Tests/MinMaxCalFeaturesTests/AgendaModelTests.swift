@@ -99,6 +99,23 @@ struct AgendaModelTests {
     }
 
     @Test
+    func `a burst of refresh requests collapses into one rebuild`() async throws {
+        let loop = Task { await model.run() }
+        for _ in 0 ..< 20 {
+            model.requestRefresh()
+        }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while source.fetches < 2, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        // Long enough for any queued rebuild to show up in the count.
+        try await Task.sleep(for: .milliseconds(100))
+        loop.cancel()
+
+        #expect(source.fetches == 2, "the first rebuild, then one for the whole burst")
+    }
+
+    @Test
     func `join opens through the port`() throws {
         let link = try JoinLink(service: .meet, url: #require(URL(string: "https://meet.google.com/abc")))
         model.join(link)

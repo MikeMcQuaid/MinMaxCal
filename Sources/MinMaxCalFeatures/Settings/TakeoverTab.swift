@@ -2,8 +2,6 @@ import MinMaxCalDomain
 import SwiftUI
 
 struct TakeoverTab: View {
-    // MARK: Internal
-
     @Bindable var model: SettingsModel
 
     var body: some View {
@@ -19,21 +17,16 @@ struct TakeoverTab: View {
                 )
             }
             Section {
-                TextField("Snooze durations in minutes", text: snoozeDurations)
+                TextField(
+                    "Snooze durations in minutes",
+                    value: $model.takeover.snoozeMinutes,
+                    format: ListField.Integers(),
+                )
             } footer: {
-                Text("The choices a reminder's Snooze button offers. Separate with commas.")
+                Text("The choices a reminder's Snooze button offers. Separate with commas and press Return.")
                 Text("To see a takeover, right-click any row in the agenda and choose Preview Takeover.")
             }
         }
         .formStyle(.grouped)
-    }
-
-    // MARK: Private
-
-    private var snoozeDurations: Binding<String> {
-        Binding(
-            get: { model.takeover.snoozeMinutes.map(String.init).joined(separator: ", ") },
-            set: { model.takeover.snoozeMinutes = ListField.integers(from: $0) },
-        )
     }
 }

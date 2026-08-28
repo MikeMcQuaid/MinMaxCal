@@ -72,10 +72,53 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   rendered prominent and bound to Return (Join, Complete); every
   other button is plain glass, icon-only with hover help when the
   icon is unambiguous and short text otherwise. Escape dismisses a
-  takeover from any display.
+  takeover from any display. In a row of actions the primary button
+  trails and Dismiss leads, as in a system dialog.
+- Button and menu titles use title case (`Choose Calendars…`,
+  `5 Minutes`); toggles, labels, footers and help use sentence case.
+- Every clickable row is a button for the pointer, the keyboard and
+  VoiceOver alike: it highlights under the pointer (a quaternary
+  fill, no animation, as a menu does), `focusable(interactions:
+  .activate)` lets Full Keyboard Access reach it, Return and Space
+  activate it, and it is an accessible element with a label, a
+  default action and a hint that contains its children
+  (`.contain`, never `.combine`, which would swallow the buttons
+  inside it). A takeover announces itself through
+  `AccessibilityNotification` and marks its panel modal.
+- Presentation animates briefly (a 0.2 second fade) and not at all
+  when Reduce Motion is on.
 - A takeover is the one surface allowed to interrupt; everything
   else stays in the menu bar item and never steals focus or
-  activates the app without a click.
+  activates the app without a click. When a takeover is dismissed,
+  completed or snoozed, the front goes back to the app that had it;
+  Join leaves the front to the call's app.
+
+### Performance
+
+The app is always running, so an idle minute is the budget.
+
+- An idle minute costs one EventKit fetch (by decision) and
+  arithmetic: no file read, no JSON decode and no formatter, regex or
+  detector construction happens on a tick.
+- Trigger streams buffer `newest(1)`; a rebuild never queues behind
+  another, however many notifications a sync posts.
+- Costly Foundation objects (`NSDataDetector`, `NumberFormatter`,
+  the HTML importer's output) are built once and cached; a view body
+  never constructs one.
+- Anything a takeover panel shows is computed once, never once per
+  display.
+- Sleeps carry a tolerance where lateness is harmless (the minute
+  tick, five seconds) and none where it is not (the takeover alarm).
+  App Nap may slow the menu bar but never a takeover: the alarm holds
+  a `ProcessInfo` activity for its final five minutes and sleeps with
+  zero tolerance. The app does not opt out of App Nap as a whole
+  (`NSAppSleepDisabled` stays unset).
+- A rebuild publishes only the values that changed.
+- Settings text fields commit on Return or focus loss
+  (`TextField(value:format:)`), never per keystroke.
+- Measure on the host after `script/install`: Activity Monitor's
+  Energy Impact should idle near zero and Instruments (Time Profiler,
+  SwiftUI, Energy Log) shows anything a unit test cannot.
 
 ### Platform Notes
 
@@ -129,6 +172,29 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   way (`cannot form main actor-isolated conformance ... to
   SendableMetatype-inheriting protocol`); test fakes guard their state
   with `Mutex` from `Synchronization` instead.
+- Under MainActor default isolation a nested type gets the default
+  too; a nonisolated enum's nested structs each need `nonisolated`
+  before they can conform to `FormatStyle`.
+- Swift `Regex` is not `Sendable`, so a nonisolated `static let`
+  regex is rejected; `NSDataDetector` and `NSRegularExpression` are
+  `Sendable` and may be statics. Domain builds its regex literals per
+  call; Features holds them on MainActor types.
+- SwiftLint's `nesting` rule allows one level of nested types, so a
+  `ParseableFormatStyle` is its own `ParseStrategy` rather than
+  nesting one.
+- `NSAnimationContext.runAnimationGroup`'s completion handler is a
+  nonisolated `@Sendable` closure, so it cannot capture windows; take
+  a `@MainActor @Sendable` closure instead (which may capture them)
+  and call it from an explicitly `@Sendable` handler through
+  `MainActor.assumeIsolated`.
+- `NSRunningApplication.activate(from:options:)` hands the front to
+  another app only while this app is active; call it before the
+  takeover windows fade, not after.
+- A menu bar app with its popover closed is an App Nap candidate,
+  and a napped app's timers run seconds late. Activity Monitor's
+  Energy tab shows an App Nap column. `ProcessInfo.beginActivity`
+  with `.userInitiated` also blocks idle system sleep; use
+  `.userInitiatedAllowingIdleSystemSleep`.
 - xcodebuild sandboxes the macro plugin server too, so `@Observable`
   fails with `produced malformed response` in a sandvault session;
   `script/build` passes `OTHER_SWIFT_FLAGS=$(inherited)
@@ -174,6 +240,8 @@ Hard-won on macOS 27 beta; check before assuming they expired.
    invent: ask before building a substitute.
 3. Derive everything from EventKit on demand; cache nothing across
    launches except the selection, the rules and the takeover ledger.
+   Within a launch the stores that own those files keep a copy in
+   memory and write through.
 4. Keep dependency directions clean: Domain depends on nothing,
    Data and Features depend on Domain and App composes them.
 5. Treat invitation content as untrusted: titles, notes and URLs

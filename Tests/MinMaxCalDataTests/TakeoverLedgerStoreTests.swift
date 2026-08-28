@@ -14,7 +14,8 @@ struct TakeoverLedgerStoreTests {
 
     @Test
     func `saves pruned and reloads`() {
-        let store = TakeoverLedgerStore(file: TestScratch.directory().appending(path: "nested/takeovers.json"))
+        let file = TestScratch.directory().appending(path: "nested/takeovers.json")
+        let store = TakeoverLedgerStore(file: file)
         let item = AgendaItem(
             members: [MemberIdentity(calendarItemIdentifier: "r")],
             kind: .reminder,
@@ -31,6 +32,26 @@ struct TakeoverLedgerStoreTests {
         #expect(loaded.snoozes.count == 1)
         #expect(loaded.dismissals.count == 1)
         #expect(loaded.dismissals.allSatisfy { $0.recordedAt == now })
+        #expect(TakeoverLedgerStore(file: file).load() == loaded, "the file is what another launch reads")
+    }
+
+    @Test
+    func `serves the ledger from memory after the first read`() throws {
+        let file = TestScratch.directory().appending(path: "takeovers.json")
+        let store = TakeoverLedgerStore(file: file)
+        let item = AgendaItem(
+            members: [MemberIdentity(calendarItemIdentifier: "r")],
+            kind: .reminder,
+            title: "R",
+            start: now,
+        )
+        let takeover = Takeover(entries: [Takeover.Entry(item: item, trigger: .due)], moment: now)
+        let saved = TakeoverLedger.empty.dismissing(takeover, at: now)
+
+        store.save(saved, at: now)
+        try FileManager.default.removeItem(at: file)
+
+        #expect(store.load() == saved)
     }
 
     // MARK: Private

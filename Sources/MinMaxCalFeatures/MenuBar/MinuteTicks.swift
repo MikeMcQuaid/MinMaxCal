@@ -10,7 +10,7 @@ nonisolated enum MinuteTicks {
                     let now = clock().timeIntervalSinceReferenceDate
                     let nextMinute = (floor(now / secondsPerMinute) + 1) * secondsPerMinute
                     do {
-                        try await Task.sleep(for: .seconds(nextMinute - now))
+                        try await Task.sleep(for: .seconds(nextMinute - now), tolerance: .seconds(tolerance))
                     } catch {
                         return
                     }
@@ -24,4 +24,7 @@ nonisolated enum MinuteTicks {
     // MARK: Private
 
     private static let secondsPerMinute: TimeInterval = 60
+    /// Room for the system to coalesce the wake-up with others; a tolerance only ever lands late,
+    /// never before the boundary.
+    private static let tolerance: TimeInterval = 5
 }

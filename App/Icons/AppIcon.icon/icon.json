@@ -2,11 +2,35 @@
   "fill" : {
     "automatic-gradient" : "extended-srgb:0.20,0.45,0.90,1.00"
   },
+  "fill-specializations" : [
+    {
+      "value" : {
+        "automatic-gradient" : "extended-srgb:0.20,0.45,0.90,1.00"
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "automatic-gradient" : "extended-srgb:0.10,0.26,0.62,1.00"
+      }
+    }
+  ],
   "groups" : [
     {
       "layers" : [
         {
           "fill" : "automatic",
+          "fill-specializations" : [
+            {
+              "value" : "automatic"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "extended-srgb:1.00,1.00,1.00,1.00"
+              }
+            }
+          ],
           "image-name" : "AppMark.svg",
           "name" : "Calendar Takeover",
           "position" : {

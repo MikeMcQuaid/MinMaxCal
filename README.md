@@ -56,8 +56,13 @@ its colour (overlapping when a meeting is in several), the title, an action colu
 button or a reminder's tick, then the start time and the end time in
 columns of their own so every row lines up. The countdown lives in the
 menu bar alone. The Tomorrow header carries the full date (`Monday 24th
-August 2026`). Clicking a row expands it with the
-same details the takeover shows: calendars, location, organiser,
+August 2026`). Rows light up under the pointer, and clicking one
+expands it with the
+same details the takeover shows, and so does Return or Space on a row
+reached with Full Keyboard Access, or VoiceOver's activate: the row
+is a button of its own and the join or complete button inside it
+stays a control of its own. The
+details are calendars, location, organiser,
 attendees, your response, how it repeats and the notes with their
 links. Attendees start as counts per response (accepted, tentative,
 declined, unanswered) and click through to everyone by name; an
@@ -112,11 +117,24 @@ full-screen apps and whichever Space is showing, with one panel:
   as their text and links, with the markup, styling and any embedded
   resources left out.
 - One primary button: **Join** for a meeting with a call link and
-  **Complete** for a reminder. Return presses it, Escape dismisses.
+  **Complete** for a reminder. Return presses it, Escape dismisses. As
+  in any macOS dialog the primary button sits at the right and
+  **Dismiss** at the left.
 - For reminders, **Snooze** for 5, 15 or 60 minutes, as often as you
   like. Snoozing is the app's own: the reminder in Reminders is not
   changed, and the takeover comes back at the chosen time even across
   a relaunch.
+
+The panel arrives on the second. macOS lets an idle menu bar app nap,
+which can delay its timers by a few seconds, so for the last five
+minutes before a takeover the app asks not to be napped; the rest of
+the time it naps like any other menu bar app, and the menu bar title
+may run a few seconds behind the minute.
+
+The panel fades in and out, or simply appears when Reduce Motion is
+on. VoiceOver announces what is starting or due. Dismissing,
+completing or snoozing hands the front back to the app you were in;
+joining leaves that to the call's app.
 
 Two moments trigger a takeover, each switchable in Settings:
 
@@ -159,15 +177,17 @@ Settings opens from the agenda's footer or Cmd-, and has four tabs:
   (a calendar leaf for events, a list for reminders). Nothing is
   selected until you choose; the agenda stays empty rather than
   guessing.
-- **Takeover**: the two triggers and the snooze durations, each
-  explained in place. To see a takeover, right-click any agenda row and
+- **Takeover**: the two triggers and the snooze durations (a
+  comma-separated list), each explained in place. To see a takeover,
+  right-click any agenda row and
   choose Preview Takeover: a real takeover on every display built from
   that item, whose Complete and Snooze only dismiss it and which is
   never remembered as dismissed.
 - **Matching**: the generic titles that merge into a real one, the
   home terms dropped from locations (a trailing `*` matches a prefix,
   so `EH*` drops Edinburgh postcodes) and the Jitsi hosts that open in
-  Edge, each a comma-separated list.
+  Edge, each a comma-separated list. Every list is applied when you
+  press Return or leave the field, not on each keystroke.
 - **General**: launch at login, the menu bar title length and the
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.
@@ -185,7 +205,11 @@ The menu bar icon is a calendar leaf with a single filled day, drawn as a
 template image so it follows the menu bar's light and dark appearance.
 The app icon puts a white leaf inside orange full-screen corners on a
 blue Liquid Glass tile for the Finder, Launchpad and the Applications
-folder; the app never shows in the Dock.
+folder; the app never shows in the Dock. It carries the appearance
+variants newer macOS versions ask for: the tile deepens in the dark
+appearance, and in the mono appearance, which the system uses for its
+tinted and clear icon styles, the whole mark is white so the chosen
+tint carries it.
 
 ## 📦 Installation
 

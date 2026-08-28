@@ -71,6 +71,11 @@ public struct AgendaItem: Hashable, Identifiable, Sendable {
         members
     }
 
+    /// The title as shown and read out: `Untitled` when the item has none.
+    public var displayTitle: String {
+        title.isEmpty ? "Untitled" : title
+    }
+
     public var isTimed: Bool {
         isAllDay == false
     }

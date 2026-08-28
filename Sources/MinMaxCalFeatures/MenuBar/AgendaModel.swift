@@ -27,7 +27,7 @@ public final class AgendaModel {
         now = clock()
         titleLimit = settings.titleLimit
         rules = settings.matchingRules
-        (refreshRequests, refresh) = AsyncStream.makeStream()
+        (refreshRequests, refresh) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     }
 
     // MARK: Public
@@ -56,11 +56,12 @@ public final class AgendaModel {
         MenuBarTitle.render(agenda: agenda, now: now, limit: titleLimit)
     }
 
-    /// Requests access, then rebuilds for as long as the task lives.
+    /// Requests access, then rebuilds for as long as the task lives. Triggers that arrive during a
+    /// rebuild collapse into one more, so a burst of sync notifications costs two fetches, not a queue.
     public func run() async {
         access = await source.requestAccess()
         await rebuild()
-        let (triggers, trigger) = AsyncStream<Void>.makeStream()
+        let (triggers, trigger) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let feeds = [source.changes, MinuteTicks.stream(clock: clock), wake, settings.changes, refreshRequests]
         await withTaskGroup(of: Void.self) { group in
             for feed in feeds {
@@ -80,10 +81,10 @@ public final class AgendaModel {
     public func rebuild() async {
         let rebuildTime = clock()
         now = rebuildTime
-        titleLimit = settings.titleLimit
+        publish(\.titleLimit, settings.titleLimit)
         let selection = settings.selection
-        rules = settings.matchingRules
-        hasSelection = selection.isEmpty == false
+        publish(\.rules, settings.matchingRules)
+        publish(\.hasSelection, selection.isEmpty == false)
         let horizon = horizon(around: rebuildTime)
         let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection, rules: rules)
         let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
@@ -92,7 +93,7 @@ public final class AgendaModel {
             .filter { completed in merged.contains { $0.id == completed.id } == false }
         let items = (AgendaFilter.named(merged, rules: rules) + undoable)
             .sorted { ($0.start, $0.title) < ($1.start, $1.title) }
-        agenda = Agenda(items: items, horizon: horizon)
+        publish(\.agenda, Agenda(items: items, horizon: horizon))
         onRebuild(agenda, rebuildTime)
     }
 
@@ -154,6 +155,13 @@ public final class AgendaModel {
             agenda = previous
             recentlyCompleted.removeAll { $0.item.id == item.id }
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Assigns only what differs, so an idle minute re-renders nothing but the countdown.
+    private func publish<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<AgendaModel, Value>, _ value: Value) {
+        if self[keyPath: keyPath] != value {
+            self[keyPath: keyPath] = value
         }
     }
 
