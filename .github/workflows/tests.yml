@@ -43,6 +43,12 @@ jobs:
   tests:
     runs-on: xcode-27
     timeout-minutes: 30
+    env:
+      # Pull requests from forks and Dependabot have no repository
+      # secrets, so signing is skipped there rather than failing. One
+      # secret stands for the set on purpose: a partly configured set
+      # is a mistake for script/package to report, not a reason to skip.
+      HAS_SIGNING_SECRETS: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE != '' }}
     steps:
       - name: Set up Git repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,6 +83,16 @@ jobs:
 
       - name: Zip
         run: script/zip
+
+      - name: Sign and notarise
+        if: env.HAS_SIGNING_SECRETS == 'true'
+        env:
+          DEVELOPER_ID_APPLICATION_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE }}
+          DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
+          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
+          NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
+          NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
+        run: script/package
 
       - name: Upload the app
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

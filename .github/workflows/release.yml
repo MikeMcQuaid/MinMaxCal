@@ -14,6 +14,7 @@ on:
     paths:
       - .github/workflows/release.yml
       - script/build
+      - script/package
       - script/zip
 
 defaults:
@@ -33,6 +34,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write # to push the tag and create the release
+    env:
+      # A dry run on a Dependabot branch has no repository secrets, so
+      # it skips signing; a release never does. One secret stands for
+      # the set on purpose: a partly configured set is a mistake for
+      # script/package to report, not a reason to skip.
+      HAS_SIGNING_SECRETS: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE != '' }}
     steps:
       - name: Set up Git repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -88,6 +95,16 @@ jobs:
       - name: Zip
         run: script/zip
 
+      - name: Sign and notarise
+        if: github.event_name == 'workflow_dispatch' || env.HAS_SIGNING_SECRETS == 'true'
+        env:
+          DEVELOPER_ID_APPLICATION_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE }}
+          DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
+          NOTARIZATION_KEY: ${{ secrets.NOTARIZATION_KEY }}
+          NOTARIZATION_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
+          NOTARIZATION_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
+        run: script/package
+
       - name: Upload the app
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -112,3 +129,28 @@ jobs:
             gh release list
           fi
 
+  bump-cask:
+    # `false` holds the bump back until the `minmaxcal` cask exists in
+    # Homebrew/homebrew-cask (ARCHITECTURE.md's Releases section has the
+    # cask and its notability bar) and `HOMEBREW_GITHUB_API_TOKEN`, a
+    # personal access token with the `public_repo` and `workflow`
+    # scopes, is a repository secret. `brew bump` then reads the new
+    # version from the release created above through `brew livecheck`
+    # and opens the pull request.
+    if: false && github.event_name == 'workflow_dispatch'
+    needs: release
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          core: false
+          cask: true
+          test-bot: false
+
+      - name: Bump the cask
+        uses: Homebrew/actions/bump-packages@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          casks: minmaxcal

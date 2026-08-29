@@ -23,6 +23,9 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 - `script/install`: build, then copy the app into /Applications so
   the login item and the running copy survive rebuilds
 - `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
+- `script/package`: sign the built app with the Developer ID
+  certificate, notarise it and zip it; every step needs credentials
+  from the environment
 - `script/test`: run the unit tests
 - `script/analyze`: static analysis (SwiftLint analyzer and, on the
   host or CI, periphery for dead code)
