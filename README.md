@@ -213,7 +213,19 @@ tint carries it.
 
 ## 📦 Installation
 
-Releases will ship as a Homebrew cask. Until then:
+Every release on the
+[releases page](https://github.com/MikeMcQuaid/MinMaxCal/releases) is a
+`MinMaxCal-<version>.zip` holding `MinMaxCal.app`: unzip it and move
+the app to /Applications. Releases are ad hoc signed until Developer
+ID signing and notarisation land, so macOS asks you to allow the app
+under Privacy & Security in System Settings on first launch.
+
+Releases will also ship as a Homebrew cask
+(`brew install --cask minmaxcal`) as soon as the repository is notable
+enough for [Homebrew/homebrew-cask](https://github.com/Homebrew/homebrew-cask);
+`brew upgrade` then updates the app, which has no updater of its own.
+
+To run the current source instead:
 
 ```bash
 script/bootstrap
@@ -227,9 +239,11 @@ both, or Calendars alone if you do not use Reminders.
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate the
   Xcode project with XcodeGen
-- `script/build`: build the app; `MinMaxCal.app` in the repository
-  root symlinks its output for quick development runs
+- `script/build [version]`: build the app, with the project's version
+  or the given one; `MinMaxCal.app` in the repository root symlinks its
+  output for quick development runs
 - `script/install`: build, then copy the app to /Applications
+- `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
 - `script/test`: unit tests
 - `script/style [--fix]`: SwiftLint and SwiftFormat, every rule on
 - `script/analyze`: static analysis and dead code
@@ -238,6 +252,16 @@ both, or Calendars alone if you do not use Reminders.
 
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
+
+### 🚀 Releasing
+
+Run the **Release** workflow from the Actions tab on `main` with the
+version to release, a bare semantic version such as `1.2.3`. It builds
+the app with that version, tags the commit and publishes a GitHub
+release carrying `MinMaxCal-1.2.3.zip` with generated notes. A push
+that touches the workflow or the packaging scripts runs the same job as
+a dry run that publishes nothing, and every CI run uploads the zip it
+built as an artifact.
 
 ## 🚧 Status
 

@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  # Run from `main` with the version to release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, a bare semantic version such as 1.2.3: the Git tag, the app's version and the zip's name"
+        required: true
+        type: string
+  # Dry run whenever the release process itself changes, so it cannot
+  # rot unnoticed between releases.
+  push:
+    paths:
+      - .github/workflows/release.yml
+      - script/build
+      - script/zip
+
+defaults:
+  run:
+    shell: bash -xeuo pipefail {0}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    permissions:
+      contents: write # to push the tag and create the release
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-tags: true
+
+      # The tag is created locally now and pushed only once the build
+      # has succeeded, so a failed release leaves nothing behind.
+      - name: Create the tag locally
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::Releases are cut from main, not ${GITHUB_REF}."
+            exit 1
+          fi
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The version must be a bare semantic version such as 1.2.3, not ${VERSION}."
+            exit 1
+          fi
+          git tag "${VERSION}"
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          core: false
+          cask: false
+          test-bot: false
+
+      - name: Select Xcode 27
+        run: |
+          xcode="$(find /Applications -maxdepth 1 -name 'Xcode*27*.app' -print -quit)"
+          if [[ -z "${xcode}" ]]; then
+            echo "::error::Xcode 27 is not installed on this runner image."
+            exit 1
+          fi
+          sudo xcode-select -s "${xcode}/Contents/Developer"
+          xcodebuild -version
+
+      - name: Download Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: Bootstrap
+        run: script/bootstrap
+
+      - name: Build
+        env:
+          VERSION: ${{ inputs.version }}
+        run: script/build "${VERSION}"
+
+      - name: Zip
+        run: script/zip
+
+      - name: Upload the app
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: MinMaxCal
+          path: .build/MinMaxCal-*.zip
+          # The zip lives in a hidden directory, skipped by default.
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Create the release (dry run on push)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            gh auth setup-git
+            git push origin "refs/tags/${VERSION}"
+            gh release create "${VERSION}" --verify-tag --generate-notes \
+              ".build/MinMaxCal-${VERSION}.zip"
+          else
+            # Check the token can reach releases without creating one.
+            gh release list
+          fi
+
