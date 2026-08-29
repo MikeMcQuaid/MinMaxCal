@@ -1,8 +1,11 @@
 #!/bin/bash
-# Build MinMaxCal.app into .build/DerivedData and print its path.
+# Build MinMaxCal.app into .build/DerivedData and print its path. A
+# version argument overrides the project's own for this build.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+version="${1:-}"
 
 [[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
 
@@ -19,6 +22,7 @@ ARGS=(
   -derivedDataPath .build/DerivedData
   -jobs "${JOBS}"
 )
+[[ -z "${version}" ]] || ARGS+=("MARKETING_VERSION=${version}" "CURRENT_PROJECT_VERSION=${version}")
 
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
   export SWIFTPM_DISABLE_SANDBOX=1

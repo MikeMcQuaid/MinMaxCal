@@ -509,8 +509,10 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
-xcodebuild), `install` (build, then copy to /Applications), `test`
-(unit tests via `swift test`, after sweeping `.test-scratch`),
+xcodebuild, with the project's version or a given one), `install`
+(build, then copy to /Applications), `zip` (the distributable zip,
+described under Releases), `test` (unit tests via `swift test`, after
+sweeping `.test-scratch`),
 `analyze` (a from-scratch verbose build into `.build/analyze` so the
 SwiftLint analyzer sees every compiler invocation, then periphery
 outside a sandbox), `style [--fix]` (all linters) and `icons` (PNG
@@ -557,10 +559,74 @@ checks on every push and pull request. The build-and-test job and the
 analyze job run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
-built, the tests passed and static analysis was clean (R2).
+built, the tests passed and static analysis was clean (R2). The
+build-and-test job zips the app it built and uploads the zip as the
+run's `MinMaxCal` artifact.
+
+### Releases
+
+Two scripts turn a checkout into the artefact a release ships:
+
+- `script/build [version]` builds as ever, signed ad hoc; a version
+  overrides `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` for that
+  build, so `project.yml` never changes for a release.
+- `script/zip` verifies the built app's signature, then zips it with
+  `ditto` as `.build/MinMaxCal-<version>.zip`, the version read from
+  the built `Info.plist`, with `MinMaxCal.app` as the zip's only
+  top-level entry.
+
+The Release workflow (`.github/workflows/release.yml`) creates the tag
+locally and pushes it only once the build has succeeded.
+`workflow_dispatch` takes the version, a bare semantic version such as
+`1.2.3`, and must be run on `main`; the job tags the checkout, builds
+with that version, zips, uploads the zip as an artifact, pushes the
+tag and creates the GitHub release from it with generated notes and
+the zip attached. A push that touches the workflow or the packaging
+scripts runs the same job as a dry run that only lists releases in
+place of creating one, so the release process cannot rot unnoticed
+between releases.
 
 Releases ship as a Homebrew cask, so `brew upgrade` updates the app;
-there is no updater in the app and no Mac App Store listing.
+there is no updater in the app and no Mac App Store listing. The cask
+lives in Homebrew/homebrew-cask, whose rules the release contract is
+written to satisfy:
+
+- A stable, versioned URL: the tag is the bare version, the zip is
+  `MinMaxCal-<version>.zip` and the app's `CFBundleShortVersionString`
+  is the same string, so the cask interpolates one `version` into
+  `https://github.com/MikeMcQuaid/MinMaxCal/releases/download/#{version}/MinMaxCal-#{version}.zip`
+  and `brew livecheck` reads the next version straight from the latest
+  release without a regex. Releases are always full releases, never
+  drafts or prereleases, which `livecheck` skips.
+- Notability: a new cask needs the repository to be at least 30 days
+  old with 30 forks, 30 watchers or 75 stars, or three times that when
+  its owner submits it. The cask is not submitted before then.
+
+The target cask, for `brew create --cask` to be checked against:
+
+```ruby
+cask "minmaxcal" do
+  version "1.0.0"
+  sha256 "<shasum --algorithm 256 MinMaxCal-1.0.0.zip>"
+
+  url "https://github.com/MikeMcQuaid/MinMaxCal/releases/download/#{version}/MinMaxCal-#{version}.zip"
+  name "MinMaxCal"
+  desc "Menu bar calendar with a full-screen takeover when something is due"
+  homepage "https://github.com/MikeMcQuaid/MinMaxCal"
+
+  depends_on macos: ">= :golden_gate"
+
+  app "MinMaxCal.app"
+
+  uninstall quit: "com.mikemcquaid.MinMaxCal"
+
+  zap trash: "~/Library/Containers/com.mikemcquaid.MinMaxCal"
+end
+```
+
+`uninstall quit:` matters because the app is always running, and the
+`zap` removes the sandbox container that holds both the defaults and
+the takeover ledger.
 
 ## Risks and open questions
 
