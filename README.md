@@ -229,10 +229,9 @@ tint carries it.
 
 Every release on the
 [releases page](https://github.com/MikeMcQuaid/MinMaxCal/releases) is a
-`MinMaxCal-<version>.zip` holding `MinMaxCal.app`: unzip it and move
-the app to /Applications. Releases are ad hoc signed until Developer
-ID signing and notarisation land, so macOS asks you to allow the app
-under Privacy & Security in System Settings on first launch.
+`MinMaxCal-<version>.zip` holding `MinMaxCal.app`, signed with a
+Developer ID certificate and notarised by Apple so it opens without a
+Gatekeeper warning: unzip it and move the app to /Applications.
 
 Releases will also ship as a Homebrew cask
 (`brew install --cask minmaxcal`) as soon as the repository is notable
@@ -258,6 +257,9 @@ both, or Calendars alone if you do not use Reminders.
   output for quick development runs
 - `script/install`: build, then copy the app to /Applications
 - `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
+- `script/package`: sign the built app with the Developer ID
+  certificate, notarise it and zip it; needs the certificate and App
+  Store Connect credentials in the environment
 - `script/test`: unit tests
 - `script/style [--fix]`: SwiftLint and SwiftFormat, every rule on
 - `script/analyze`: static analysis and dead code
@@ -270,12 +272,13 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 ### 🚀 Releasing
 
 Run the **Release** workflow from the Actions tab on `main` with the
-version to release, a bare semantic version such as `1.2.3`. It builds
-the app with that version, tags the commit and publishes a GitHub
-release carrying `MinMaxCal-1.2.3.zip` with generated notes. A push
-that touches the workflow or the packaging scripts runs the same job as
-a dry run that publishes nothing, and every CI run uploads the zip it
-built as an artifact.
+version to release, a bare semantic version such as `1.2.3`. It builds,
+signs and notarises the app with that version, tags the commit and
+publishes a GitHub release carrying `MinMaxCal-1.2.3.zip` with generated
+notes. A push that touches the workflow or the packaging scripts runs
+the same job as a dry run that publishes nothing, and every CI run
+uploads the zip it built as an artifact, signed and notarised whenever
+the run has the repository's secrets.
 
 ## 🚧 Status
 

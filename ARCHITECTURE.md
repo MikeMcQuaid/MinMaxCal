@@ -537,9 +537,10 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
 xcodebuild, with the project's version or a given one), `install`
-(build, then copy to /Applications), `zip` (the distributable zip,
-described under Releases), `test` (unit tests via `swift test`, after
-sweeping `.test-scratch`),
+(build, then copy to /Applications), `zip` and `package` (the
+distributable zip and its signing and notarisation, described under
+Releases), `test` (unit tests via `swift test`, after sweeping
+`.test-scratch`),
 `analyze` (a from-scratch verbose build into `.build/analyze` so the
 SwiftLint analyzer sees every compiler invocation, then periphery
 outside a sandbox), `style [--fix]` (all linters) and `icons` (PNG
@@ -587,12 +588,17 @@ analyze job run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
 built, the tests passed and static analysis was clean (R2). The
-build-and-test job zips the app it built and uploads the zip as the
-run's `MinMaxCal` artifact.
+build-and-test job zips the app it built and, when the run has the
+repository secrets, signs and notarises it first; pull requests from
+forks and Dependabot have no secrets, so their signing step is skipped
+(a job-level `HAS_SIGNING_SECRETS` flag, since a step's `if` cannot
+read secrets directly) and their zip stays ad hoc signed. Either way
+the zip is uploaded as the run's `MinMaxCal` artifact.
 
 ### Releases
 
-Two scripts turn a checkout into the artefact a release ships:
+Three scripts turn a checkout into the artefact a release ships, split
+so that only the last needs credentials:
 
 - `script/build [version]` builds as ever, signed ad hoc; a version
   overrides `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` for that
@@ -601,23 +607,52 @@ Two scripts turn a checkout into the artefact a release ships:
   `ditto` as `.build/MinMaxCal-<version>.zip`, the version read from
   the built `Info.plist`, with `MinMaxCal.app` as the zip's only
   top-level entry.
+- `script/package` needs every credential in its environment and
+  fails without them. `DEVELOPER_ID_APPLICATION_CERTIFICATE`, a base64
+  encoded `.p12` export of the Developer ID Application certificate
+  and its private key (`base64 -i certificate.p12`), with
+  `DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD`, is imported into a
+  temporary keychain that is deleted on exit. The app is then signed
+  again in place: the ad hoc build carries the `get-task-allow`
+  entitlement Xcode adds to ad hoc signatures, which notarisation
+  rejects, so `codesign` signs from the source
+  `App/MinMaxCal.entitlements` with the hardened runtime and the
+  secure timestamp notarisation requires. `NOTARIZATION_KEY` (the
+  contents of an App Store Connect API key's `.p8` file),
+  `NOTARIZATION_KEY_ID` and `NOTARIZATION_ISSUER_ID` send the zip to
+  `notarytool`, wait for the verdict and print Apple's log when it is
+  anything but `Accepted`; the ticket is stapled to the app, Gatekeeper
+  is asked to assess it (`spctl --assess`) and the zip is remade around
+  the stapled app.
 
 The Release workflow (`.github/workflows/release.yml`) creates the tag
 locally and pushes it only once the build has succeeded.
 `workflow_dispatch` takes the version, a bare semantic version such as
 `1.2.3`, and must be run on `main`; the job tags the checkout, builds
-with that version, zips, uploads the zip as an artifact, pushes the
-tag and creates the GitHub release from it with generated notes and
-the zip attached. A push that touches the workflow or the packaging
-scripts runs the same job as a dry run that only lists releases in
-place of creating one, so the release process cannot rot unnoticed
-between releases.
+with that version, zips, signs and notarises (a release always does,
+so missing secrets fail it), uploads the zip as an artifact, pushes
+the tag and creates the GitHub release from it with generated notes
+and the zip attached. A push that touches the workflow or the
+packaging scripts runs the same job as a dry run that only lists
+releases in place of creating one, so the release process cannot rot
+unnoticed between releases; like CI it skips signing when the push has
+no secrets, as a Dependabot branch does. A second job, `bump-cask`,
+runs `Homebrew/actions/bump-packages` after a release so `brew bump`
+reads the new version through `brew livecheck` and opens the version
+bump pull request against homebrew-cask; its `if` is held at `false`
+until the cask exists and `HOMEBREW_GITHUB_API_TOKEN` (a personal
+access token with the `public_repo` and `workflow` scopes) is a
+repository secret.
 
 Releases ship as a Homebrew cask, so `brew upgrade` updates the app;
 there is no updater in the app and no Mac App Store listing. The cask
 lives in Homebrew/homebrew-cask, whose rules the release contract is
 written to satisfy:
 
+- Gatekeeper: homebrew-cask audits signing (`brew audit --signing`
+  runs `spctl --assess` on the installed app), so a release is
+  Developer ID signed with the hardened runtime, notarised and stapled;
+  an ad hoc build is never released.
 - A stable, versioned URL: the tag is the bare version, the zip is
   `MinMaxCal-<version>.zip` and the app's `CFBundleShortVersionString`
   is the same string, so the cask interpolates one `version` into
