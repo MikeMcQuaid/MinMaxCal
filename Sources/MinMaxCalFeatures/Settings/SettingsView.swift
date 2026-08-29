@@ -26,6 +26,9 @@ public struct SettingsView: View {
             Tab("General", systemImage: "gearshape") {
                 GeneralTab(model: model)
             }
+            Tab("About", systemImage: "info.circle") {
+                AboutTab()
+            }
         }
         .frame(width: Self.width, height: Self.height)
         .task { await model.load() }

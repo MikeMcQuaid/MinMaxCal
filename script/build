@@ -1,11 +1,8 @@
 #!/bin/bash
-# Build MinMaxCal.app into .build/DerivedData and print its path. A
-# version argument overrides the project's own for this build.
+# Build MinMaxCal.app into .build/DerivedData and print its path.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-
-version="${1:-}"
 
 [[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
 
@@ -22,7 +19,17 @@ ARGS=(
   -derivedDataPath .build/DerivedData
   -jobs "${JOBS}"
 )
-[[ -z "${version}" ]] || ARGS+=("MARKETING_VERSION=${version}" "CURRENT_PROJECT_VERSION=${version}")
+
+# The version counts the default branch's commits, so numbers are
+# comparable across feature branches: the app is 0.1.<count>. Outside
+# a git checkout it is 0.1.1, as from Xcode.
+BUILD_NUMBER="$(
+  git rev-list --count origin/main 2>/dev/null ||
+    git rev-list --count main 2>/dev/null ||
+    git rev-list --count HEAD 2>/dev/null ||
+    echo 1
+)"
+ARGS+=("CURRENT_PROJECT_VERSION=${BUILD_NUMBER}")
 
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
   export SWIFTPM_DISABLE_SANDBOX=1
