@@ -31,7 +31,7 @@ flowchart LR
         ek["EventKit<br/>(calendars and reminders<br/>from every account)"]
         sm["launchd via SMAppService"]
         zoom["Zoom app"]
-        edge["Microsoft Edge"]
+        edge["Microsoft Edge<br/>or the chosen browser"]
         browser["default browser"]
         defaults[("UserDefaults and a<br/>takeover ledger file")]
     end
@@ -157,11 +157,15 @@ flowchart TD
   and occurrence dates it merged from, title, start, end, all-day, the
   calendars it is in, location, notes, URL, organiser, attendees with
   their responses, the current user's response, acceptance and the
-  detected `JoinLink`), `JoinLink` (Zoom with meeting id and passcode,
-  Meet, Jitsi or other, each knowing the URL to open and which app),
-  `Agenda` (items in time order with a horizon), `Takeover` (an item,
-  its trigger and the moment it fires), `MatchingRules` and `Selection`
-  (value types Settings edits). Logic: `AgendaMerger`, `AgendaFilter`
+  detected `JoinLink`), `JoinLink` (Zoom, Meet, Jitsi or other with
+  the web URL to open and, for Zoom, the `zoommtg://` deep link built
+  from its meeting id and passcode as well), `JoinApp` (an installed
+  app's bundle identifier and name), `Agenda` (items in time order
+  with a horizon), `Takeover` (an item, its trigger and the moment it
+  fires), `MatchingRules`, `Selection` and `JoinSettings` (which app,
+  by bundle identifier, opens each service's links, nil being the
+  default browser; value types Settings edits). Logic: `AgendaMerger`,
+  `AgendaFilter`
   (past, declined, cancelled, completed, all-day and undated rules),
   `Acceptance`, `MenuBarTitle` (middle truncation by grapheme cluster),
   `Countdown` (two largest units, `<1m`, `now`, to the start or to the
@@ -170,17 +174,23 @@ flowchart TD
   through it on every rebuild)
   and `TakeoverPlanner` (the next `Takeover` given an agenda, the
   ledger, the clock and the settings). `TakeoverLedger` and
-  `TakeoverSettings` are Domain values too, so the planner is pure.
+  `TakeoverSettings` (the switches, the `TakeoverSound`, a name for
+  `NSSound` that is Glass by default, or none, and the snooze
+  durations) are Domain values too, so the planner is pure.
   Foundation value types (Date, URL and Data) are allowed; EventKit,
   AppKit, process, file and network APIs are banned.
 - **MinMaxCalData**: protocol ports with adapter implementations.
   `CalendarSource` (`requestAccess`, `accessStatus`, `lists`,
-  `agenda(from:to:selection:rules:)`, `complete(reminder:)`,
-  `changes`) with `EventKitCalendarSource`, the rules being passed so
-  the decoder can run `JoinLinkDetector` with the configured Jitsi
-  hosts; `LoginItem` with `SMAppServiceLoginItem`; `LinkOpener` with
-  `WorkspaceLinkOpener` (opens a URL in a named bundle identifier,
-  falling back to the default handler when the app is not installed);
+  `agenda(from:to:selection:)`, `complete(reminder:)`, `changes`)
+  with `EventKitCalendarSource`, whose decoder runs `JoinLinkDetector`
+  over every item; `LoginItem` with `SMAppServiceLoginItem`;
+  `LinkOpener` with
+  `WorkspaceLinkOpener` (`open(_:in:)` opens a link in the app with a
+  bundle identifier, the `zoommtg://` deep link when that app is
+  Zoom, falling back to the default handler when the choice is nil or
+  the app is not installed; `apps(for:)` lists the installed handlers
+  of `https://` and, for Zoom, `zoommtg://` through
+  `NSWorkspace.urlsForApplications(toOpen:)`);
   `SettingsStore` over `UserDefaults`, MainActor-isolated because
   `UserDefaults` is not `Sendable` on the macOS 27 SDK, holding the
   decoded values in memory and writing through so a read never decodes
@@ -197,7 +207,13 @@ flowchart TD
   for the same notes by every takeover window at once),
   `Takeover` (`TakeoverModel`, the panel view and the AppKit window
   controller that puts one borderless window on each screen) and
-  `Settings` (the four tabs and `SettingsModel`; the list fields are
+  `Settings` (the five tabs and `SettingsModel`, which lists the
+  takeover sounds by reading the audio files, by `UTType`, of the
+  account's `~/Library/Sounds` rather than the sandbox container's,
+  which the app sandbox lets it read, then `/Library/Sounds` and
+  `/System/Library/Sounds`, and lists per service the apps
+  `LinkOpener` finds, keeping a chosen app that is no longer installed
+  in the list so the picker never goes blank; the list fields are
   `TextField`s over `ListField`'s `ParseableFormatStyle`s, so they
   commit when editing ends rather than on every keystroke). Split into
   targets if one surface grows a dependency the others must not see.
@@ -211,6 +227,7 @@ Third-party imports: none. System frameworks are confined (P3):
 |---|---|
 | EventKit, ServiceManagement | MinMaxCalData |
 | AppKit | MinMaxCalData (`NSWorkspace`) and MinMaxCalFeatures (windows) |
+| AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
 | SwiftUI | MinMaxCalFeatures and MinMaxCalApp |
 
 ## Concurrency model
@@ -369,8 +386,12 @@ error restores the row and shows the message inline.
    `NSHostingView`, with the key window on the screen holding the
    mouse. The windows fade in over 0.2 seconds through
    `NSAnimationContext`, or appear at once when
-   `accessibilityDisplayShouldReduceMotion` is set, and the
-   announcement is posted as an `AccessibilityNotification`. It
+   `accessibilityDisplayShouldReduceMotion` is set, the sound from
+   `TakeoverSettings` plays once through `AudioServicesPlayAlertSound`
+   (a `SystemSoundID` registered once per name from the file of that
+   name in the Sounds folders, so it follows the alert volume and the
+   Flash the screen accessibility setting), and the announcement is
+   posted as an `AccessibilityNotification`. It
    observes `didChangeScreenParametersNotification` and adds, removes
    or refits windows while showing, since displays come and go
    mid-meeting; a window left with no screen is closed rather than kept
@@ -383,11 +404,13 @@ error restores the row and shows the message inline.
    modal for VoiceOver. Return triggers the primary action, Escape
    dismisses; every window forwards to the one model, so a click on
    any display acts for all.
-5. Join calls `LinkOpener.open(_:in:)`: Zoom links become
-   `zoommtg://zoom.us/join?confno=<id>&pwd=<passcode>` opened by
-   `us.zoom.xos`, Meet and Jitsi URLs open in `com.microsoft.edgemac`
-   via `NSWorkspace.open(_:withApplicationAt:configuration:)`, and
-   anything else or a missing app goes through `NSWorkspace.open(_:)`.
+5. Join calls `LinkOpener.open(_:in:)` with the app `JoinSettings`
+   names for the link's service. By default Zoom links open as
+   `zoommtg://zoom.us/join?confno=<id>&pwd=<passcode>` in
+   `us.zoom.xos` and Meet and Jitsi URLs in `com.microsoft.edgemac`,
+   via `NSWorkspace.open(_:withApplicationAt:configuration:)`; any
+   other choice opens the web URL in that app, and a nil choice, a
+   missing app or any other link goes through `NSWorkspace.open(_:)`.
    The takeover dismisses before the other app comes forward, so the
    call is on top.
 6. Dismiss, Complete and Join record the takeover's member identities,
@@ -451,22 +474,26 @@ the compiled icon.
 | Events, reminders, attendees, responses, calendars, accounts | EventKit | read on every change, convert, never cache across launches |
 | Reminder completion, and its undo | EventKit | the only write |
 | Login item registration | launchd via `SMAppService` | register once, reflect status |
-| Selected calendars and lists, matching rules, takeover switches, snooze durations, title limit | `UserDefaults` | sole owner |
+| Selected calendars and lists, matching rules, takeover switches, sound and snooze durations, join apps, title limit | `UserDefaults` | sole owner |
 | Dismissed and snoozed takeovers | `Application Support/MinMaxCal/takeovers.json` inside the app's sandbox container | sole owner, pruned daily |
 
 Deleting the defaults and the ledger loses the selection and any snooze
 in flight; everything else re-derives from EventKit (P1).
+`TakeoverSettings` codes itself by hand so that settings saved before
+the sound existed decode with the default sound, while a chosen
+silence is stored as `null` and kept.
 
 ## Security and privacy model
 
 - Calendar and reminder data never leaves the process. There is no
   network code, no analytics and no log line containing a title, a
   note or an attendee.
-- Link detection (P6) only ever emits `zoommtg://zoom.us/...` built
-  from a numeric meeting id and a passcode limited to URL-safe
-  characters, `https://meet.google.com/...`, `https://` URLs whose host
-  is `meet.jit.si` or a configured Jitsi host, or the event's own URL
-  when it has an `http` or `https` scheme. Any other scheme in an
+- Link detection (P6) only ever emits, for Zoom, `https://<zoom
+  host>/j/<id>` and `zoommtg://zoom.us/...` built from a numeric
+  meeting id and a passcode limited to URL-safe characters,
+  `https://meet.google.com/...`, `https://meet.jit.si/...`, or the
+  event's own URL when it has an `http` or `https` scheme. Any other
+  scheme in an
   invitation is ignored, so an event cannot make the app open a
   `file:` or custom-scheme URL.
 - Notes render as text with `http(s)` links only. Plain notes get their

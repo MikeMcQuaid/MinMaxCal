@@ -7,6 +7,6 @@ public protocol CalendarSource: Sendable {
     func requestAccess() async -> AccessStatus
     func accessStatus() -> AccessStatus
     func lists() async -> [CalendarList]
-    func agenda(from start: Date, to end: Date, selection: Selection, rules: MatchingRules) async -> [AgendaItem]
+    func agenda(from start: Date, to end: Date, selection: Selection) async -> [AgendaItem]
     func setCompleted(_ completed: Bool, reminder: MemberIdentity) async throws
 }

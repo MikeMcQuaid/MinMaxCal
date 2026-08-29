@@ -63,12 +63,17 @@ nonisolated enum Fixtures {
         return store
     }
 
-    static func ledgerStore(_ file: String = #filePath) -> TakeoverLedgerStore {
+    static func ledgerStore() -> TakeoverLedgerStore {
+        TakeoverLedgerStore(file: scratchDirectory().appending(path: "takeovers.json"))
+    }
+
+    static func scratchDirectory(_ file: String = #filePath) -> URL {
         let checkout = URL(filePath: file)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let directory = checkout.appending(path: ".test-scratch").appending(path: UUID().uuidString)
-        return TakeoverLedgerStore(file: directory.appending(path: "takeovers.json"))
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
     }
 }

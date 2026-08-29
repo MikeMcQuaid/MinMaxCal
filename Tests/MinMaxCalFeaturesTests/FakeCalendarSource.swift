@@ -43,7 +43,7 @@ nonisolated final class FakeCalendarSource: CalendarSource {
         availableLists
     }
 
-    func agenda(from _: Date, to _: Date, selection: Selection, rules _: MatchingRules) -> [AgendaItem] {
+    func agenda(from _: Date, to _: Date, selection: Selection) -> [AgendaItem] {
         state.withLock { state in
             state.fetches += 1
             return selection.isEmpty ? [] : state.items

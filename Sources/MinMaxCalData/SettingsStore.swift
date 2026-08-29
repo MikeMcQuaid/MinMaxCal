@@ -14,6 +14,7 @@ public final class SettingsStore {
         selection = Self.decode(Key.selection, from: defaults) ?? .empty
         matchingRules = Self.decode(Key.matchingRules, from: defaults) ?? .default
         takeover = Self.decode(Key.takeover, from: defaults) ?? .default
+        join = Self.decode(Key.join, from: defaults) ?? .default
     }
 
     // MARK: Public
@@ -37,14 +38,19 @@ public final class SettingsStore {
         didSet { encode(selection, for: Key.selection) }
     }
 
-    /// The generic titles and Jitsi hosts.
+    /// The generic titles and home terms.
     public var matchingRules: MatchingRules {
         didSet { encode(matchingRules, for: Key.matchingRules) }
     }
 
-    /// The takeover switches and snooze durations.
+    /// The takeover switches, sound and snooze durations.
     public var takeover: TakeoverSettings {
         didSet { encode(takeover, for: Key.takeover) }
+    }
+
+    /// The app each call service opens in.
+    public var join: JoinSettings {
+        didSet { encode(join, for: Key.join) }
     }
 
     /// The menu bar title length, clamped to `MenuBarTitle.limitRange`.
@@ -68,6 +74,7 @@ public final class SettingsStore {
         static let selection = "selection"
         static let matchingRules = "matchingRules"
         static let takeover = "takeover"
+        static let join = "join"
         static let titleLimit = "titleLimit"
         static let loginItemRegistered = "loginItemRegistered"
     }

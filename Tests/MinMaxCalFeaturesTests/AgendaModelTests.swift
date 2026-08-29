@@ -120,6 +120,7 @@ struct AgendaModelTests {
         let link = try JoinLink(service: .meet, url: #require(URL(string: "https://meet.google.com/abc")))
         model.join(link)
         #expect(opener.opened == [link])
+        #expect(opener.openedIn == [JoinApp.edge.bundleIdentifier])
     }
 
     // MARK: Private

@@ -1,4 +1,5 @@
 import AppKit
+import MinMaxCalDomain
 import SwiftUI
 
 public final class TakeoverWindowController: TakeoverPresenting {
@@ -24,12 +25,13 @@ public final class TakeoverWindowController: TakeoverPresenting {
 
     public var content: () -> AnyView
 
-    public func show(announcing announcement: String) {
+    public func show(announcing announcement: String, playing sound: TakeoverSound?) {
         if let frontmost = NSWorkspace.shared.frontmostApplication, frontmost != .current {
             previousApp = frontmost
         }
         NSApplication.shared.activate()
         fit()
+        sound?.play()
         AccessibilityNotification.Announcement(announcement).post()
     }
 

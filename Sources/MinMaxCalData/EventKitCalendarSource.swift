@@ -38,14 +38,8 @@ public actor EventKitCalendarSource: CalendarSource {
             + store.calendars(for: .reminder).map { EventKitDecoder.list($0, kind: .reminder) }
     }
 
-    public func agenda(
-        from start: Date,
-        to end: Date,
-        selection: Selection,
-        rules: MatchingRules,
-    ) async -> [AgendaItem] {
-        await events(from: start, to: end, selection: selection, rules: rules)
-            + reminders(until: end, selection: selection, rules: rules)
+    public func agenda(from start: Date, to end: Date, selection: Selection) async -> [AgendaItem] {
+        await events(from: start, to: end, selection: selection) + reminders(until: end, selection: selection)
     }
 
     public func setCompleted(_ completed: Bool, reminder member: MemberIdentity) throws {
@@ -84,7 +78,7 @@ public actor EventKitCalendarSource: CalendarSource {
         }
     }
 
-    private func events(from start: Date, to end: Date, selection: Selection, rules: MatchingRules) -> [AgendaItem] {
+    private func events(from start: Date, to end: Date, selection: Selection) -> [AgendaItem] {
         let calendars = store.calendars(for: .event)
             .filter { selection.calendarIdentifiers.contains($0.calendarIdentifier) }
         guard calendars.isEmpty == false else {
@@ -92,10 +86,10 @@ public actor EventKitCalendarSource: CalendarSource {
         }
 
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
-        return store.events(matching: predicate).map { EventKitDecoder.item($0, rules: rules) }
+        return store.events(matching: predicate).map(EventKitDecoder.item)
     }
 
-    private func reminders(until end: Date, selection: Selection, rules: MatchingRules) async -> [AgendaItem] {
+    private func reminders(until end: Date, selection: Selection) async -> [AgendaItem] {
         let lists = store.calendars(for: .reminder)
             .filter { selection.reminderListIdentifiers.contains($0.calendarIdentifier) }
         guard lists.isEmpty == false else {
@@ -109,7 +103,7 @@ public actor EventKitCalendarSource: CalendarSource {
         )
         return await withCheckedContinuation { continuation in
             store.fetchReminders(matching: predicate) { reminders in
-                continuation.resume(returning: (reminders ?? []).compactMap { EventKitDecoder.item($0, rules: rules) })
+                continuation.resume(returning: (reminders ?? []).compactMap(EventKitDecoder.item))
             }
         }
     }
