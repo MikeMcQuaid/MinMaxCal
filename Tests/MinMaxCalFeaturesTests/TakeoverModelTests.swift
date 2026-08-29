@@ -8,11 +8,12 @@ struct TakeoverModelTests {
     // MARK: Lifecycle
 
     init() throws {
-        model = try TakeoverModel(
+        settings = try Fixtures.settingsStore()
+        model = TakeoverModel(
             source: source,
             opener: opener,
             ledger: ledger,
-            settings: Fixtures.settingsStore(),
+            settings: settings,
             presenter: presenter,
             clock: Fixtures.clock,
         )
@@ -60,6 +61,7 @@ struct TakeoverModelTests {
 
         #expect(presenter.focusReturns == [false], "the call's app takes the front, not the app that was there")
         #expect(opener.opened == [link])
+        #expect(opener.openedIn == [JoinApp.zoom.bundleIdentifier])
     }
 
     @Test
@@ -117,6 +119,17 @@ struct TakeoverModelTests {
     }
 
     @Test
+    func `shows with the sound from settings`() {
+        let reminder = Fixtures.reminder("reminder", dueIn: 0)
+        model.preview(reminder)
+        settings.takeover.sound = nil
+
+        model.preview(reminder)
+
+        #expect(presenter.sounds == [.default, nil])
+    }
+
+    @Test
     func `announces an untitled item as such`() {
         model.preview(Fixtures.reminder("reminder", title: "", dueIn: 0))
         #expect(presenter.announcements == ["Untitled is due"])
@@ -150,6 +163,7 @@ struct TakeoverModelTests {
     private let opener: FakeLinkOpener = .init()
     private let presenter: FakePresenter = .init()
     private let ledger: TakeoverLedgerStore = Fixtures.ledgerStore()
+    private let settings: SettingsStore
     private let model: TakeoverModel
 
     private func agenda(_ items: [AgendaItem]) -> Agenda {

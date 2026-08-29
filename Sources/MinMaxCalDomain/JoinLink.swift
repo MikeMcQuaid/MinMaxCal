@@ -3,50 +3,42 @@ import Foundation
 public struct JoinLink: Hashable, Sendable {
     // MARK: Lifecycle
 
-    public init(service: Service, url: URL) {
+    public init(service: Service, url: URL, zoomURL: URL? = nil) {
         self.service = service
         self.url = url
+        self.zoomURL = zoomURL
     }
 
     // MARK: Public
 
-    public enum Service: Hashable, Sendable {
+    public enum Service: CaseIterable, Hashable, Sendable {
         case jitsi
         case meet
         case other
         case zoom
+
+        // MARK: Public
+
+        public var name: String {
+            switch self {
+            case .jitsi:
+                "Jitsi"
+
+            case .meet:
+                "Google Meet"
+
+            case .other:
+                "Other links"
+
+            case .zoom:
+                "Zoom"
+            }
+        }
     }
 
     public var service: Service
+    /// The web address, which any browser opens.
     public var url: URL
-
-    public var app: JoinApp {
-        switch service {
-        case .zoom:
-            .zoom
-
-        case .jitsi,
-             .meet:
-            .edge
-
-        case .other:
-            .browser
-        }
-    }
-
-    public var serviceName: String {
-        switch service {
-        case .jitsi:
-            "Jitsi"
-
-        case .meet:
-            "Google Meet"
-
-        case .other:
-            "link"
-
-        case .zoom:
-            "Zoom"
-        }
-    }
+    /// The `zoommtg://` deep link that takes the Zoom app straight into the meeting.
+    public var zoomURL: URL?
 }

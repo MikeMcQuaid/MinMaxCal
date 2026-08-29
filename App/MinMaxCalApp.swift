@@ -23,7 +23,12 @@ struct MinMaxCalApp: App {
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
-        let settingsModel = SettingsModel(source: source, store: store, loginItem: SMAppServiceLoginItem())
+        let settingsModel = SettingsModel(
+            source: source,
+            store: store,
+            loginItem: SMAppServiceLoginItem(),
+            opener: opener,
+        )
         settingsModel.registerLoginItemOnFirstInstalledLaunch()
         // The loop lives as long as the app: nothing in a menu bar app
         // owns a view that is reliably alive to host it as a `.task`.

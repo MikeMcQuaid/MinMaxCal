@@ -19,7 +19,7 @@ public enum EventKitDecoder {
     }
 
     /// An `AgendaItem` for one event occurrence.
-    public static func item(_ event: EKEvent, rules: MatchingRules) -> AgendaItem {
+    public static func item(_ event: EKEvent) -> AgendaItem {
         let attendees = (event.attendees ?? []).map(attendee)
         let organiser = event.organizer.map(attendee)
         let member = MemberIdentity(
@@ -47,14 +47,13 @@ public enum EventKitDecoder {
                 url: event.url,
                 location: event.location,
                 notes: event.notes,
-                rules: rules,
             ),
             recurrence: recurrence(event.recurrenceRules ?? []),
         )
     }
 
     /// An `AgendaItem` for a reminder, or nil when it has no due date.
-    public static func item(_ reminder: EKReminder, rules: MatchingRules) -> AgendaItem? {
+    public static func item(_ reminder: EKReminder) -> AgendaItem? {
         guard let due = reminder.dueDateComponents, let start = (due.calendar ?? .current).date(from: due) else {
             return nil
         }
@@ -74,7 +73,6 @@ public enum EventKitDecoder {
                 url: reminder.url,
                 location: reminder.location,
                 notes: reminder.notes,
-                rules: rules,
             ),
             recurrence: recurrence(reminder.recurrenceRules ?? []),
         )

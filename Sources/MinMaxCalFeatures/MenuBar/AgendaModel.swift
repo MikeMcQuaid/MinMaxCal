@@ -86,7 +86,7 @@ public final class AgendaModel {
         publish(\.rules, settings.matchingRules)
         publish(\.hasSelection, selection.isEmpty == false)
         let horizon = horizon(around: rebuildTime)
-        let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection, rules: rules)
+        let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection)
         let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
         recentlyCompleted.removeAll { rebuildTime.timeIntervalSince($0.at) > Self.undoWindow }
         let undoable = recentlyCompleted.map(\.item)
@@ -108,9 +108,9 @@ public final class AgendaModel {
         await setCompleted(false, item)
     }
 
-    /// Opens a call link through the link opener.
+    /// Opens a call link in the app Settings chose for its service.
     public func join(_ link: JoinLink) {
-        opener.open(link)
+        opener.open(link, in: settings.join[link.service])
     }
 
     /// Asks the loop for a rebuild.

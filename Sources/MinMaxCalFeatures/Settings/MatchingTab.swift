@@ -19,12 +19,6 @@ struct MatchingTab: View {
                 Text("End a term with * to match a prefix such as a postcode.")
                 Text("Separate with commas and press Return.")
             }
-            Section {
-                TextField("Jitsi hosts", value: $model.rules.jitsiHosts, format: ListField.Strings())
-            } footer: {
-                Text("Links on these hosts open in Microsoft Edge, as \(MatchingRules.builtInJitsiHost) always does.")
-                Text("Separate with commas and press Return.")
-            }
         }
         .formStyle(.grouped)
     }

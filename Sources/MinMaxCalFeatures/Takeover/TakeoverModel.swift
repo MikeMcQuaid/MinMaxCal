@@ -91,7 +91,7 @@ public final class TakeoverModel {
         }
         current = takeover
         errorMessage = nil
-        presenter.show(announcing: Self.announcement(for: takeover))
+        presenter.show(announcing: Self.announcement(for: takeover), playing: settings.takeover.sound)
     }
 
     /// Shows a real agenda item as a takeover without recording anything.
@@ -108,7 +108,7 @@ public final class TakeoverModel {
     /// Hides the panel, records the dismissal and opens the call, which takes the front itself.
     public func join(_ link: JoinLink) {
         dismiss(returningFocus: false)
-        opener.open(link)
+        opener.open(link, in: settings.join[link.service])
     }
 
     /// Completes the reminders in Reminders, then dismisses; a failure keeps the panel up with the error.

@@ -19,7 +19,7 @@ struct EventKitDecoderTests {
         event.notes = "Join https://zoom.us/j/123?pwd=abc"
         event.url = URL(string: "https://example.com/agenda")
 
-        let item = EventKitDecoder.item(event, rules: rules)
+        let item = EventKitDecoder.item(event)
 
         #expect(item.kind == .event)
         #expect(item.title == "Weekly planning")
@@ -48,7 +48,7 @@ struct EventKitDecoderTests {
         event.startDate = Date(timeIntervalSinceReferenceDate: 800_000_000)
         event.endDate = event.startDate.addingTimeInterval(86_400)
 
-        #expect(EventKitDecoder.item(event, rules: rules).isAllDay)
+        #expect(EventKitDecoder.item(event).isAllDay)
     }
 
     @Test
@@ -65,7 +65,7 @@ struct EventKitDecoderTests {
             minute: 30,
         )
 
-        let timed = try #require(EventKitDecoder.item(reminder, rules: rules))
+        let timed = try #require(EventKitDecoder.item(reminder))
         #expect(timed.kind == .reminder)
         #expect(timed.title == "Buy milk")
         #expect(timed.isAllDay == false)
@@ -80,11 +80,11 @@ struct EventKitDecoderTests {
         #expect(timed.calendars.map(\.kind) == [.reminder])
 
         reminder.dueDateComponents = DateComponents(calendar: .current, year: 2_026, month: 8, day: 23)
-        let dateOnly = try #require(EventKitDecoder.item(reminder, rules: rules))
+        let dateOnly = try #require(EventKitDecoder.item(reminder))
         #expect(dateOnly.isAllDay)
 
         reminder.dueDateComponents = nil
-        #expect(EventKitDecoder.item(reminder, rules: rules) == nil)
+        #expect(EventKitDecoder.item(reminder) == nil)
     }
 
     @Test
@@ -103,7 +103,6 @@ struct EventKitDecoderTests {
     // MARK: Private
 
     private let store: EKEventStore = .init()
-    private let rules: MatchingRules = .default
 
     private func calendar(_ title: String, for kind: EKEntityType) -> EKCalendar {
         let calendar = EKCalendar(for: kind, eventStore: store)

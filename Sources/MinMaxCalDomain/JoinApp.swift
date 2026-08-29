@@ -1,20 +1,17 @@
-public enum JoinApp: Hashable, Sendable {
-    case browser
-    case edge
-    case zoom
+/// An installed app that opens call links, by bundle identifier, with the name Settings shows.
+public struct JoinApp: Hashable, Sendable {
+    // MARK: Lifecycle
+
+    public init(bundleIdentifier: String, name: String) {
+        self.bundleIdentifier = bundleIdentifier
+        self.name = name
+    }
 
     // MARK: Public
 
-    public var bundleIdentifier: String? {
-        switch self {
-        case .browser:
-            nil
+    public static let edge: Self = .init(bundleIdentifier: "com.microsoft.edgemac", name: "Microsoft Edge")
+    public static let zoom: Self = .init(bundleIdentifier: "us.zoom.xos", name: "Zoom")
 
-        case .edge:
-            "com.microsoft.edgemac"
-
-        case .zoom:
-            "us.zoom.xos"
-        }
-    }
+    public let bundleIdentifier: String
+    public let name: String
 }

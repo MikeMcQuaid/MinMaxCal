@@ -6,23 +6,25 @@ struct JoinLinkDetectorTests {
     // MARK: Internal
 
     @Test
-    func `builds a zoom app link with the passcode`() {
-        let link = detect(url: "https://company.zoom.us/j/12345678901?pwd=abc.DEF_1-2")
+    func `builds a zoom web and app link with the passcode`() {
+        let link = detect(url: "http://company.zoom.us/j/12345678901?pwd=abc.DEF_1-2&uname=x")
         #expect(link?.service == .zoom)
-        #expect(link?.app == .zoom)
-        #expect(link?.url.absoluteString == "zoommtg://zoom.us/join?confno=12345678901&pwd=abc.DEF_1-2")
+        #expect(link?.url.absoluteString == "https://company.zoom.us/j/12345678901?pwd=abc.DEF_1-2")
+        #expect(link?.zoomURL?.absoluteString == "zoommtg://zoom.us/join?confno=12345678901&pwd=abc.DEF_1-2")
     }
 
     @Test
     func `drops an unsafe passcode`() {
         let link = detect(url: "https://zoom.us/j/123?pwd=a%20b%3Cscript%3E")
-        #expect(link?.url.absoluteString == "zoommtg://zoom.us/join?confno=123")
+        #expect(link?.url.absoluteString == "https://zoom.us/j/123")
+        #expect(link?.zoomURL?.absoluteString == "zoommtg://zoom.us/join?confno=123")
     }
 
     @Test
     func `canonicalises zoommtg links`() {
         let link = detect(notes: "Join: zoommtg://zoom.us/join?confno=987&pwd=x1 (from the app)")
-        #expect(link?.url.absoluteString == "zoommtg://zoom.us/join?confno=987&pwd=x1")
+        #expect(link?.url.absoluteString == "https://zoom.us/j/987?pwd=x1")
+        #expect(link?.zoomURL?.absoluteString == "zoommtg://zoom.us/join?confno=987&pwd=x1")
     }
 
     @Test
@@ -31,15 +33,14 @@ struct JoinLinkDetectorTests {
     }
 
     @Test
-    func `routes meet and jitsi to edge`() {
+    func `recognises meet and jitsi`() {
         let meet = detect(location: "http://meet.google.com/abc-defg-hij")
         #expect(meet?.service == .meet)
-        #expect(meet?.app == .edge)
+        #expect(meet?.zoomURL == nil)
         #expect(meet?.url.absoluteString == "https://meet.google.com/abc-defg-hij")
 
         #expect(detect(notes: "https://meet.jit.si/Room")?.service == .jitsi)
-        #expect(detect(notes: "https://jitsi.example.org/Room")?.service == .jitsi)
-        #expect(detect(notes: "https://jitsi.elsewhere.org/Room") == nil)
+        #expect(detect(notes: "https://jitsi.example.org/Room") == nil)
     }
 
     @Test
@@ -52,7 +53,7 @@ struct JoinLinkDetectorTests {
     func `falls back to the event's own web address but never to a link in the text`() {
         let own = detect(url: "https://example.com/room", notes: "https://app.reclaim.ai/planner")
         #expect(own?.url.absoluteString == "https://example.com/room")
-        #expect(own?.app == .browser)
+        #expect(own?.service == .other)
         #expect(detect(location: "See https://example.com/room", notes: "https://app.reclaim.ai/planner") == nil)
     }
 
@@ -72,9 +73,7 @@ struct JoinLinkDetectorTests {
 
     // MARK: Private
 
-    private let rules: MatchingRules = .init(genericTitles: [], jitsiHosts: ["jitsi.example.org"])
-
     private func detect(url: String? = nil, location: String? = nil, notes: String? = nil) -> JoinLink? {
-        JoinLinkDetector.detect(url: url.flatMap(URL.init(string:)), location: location, notes: notes, rules: rules)
+        JoinLinkDetector.detect(url: url.flatMap(URL.init(string:)), location: location, notes: notes)
     }
 }

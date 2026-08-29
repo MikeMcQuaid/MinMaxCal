@@ -46,7 +46,7 @@ public struct JoinButton: View {
         case .jitsi,
              .meet,
              .zoom:
-            "Join with \(link.serviceName)"
+            "Join with \(link.service.name)"
         }
     }
 }

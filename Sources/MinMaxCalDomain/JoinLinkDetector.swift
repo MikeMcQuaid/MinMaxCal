@@ -6,11 +6,11 @@ public enum JoinLinkDetector {
 
     /// The first recognised call link in field order, or failing that the event's own URL when it
     /// is a web address; a plain link in the location or notes is never a call.
-    public static func detect(url: URL?, location: String?, notes: String?, rules: MatchingRules) -> JoinLink? {
+    public static func detect(url: URL?, location: String?, notes: String?) -> JoinLink? {
         let candidates = [url].compactMap(\.self) + links(in: location ?? "").map(\.url) + links(in: notes ?? "")
             .map(\.url)
-        let recognised = candidates.compactMap { classify($0, rules: rules) }
-        return recognised.first { $0.service != .other } ?? url.flatMap { classify($0, rules: rules) }
+        let recognised = candidates.compactMap(classify)
+        return recognised.first { $0.service != .other } ?? url.flatMap(classify)
     }
 
     /// Every web and `zoommtg://` link in the text with its range, for rendering notes.
@@ -35,7 +35,7 @@ public enum JoinLinkDetector {
     }
 
     /// Turns one URL into a `JoinLink`, or nil for schemes that must never be opened.
-    public static func classify(_ url: URL, rules: MatchingRules) -> JoinLink? {
+    public static func classify(_ url: URL) -> JoinLink? {
         guard let scheme = url.scheme?.lowercased(), let host = url.host()?.lowercased() else {
             return nil
         }
@@ -47,13 +47,13 @@ public enum JoinLinkDetector {
             return nil
         }
 
-        if isZoomHost(host), let link = zoomMeetingLink(from: url) {
+        if isZoomHost(host), let link = zoomMeetingLink(from: url, host: host) {
             return link
         }
         if host == meetHost {
             return JoinLink(service: .meet, url: secured(url))
         }
-        if rules.isJitsiHost(host) {
+        if host == jitsiHost {
             return JoinLink(service: .jitsi, url: secured(url))
         }
         return JoinLink(service: .other, url: url)
@@ -67,19 +67,20 @@ public enum JoinLinkDetector {
     private static let zoomScheme = "zoommtg"
     private static let zoomHost = "zoom.us"
     private static let meetHost = "meet.google.com"
+    private static let jitsiHost = "meet.jit.si"
     private static let passcodeCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
 
     private static func isZoomHost(_ host: String) -> Bool {
         host == zoomHost || host.hasSuffix(".\(zoomHost)")
     }
 
-    private static func zoomMeetingLink(from url: URL) -> JoinLink? {
+    private static func zoomMeetingLink(from url: URL, host: String) -> JoinLink? {
         let components = url.pathComponents.dropFirst()
         guard components.first == "j", let meetingID = components.dropFirst().first else {
             return nil
         }
 
-        return zoomLink(meetingID: meetingID, passcode: queryValue("pwd", in: url))
+        return zoomLink(meetingID: meetingID, passcode: queryValue("pwd", in: url), host: host)
     }
 
     private static func zoomLink(from url: URL, host: String) -> JoinLink? {
@@ -87,23 +88,35 @@ public enum JoinLinkDetector {
             return nil
         }
 
-        return zoomLink(meetingID: meetingID, passcode: queryValue("pwd", in: url))
+        return zoomLink(meetingID: meetingID, passcode: queryValue("pwd", in: url), host: host)
     }
 
-    private static func zoomLink(meetingID: String, passcode: String?) -> JoinLink? {
+    /// Both the web address on the invitation's own Zoom host and the app's deep link, each built
+    /// afresh from the meeting id and a passcode of URL-safe characters only.
+    private static func zoomLink(meetingID: String, passcode: String?, host: String) -> JoinLink? {
         guard meetingID.isEmpty == false, meetingID.allSatisfy(\.isNumber) else {
             return nil
         }
 
-        var components = URLComponents()
-        components.scheme = zoomScheme
-        components.host = zoomHost
-        components.path = "/join"
-        components.queryItems = [URLQueryItem(name: "confno", value: meetingID)]
+        var passcodeItems = [URLQueryItem]()
         if let passcode, passcode.isEmpty == false, passcode.unicodeScalars.allSatisfy(passcodeCharacters.contains) {
-            components.queryItems?.append(URLQueryItem(name: "pwd", value: passcode))
+            passcodeItems = [URLQueryItem(name: "pwd", value: passcode)]
         }
-        return components.url.map { JoinLink(service: .zoom, url: $0) }
+        var web = URLComponents()
+        web.scheme = "https"
+        web.host = host
+        web.path = "/j/\(meetingID)"
+        web.queryItems = passcodeItems.isEmpty ? nil : passcodeItems
+        var app = URLComponents()
+        app.scheme = zoomScheme
+        app.host = zoomHost
+        app.path = "/join"
+        app.queryItems = [URLQueryItem(name: "confno", value: meetingID)] + passcodeItems
+        guard let url = web.url, let zoomURL = app.url else {
+            return nil
+        }
+
+        return JoinLink(service: .zoom, url: url, zoomURL: zoomURL)
     }
 
     private static func queryValue(_ name: String, in url: URL) -> String? {

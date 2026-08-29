@@ -17,6 +17,9 @@ public struct SettingsView: View {
             Tab("Takeover", systemImage: "rectangle.inset.filled") {
                 TakeoverTab(model: model)
             }
+            Tab("Join", systemImage: "video") {
+                JoinTab(model: model)
+            }
             Tab("Matching", systemImage: "arrow.triangle.merge") {
                 MatchingTab(model: model)
             }

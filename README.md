@@ -19,9 +19,10 @@ what it does and the order the pieces land in.
 - macOS 27 or later.
 - Full access to Calendars and to Reminders, asked for on first launch.
   Nothing works without Calendars; reminders are optional.
-- Optional: the Zoom app for Zoom calls and Microsoft Edge for Google Meet
-  and Jitsi calls. Links for anything else, or when those apps are
-  missing, open in the default browser.
+- Optional: the Zoom app and Microsoft Edge, where Zoom calls and Google
+  Meet and Jitsi calls open unless the Join tab says otherwise. Links
+  for anything else, or when the chosen app is missing, open in the
+  default browser.
 
 ## ✨ Features
 
@@ -132,9 +133,12 @@ the time it naps like any other menu bar app, and the menu bar title
 may run a few seconds behind the minute.
 
 The panel fades in and out, or simply appears when Reduce Motion is
-on. VoiceOver announces what is starting or due. Dismissing,
-completing or snoozing hands the front back to the app you were in;
-joining leaves that to the call's app.
+on. It plays an alert sound as it arrives, at the alert volume: Glass,
+unless Settings says another of the system's sounds, one of your own
+from your Library's Sounds folder or none. A preview plays it too.
+VoiceOver announces what is starting or due. Dismissing, completing or
+snoozing hands the front back to the app you were in; joining leaves
+that to the call's app.
 
 Two moments trigger a takeover, each switchable in Settings:
 
@@ -154,22 +158,26 @@ the same time queue up: dismissing the first shows the next.
 
 **Join** recognises the call and opens it where you want it:
 
-| Link | Opens in |
+| Link | Opens in, unless Settings says otherwise |
 |---|---|
 | Zoom (`zoom.us/j/…`, `*.zoom.us/j/…`, `zoommtg://`) | the Zoom app, straight into the meeting with its passcode |
 | Google Meet (`meet.google.com/…`) | Microsoft Edge |
-| Jitsi (`meet.jit.si/…` and any host listed in Settings) | Microsoft Edge |
+| Jitsi (`meet.jit.si/…`) | Microsoft Edge |
 | the event's own URL, when it is a web address | the default browser |
 
-Call links are found in the event's URL, location and notes, in that
-order, so an agenda link in the URL field does not hide the Zoom link
-in the notes. A plain web link in the location or notes (a scheduling
-tool's planner, a document) is never mistaken for a call: it stays a
-link in the details. The same join button sits on agenda rows.
+The Join tab picks the app for each kind: the default browser, any
+installed app that can open a web address or, for Zoom, the Zoom app.
+A Zoom link sent anywhere but the Zoom app opens as the meeting's web
+address instead of the app's deep link. Call links are found in the
+event's URL, location and notes, in that order, so an agenda link in
+the URL field does not hide the Zoom link in the notes. A plain web
+link in the location or notes (a scheduling tool's planner, a
+document) is never mistaken for a call: it stays a link in the
+details. The same join button sits on agenda rows.
 
 ### ⚙️ Settings
 
-Settings opens from the agenda's footer or Cmd-, and has four tabs:
+Settings opens from the agenda's footer or Cmd-, and has five tabs:
 
 - **Calendars**: every calendar on the Mac grouped by account under a
   Calendars heading, then every reminder list the same way under
@@ -177,17 +185,23 @@ Settings opens from the agenda's footer or Cmd-, and has four tabs:
   (a calendar leaf for events, a list for reminders). Nothing is
   selected until you choose; the agenda stays empty rather than
   guessing.
-- **Takeover**: the two triggers and the snooze durations (a
-  comma-separated list), each explained in place. To see a takeover,
-  right-click any agenda row and
+- **Takeover**: the two triggers, the sound (the system's alert
+  sounds and any audio file in `~/Library/Sounds`, or none) and the
+  snooze durations (a comma-separated list), each explained in place.
+  Choosing a sound plays it, and the speaker button plays it again. To
+  see a takeover, right-click any agenda row and
   choose Preview Takeover: a real takeover on every display built from
   that item, whose Complete and Snooze only dismiss it and which is
   never remembered as dismissed.
-- **Matching**: the generic titles that merge into a real one, the
+- **Join**: the app each kind of call opens in, one picker each for
+  Zoom, Google Meet, Jitsi and other links, offering the default
+  browser, every installed app that can open a web address and, for
+  Zoom, the Zoom app.
+- **Matching**: the generic titles that merge into a real one and the
   home terms dropped from locations (a trailing `*` matches a prefix,
-  so `EH*` drops Edinburgh postcodes) and the Jitsi hosts that open in
-  Edge, each a comma-separated list. Every list is applied when you
-  press Return or leave the field, not on each keystroke.
+  so `EH*` drops Edinburgh postcodes), each a comma-separated list.
+  Every list is applied when you press Return or leave the field, not
+  on each keystroke.
 - **General**: launch at login, the menu bar title length and the
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.
