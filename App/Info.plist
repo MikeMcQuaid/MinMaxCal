@@ -29,7 +29,7 @@
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>MinMaxCal shows your next event in the menu bar and takes over the screen when it starts.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>AGPL-3.0</string>
+	<string>© 2026 Mike McQuaid.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>MinMaxCal shows timed reminders alongside your events and completes them when you tick them.</string>
 </dict>

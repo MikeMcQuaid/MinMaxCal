@@ -57,6 +57,14 @@ struct SnapshotTests {
         #expect(image.height > Self.footerHeight, "the rows must give the list its height")
     }
 
+    @Test
+    func `renders the About tab`() throws {
+        let image = try #require(render(AboutTab().frame(width: 520)))
+
+        #expect(image.width == 520)
+        #expect(image.height > 0)
+    }
+
     // MARK: Private
 
     private static let footerHeight = 60

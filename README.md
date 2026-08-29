@@ -177,7 +177,7 @@ details. The same join button sits on agenda rows.
 
 ### ⚙️ Settings
 
-Settings opens from the agenda's footer or Cmd-, and has five tabs:
+Settings opens from the agenda's footer or Cmd-, and has six tabs:
 
 - **Calendars**: every calendar on the Mac grouped by account under a
   Calendars heading, then every reminder list the same way under
@@ -205,6 +205,9 @@ Settings opens from the agenda's footer or Cmd-, and has five tabs:
 - **General**: launch at login, the menu bar title length and the
   permissions the app holds, each with a button to the relevant System
   Settings pane when something is missing.
+- **About**: the app icon, the version (`0.1.<build number>`, the
+  build number counting `main`'s commits), links to the source on
+  GitHub and to the AGPL-3.0 licence, and the copyright.
 
 ### 🟢 Always there
 
@@ -252,9 +255,9 @@ both, or Calendars alone if you do not use Reminders.
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate the
   Xcode project with XcodeGen
-- `script/build [version]`: build the app, with the project's version
-  or the given one; `MinMaxCal.app` in the repository root symlinks its
-  output for quick development runs
+- `script/build`: build the app, versioned `0.1.<build number>` where
+  the build number counts `main`'s commits; `MinMaxCal.app` in the
+  repository root symlinks its output for quick development runs
 - `script/install`: build, then copy the app to /Applications
 - `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
 - `script/package`: sign the built app with the Developer ID
@@ -271,14 +274,16 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 
 ### 🚀 Releasing
 
-Run the **Release** workflow from the Actions tab on `main` with the
-version to release, a bare semantic version such as `1.2.3`. It builds,
-signs and notarises the app with that version, tags the commit and
-publishes a GitHub release carrying `MinMaxCal-1.2.3.zip` with generated
-notes. A push that touches the workflow or the packaging scripts runs
-the same job as a dry run that publishes nothing, and every CI run
-uploads the zip it built as an artifact, signed and notarised whenever
-the run has the repository's secrets.
+Run the **Release** workflow from the Actions tab on `main`. Every
+build is versioned `0.1.<build number>`, the build number counting
+`main`'s commits, so there is nothing to type: the workflow builds,
+signs and notarises the app, tags the commit with its version and
+publishes a
+GitHub release carrying `MinMaxCal-0.1.<build number>.zip` with
+generated notes. A push that touches the workflow or the packaging
+scripts runs the same job as a dry run that publishes nothing, and
+every CI run uploads the zip it built as an artifact, signed and
+notarised whenever the run has the repository's secrets.
 
 ## 🚧 Status
 

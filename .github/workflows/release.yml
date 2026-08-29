@@ -1,13 +1,8 @@
 name: Release
 
 on:
-  # Run from `main` with the version to release.
+  # Run from `main` to release the current commit at its version.
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release, a bare semantic version such as 1.2.3: the Git tag, the app's version and the zip's name"
-        required: true
-        type: string
   # Dry run whenever the release process itself changes, so it cannot
   # rot unnoticed between releases.
   push:
@@ -45,24 +40,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-tags: true
+          # The build number counts the commits.
+          fetch-depth: 0
 
-      # The tag is created locally now and pushed only once the build
-      # has succeeded, so a failed release leaves nothing behind.
-      - name: Create the tag locally
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          VERSION: ${{ inputs.version }}
+      - name: Check the branch
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         run: |
-          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
-            echo "::error::Releases are cut from main, not ${GITHUB_REF}."
-            exit 1
-          fi
-          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::The version must be a bare semantic version such as 1.2.3, not ${VERSION}."
-            exit 1
-          fi
-          git tag "${VERSION}"
+          echo "::error::Releases are cut from main, not ${GITHUB_REF}."
+          exit 1
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
@@ -88,9 +73,17 @@ jobs:
         run: script/bootstrap
 
       - name: Build
-        env:
-          VERSION: ${{ inputs.version }}
-        run: script/build "${VERSION}"
+        run: script/build
+
+      # The tag is created locally, from the version the build stamped,
+      # and pushed only once everything has succeeded, so a failed
+      # release leaves nothing behind.
+      - name: Create the tag locally
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' MinMaxCal.app/Contents/Info.plist)"
+          echo "VERSION=${version}" >>"${GITHUB_ENV}"
+          git tag "${version}"
 
       - name: Zip
         run: script/zip
@@ -117,7 +110,6 @@ jobs:
       - name: Create the release (dry run on push)
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             gh auth setup-git

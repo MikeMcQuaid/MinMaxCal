@@ -207,7 +207,7 @@ flowchart TD
   for the same notes by every takeover window at once),
   `Takeover` (`TakeoverModel`, the panel view and the AppKit window
   controller that puts one borderless window on each screen) and
-  `Settings` (the five tabs and `SettingsModel`, which lists the
+  `Settings` (the six tabs and `SettingsModel`, which lists the
   takeover sounds by reading the audio files, by `UTType`, of the
   account's `~/Library/Sounds` rather than the sandbox container's,
   which the app sandbox lets it read, then `/Library/Sounds` and
@@ -516,7 +516,10 @@ Never-do list:
 - Never modify an event or a reminder beyond completing a reminder the
   user ticked.
 - Never register a development build as a login item.
-- Never open a URL whose scheme and host the detector did not produce.
+- Never open a URL from calendar data whose scheme and host the
+  detector did not produce; the only other URLs opened are the app's
+  own constants (System Settings panes in General, the repository and
+  licence in About).
 
 ## Dependencies and toolchain
 
@@ -536,7 +539,7 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
-xcodebuild, with the project's version or a given one), `install`
+xcodebuild, numbered by `main`'s commits), `install`
 (build, then copy to /Applications), `zip` and `package` (the
 distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
@@ -600,9 +603,16 @@ the zip is uploaded as the run's `MinMaxCal` artifact.
 Three scripts turn a checkout into the artefact a release ships, split
 so that only the last needs credentials:
 
-- `script/build [version]` builds as ever, signed ad hoc; a version
-  overrides `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` for that
-  build, so `project.yml` never changes for a release.
+- `script/build` builds as ever, signed ad hoc, passing the build
+  number as `CURRENT_PROJECT_VERSION`; `project.yml` composes
+  `MARKETING_VERSION` as `0.1.$(CURRENT_PROJECT_VERSION)`, so the
+  version is never typed. The build number counts the default branch's
+  commits (`git rev-list --count origin/main`, falling back to `main`
+  and then `HEAD`), so numbers are comparable across feature branches
+  and rise with every merge; the CI and release checkouts fetch the
+  full history (`fetch-depth: 0`) so the count is right there too,
+  and a build straight from Xcode or outside a git checkout is
+  `0.1.1`.
 - `script/zip` verifies the built app's signature, then zips it with
   `ditto` as `.build/MinMaxCal-<version>.zip`, the version read from
   the built `Info.plist`, with `MinMaxCal.app` as the zip's only
@@ -627,10 +637,11 @@ so that only the last needs credentials:
 
 The Release workflow (`.github/workflows/release.yml`) creates the tag
 locally and pushes it only once the build has succeeded.
-`workflow_dispatch` takes the version, a bare semantic version such as
-`1.2.3`, and must be run on `main`; the job tags the checkout, builds
-with that version, zips, signs and notarises (a release always does,
-so missing secrets fail it), uploads the zip as an artifact, pushes
+`workflow_dispatch` takes no input and must be run on `main`; the job
+builds, tags the checkout with the version the build stamped (read
+from the `MinMaxCal.app` symlink's `Info.plist`), zips, signs and
+notarises (a release always does, so missing secrets fail it),
+uploads the zip as an artifact, pushes
 the tag and creates the GitHub release from it with generated notes
 and the zip attached. A push that touches the workflow or the
 packaging scripts runs the same job as a dry run that only lists
@@ -668,8 +679,8 @@ The target cask, for `brew create --cask` to be checked against:
 
 ```ruby
 cask "minmaxcal" do
-  version "1.0.0"
-  sha256 "<shasum --algorithm 256 MinMaxCal-1.0.0.zip>"
+  version "0.1.123"
+  sha256 "<shasum --algorithm 256 MinMaxCal-0.1.123.zip>"
 
   url "https://github.com/MikeMcQuaid/MinMaxCal/releases/download/#{version}/MinMaxCal-#{version}.zip"
   name "MinMaxCal"
