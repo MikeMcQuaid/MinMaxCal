@@ -3,25 +3,25 @@ import MinMaxCalData
 import MinMaxCalDomain
 import Observation
 
-/// Owns the agenda and rebuilds it on every change, minute, wake or setting.
+/// Owns the agenda and rebuilds it on every change, minute, system change or setting.
 @Observable
 public final class AgendaModel {
     // MARK: Lifecycle
 
-    /// Wires the ports; `wake`, `clock` and `calendar` are injectable for tests.
+    /// Wires the ports; `systemChanges`, `clock` and `calendar` are injectable for tests.
     @preconcurrency
     public init(
         source: any CalendarSource,
         settings: SettingsStore,
         opener: any LinkOpener,
-        wake: AsyncStream<Void> = AsyncStream { $0.finish() },
+        systemChanges: AsyncStream<Void> = AsyncStream { $0.finish() },
         clock: @escaping @Sendable () -> Date = { Date() },
         calendar: Calendar = .current,
     ) {
         self.source = source
         self.settings = settings
         self.opener = opener
-        self.wake = wake
+        self.systemChanges = systemChanges
         self.clock = clock
         self.calendar = calendar
         now = clock()
@@ -62,7 +62,7 @@ public final class AgendaModel {
         access = await source.requestAccess()
         await rebuild()
         let (triggers, trigger) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let feeds = [source.changes, MinuteTicks.stream(clock: clock), wake, settings.changes, refreshRequests]
+        let feeds = [source.changes, MinuteTicks.stream(clock: clock), systemChanges, settings.changes, refreshRequests]
         await withTaskGroup(of: Void.self) { group in
             for feed in feeds {
                 group.addTask {
@@ -127,7 +127,7 @@ public final class AgendaModel {
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let opener: any LinkOpener
-    @ObservationIgnored private let wake: AsyncStream<Void>
+    @ObservationIgnored private let systemChanges: AsyncStream<Void>
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let refreshRequests: AsyncStream<Void>

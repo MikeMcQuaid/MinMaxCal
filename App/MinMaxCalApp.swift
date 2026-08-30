@@ -19,7 +19,12 @@ struct MinMaxCalApp: App {
             presenter: windows,
         )
         windows.content = { AnyView(TakeoverView(model: takeover)) }
-        let agendaModel = AgendaModel(source: source, settings: store, opener: opener, wake: WakeNotifications.stream)
+        let agendaModel = AgendaModel(
+            source: source,
+            settings: store,
+            opener: opener,
+            systemChanges: SystemChanges.stream,
+        )
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh

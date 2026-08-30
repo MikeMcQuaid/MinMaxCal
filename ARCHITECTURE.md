@@ -113,6 +113,12 @@ from the calendar port whenever any of these fire, merged into one
   next takeover);
 - `NSWorkspace.didWakeNotification` (the minute timer may have slept
   through several boundaries);
+- `NSSystemClockDidChange`, `NSSystemTimeZoneDidChange` and
+  `NSCalendarDayChanged` (the clock was set, as NTP does after a wake,
+  or the Mac landed in another time zone: every displayed time and the
+  planned takeover moment are stale, and the minute timer and alarm are
+  sleeping for a duration computed against the old clock, so the
+  rebuild re-plans them at once);
 - the selection or matching rules changing in Settings;
 - a reminder completed or a takeover dismissed from the app's own UI.
 
@@ -258,7 +264,8 @@ is marked `@concurrent`: the heaviest work is merging a day of events,
 which is not worth moving off the main actor.
 
 Events flow as `AsyncStream`s (the store's change notification, the
-minute tick, wake and settings changes) consumed by `AgendaModel.run()`,
+minute tick, the system changes of wake, clock, time zone and day, and
+settings changes) consumed by `AgendaModel.run()`,
 which the app starts in one `Task` from its initialiser: a menu bar app
 has no view that is reliably alive to host the loop as a `.task`, and
 modifiers on the `MenuBarExtra` label never run. The task lives as long

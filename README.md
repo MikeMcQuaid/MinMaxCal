@@ -151,6 +151,9 @@ A takeover shows once per occurrence per trigger: dismissing it on one
 display dismisses it everywhere and it does not return after a relaunch.
 A takeover whose moment passed while the Mac was asleep still shows on
 wake, however long the sleep, since the app noticed nothing in between.
+When the clock is set, as it is by the network time service after a
+wake, or the Mac lands in another time zone, the agenda and the next
+takeover are re-planned against the new time straight away.
 One whose moment passed while the app was not running still shows on
 launch if the moment was within the last ten minutes; older ones are
 skipped, since the agenda already lists anything overdue. Items due at
