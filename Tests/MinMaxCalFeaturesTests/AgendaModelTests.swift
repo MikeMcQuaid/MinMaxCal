@@ -116,6 +116,21 @@ struct AgendaModelTests {
     }
 
     @Test
+    func `exposes the next item the next call and the next reminder for the intents`() async throws {
+        let link = try JoinLink(service: .meet, url: #require(URL(string: "https://meet.google.com/abc")))
+        let overdue = Fixtures.reminder("overdue", dueIn: -120)
+        let planning = Fixtures.event("planning", title: "Weekly planning", startingIn: 10)
+        let call = Fixtures.event("call", title: "Standup", startingIn: 20, link: link)
+        source.items = [overdue, planning, call]
+
+        await model.rebuild()
+
+        #expect(model.nextItem == planning, "an overdue reminder leaves the menu bar after an hour")
+        #expect(model.nextCall == call)
+        #expect(model.nextReminder == overdue)
+    }
+
+    @Test
     func `join opens through the port`() throws {
         let link = try JoinLink(service: .meet, url: #require(URL(string: "https://meet.google.com/abc")))
         model.join(link)

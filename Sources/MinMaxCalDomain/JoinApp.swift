@@ -10,6 +10,8 @@ public struct JoinApp: Hashable, Sendable {
     // MARK: Public
 
     public static let edge: Self = .init(bundleIdentifier: "com.microsoft.edgemac", name: "Microsoft Edge")
+    public static let facetime: Self = .init(bundleIdentifier: "com.apple.FaceTime", name: "FaceTime")
+    public static let teams: Self = .init(bundleIdentifier: "com.microsoft.teams2", name: "Microsoft Teams")
     public static let zoom: Self = .init(bundleIdentifier: "us.zoom.xos", name: "Zoom")
 
     public let bundleIdentifier: String

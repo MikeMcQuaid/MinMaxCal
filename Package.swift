@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "MinMaxCalDomain", targets: ["MinMaxCalDomain"]),
         .library(name: "MinMaxCalData", targets: ["MinMaxCalData"]),
         .library(name: "MinMaxCalFeatures", targets: ["MinMaxCalFeatures"]),
+        .library(name: "MinMaxCalIntents", targets: ["MinMaxCalIntents"]),
     ],
     targets: [
         .target(name: "MinMaxCalDomain", swiftSettings: swiftSettings(mainActorByDefault: false)),
@@ -33,6 +34,15 @@ let package = Package(
             dependencies: ["MinMaxCalDomain", "MinMaxCalData"],
             swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
+        .target(
+            name: "MinMaxCalIntents",
+            dependencies: ["MinMaxCalDomain", "MinMaxCalFeatures"],
+            swiftSettings: swiftSettings(mainActorByDefault: false),
+            // Weak so the test bundle still loads on a macOS older than the
+            // deployment target, as CI's runner is: AppIntents symbols the
+            // running OS lacks resolve to null instead of failing `dlopen`.
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "AppIntents"])],
+        ),
         .testTarget(
             name: "MinMaxCalDomainTests",
             dependencies: ["MinMaxCalDomain"],
@@ -45,7 +55,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MinMaxCalFeaturesTests",
-            dependencies: ["MinMaxCalFeatures"],
+            dependencies: ["MinMaxCalFeatures", "MinMaxCalIntents"],
             swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
     ],

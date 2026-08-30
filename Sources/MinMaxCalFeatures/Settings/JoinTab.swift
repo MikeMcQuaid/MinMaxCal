@@ -20,7 +20,7 @@ struct JoinTab: View {
                 }
             } footer: {
                 Text("Each kind of call opens in the app chosen here, or the default browser when that app is missing.")
-                Text("The Zoom app opens straight into the meeting with its passcode; a browser gets the web address.")
+                Text("Zoom and Teams open straight into the meeting with its passcode; a browser gets the web address.")
             }
         }
         .formStyle(.grouped)
@@ -28,5 +28,5 @@ struct JoinTab: View {
 
     // MARK: Private
 
-    private static let services: [JoinLink.Service] = [.zoom, .meet, .jitsi, .other]
+    private static let services: [JoinLink.Service] = [.zoom, .teams, .meet, .jitsi, .facetime, .other]
 }

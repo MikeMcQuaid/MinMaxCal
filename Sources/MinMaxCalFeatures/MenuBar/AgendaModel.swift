@@ -3,25 +3,25 @@ import MinMaxCalData
 import MinMaxCalDomain
 import Observation
 
-/// Owns the agenda and rebuilds it on every change, minute, wake or setting.
+/// Owns the agenda and rebuilds it on every change, minute, system change or setting.
 @Observable
 public final class AgendaModel {
     // MARK: Lifecycle
 
-    /// Wires the ports; `wake`, `clock` and `calendar` are injectable for tests.
+    /// Wires the ports; `systemChanges`, `clock` and `calendar` are injectable for tests.
     @preconcurrency
     public init(
         source: any CalendarSource,
         settings: SettingsStore,
         opener: any LinkOpener,
-        wake: AsyncStream<Void> = AsyncStream { $0.finish() },
+        systemChanges: AsyncStream<Void> = AsyncStream { $0.finish() },
         clock: @escaping @Sendable () -> Date = { Date() },
         calendar: Calendar = .current,
     ) {
         self.source = source
         self.settings = settings
         self.opener = opener
-        self.wake = wake
+        self.systemChanges = systemChanges
         self.clock = clock
         self.calendar = calendar
         now = clock()
@@ -56,13 +56,28 @@ public final class AgendaModel {
         MenuBarTitle.render(agenda: agenda, now: now, limit: titleLimit)
     }
 
+    /// The item the menu bar shows.
+    public var nextItem: AgendaItem? {
+        MenuBarTitle.nextItem(in: agenda, now: now)
+    }
+
+    /// The next item with a call link that has not ended.
+    public var nextCall: AgendaItem? {
+        agenda.items.first { $0.joinLink != nil && $0.isCompleted == false && $0.hasEnded(at: now) == false }
+    }
+
+    /// The first reminder still to do, the overdue one when there is one.
+    public var nextReminder: AgendaItem? {
+        agenda.items.first { $0.kind == .reminder && $0.isCompleted == false }
+    }
+
     /// Requests access, then rebuilds for as long as the task lives. Triggers that arrive during a
     /// rebuild collapse into one more, so a burst of sync notifications costs two fetches, not a queue.
     public func run() async {
         access = await source.requestAccess()
         await rebuild()
         let (triggers, trigger) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let feeds = [source.changes, MinuteTicks.stream(clock: clock), wake, settings.changes, refreshRequests]
+        let feeds = [source.changes, MinuteTicks.stream(clock: clock), systemChanges, settings.changes, refreshRequests]
         await withTaskGroup(of: Void.self) { group in
             for feed in feeds {
                 group.addTask {
@@ -127,7 +142,7 @@ public final class AgendaModel {
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let opener: any LinkOpener
-    @ObservationIgnored private let wake: AsyncStream<Void>
+    @ObservationIgnored private let systemChanges: AsyncStream<Void>
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let refreshRequests: AsyncStream<Void>

@@ -21,7 +21,7 @@ struct SettingsStoreTests {
         #expect(store.selection == .empty)
         #expect(store.matchingRules == .default)
         #expect(store.takeover == .default)
-        #expect(store.join == .default)
+        #expect(store.join == .default())
         #expect(store.titleLimit == MenuBarTitle.defaultLimit)
         #expect(store.hasRegisteredLoginItem == false)
     }

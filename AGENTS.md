@@ -27,8 +27,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   certificate, notarise it and zip it; every step needs credentials
   from the environment
 - `script/test`: run the unit tests
-- `script/analyze`: static analysis (SwiftLint analyzer and, on the
-  host or CI, periphery for dead code)
+- `script/analyze`: static analysis (SwiftLint analyzer and periphery
+  for dead code and unused imports)
 - `script/style`: run all linters; `--fix` also applies safe fixes
 - `script/icons`: render `App/Icons` to PNG previews in
   `.test-scratch` at menu bar and Dock sizes
@@ -50,8 +50,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 ## Code Standards
 
 - Swift 6.4 with strict concurrency: App and Features targets use
-  MainActor default isolation; Domain and Data are nonisolated, and
-  `EventKitCalendarSource` is the only actor
+  MainActor default isolation; Domain, Data and Intents are
+  nonisolated, and `EventKitCalendarSource` is the only actor
 - Every SwiftLint and SwiftFormat rule is enabled; disable per line
   with a comment explaining why (configuration excludes only rules
   that conflict with other enabled rules or tools, with reasons)
@@ -188,6 +188,17 @@ Hard-won on macOS 27 beta; check before assuming they expired.
 - SwiftLint's `nesting` rule allows one level of nested types, so a
   `ParseableFormatStyle` is its own `ParseStrategy` rather than
   nesting one.
+- `AppIntent` inherits `Sendable` and `perform()` is nonisolated, so
+  an intent cannot be a MainActor type, and `nonisolated struct`
+  rejects the `@Parameter`, `@Property` and `@Dependency` wrappers
+  (`'nonisolated' cannot be applied to mutable stored properties`);
+  intents live in the nonisolated `MinMaxCalIntents` target and hop
+  to the main actor with `MainActor.run`. App Shortcuts phrases must
+  sit in the app bundle, so `AppShortcuts` is in `App/`. CI's runner
+  is a macOS older than the deployment target, and a test bundle that
+  references a newer AppIntents symbol (`allowedExecutionTargets`,
+  macOS 27) fails to `dlopen` there, so the Intents target weak-links
+  AppIntents and such symbols resolve to null instead.
 - `NSAnimationContext.runAnimationGroup`'s completion handler is a
   nonisolated `@Sendable` closure, so it cannot capture windows; take
   a `@MainActor @Sendable` closure instead (which may capture them)

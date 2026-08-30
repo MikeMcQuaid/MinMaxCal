@@ -1,15 +1,19 @@
+import AppIntents
 import MinMaxCalData
+import MinMaxCalDomain
 import MinMaxCalFeatures
+import MinMaxCalIntents
 import SwiftUI
 
 @main
-struct MinMaxCalApp: App {
+struct MinMaxCalApp: App, AppIntentsPackage {
     // MARK: Lifecycle
 
     init() {
         let source = EventKitCalendarSource()
-        let store = SettingsStore()
         let opener = WorkspaceLinkOpener()
+        let store =
+            SettingsStore(defaultJoin: .default(teamsInstalled: opener.apps(for: .teams).contains(JoinApp.teams)))
         let windows = TakeoverWindowController { AnyView(EmptyView()) }
         let takeover = TakeoverModel(
             source: source,
@@ -19,10 +23,17 @@ struct MinMaxCalApp: App {
             presenter: windows,
         )
         windows.content = { AnyView(TakeoverView(model: takeover)) }
-        let agendaModel = AgendaModel(source: source, settings: store, opener: opener, wake: WakeNotifications.stream)
+        let agendaModel = AgendaModel(
+            source: source,
+            settings: store,
+            opener: opener,
+            systemChanges: SystemChanges.stream,
+        )
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
+        AppDependencyManager.shared.add(dependency: agendaModel)
+        AppDependencyManager.shared.add(dependency: takeover)
         let settingsModel = SettingsModel(
             source: source,
             store: store,
@@ -38,6 +49,8 @@ struct MinMaxCalApp: App {
     }
 
     // MARK: Internal
+
+    static let includedPackages: [any AppIntentsPackage.Type] = [MinMaxCalIntents.self]
 
     var body: some Scene {
         MenuBarExtra {

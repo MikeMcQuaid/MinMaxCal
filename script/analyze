@@ -29,14 +29,31 @@ fi
 swiftlint analyze --compiler-log-path "${log}" --strict --quiet
 
 # periphery scans through the app scheme, since its SPM mode finds no
-# index store under the current build system; it re-drives xcodebuild,
-# whose package resolution cannot nest inside a sandvault session.
+# index store under the current build system. On the host it drives
+# xcodebuild itself; that build's package resolution cannot nest inside
+# a sandvault session, so there the index store is built first with the
+# same sandbox flags as `script/build` and periphery reads it.
+periphery=(periphery scan --project MinMaxCal.xcodeproj --schemes MinMaxCal --strict --disable-update-check)
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
-  echo "Skipping periphery: it cannot build inside a sandvault session" >&2
-else
-  periphery scan \
-    --project MinMaxCal.xcodeproj \
-    --schemes MinMaxCal \
-    --strict \
-    --disable-update-check
+  index=.build/analyze-index
+  # The literal $(inherited) is for xcodebuild, not the shell.
+  # shellcheck disable=SC2016
+  xcodebuild build \
+    -project MinMaxCal.xcodeproj \
+    -scheme MinMaxCal \
+    -configuration Debug \
+    -destination "${XCODE_DESTINATION:-platform=macOS,arch=arm64}" \
+    -derivedDataPath "${index}" \
+    -jobs 6 \
+    -IDEPackageSupportDisableManifestSandbox=1 \
+    -IDEPackageSupportDisablePackageSandbox=1 \
+    'OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox' \
+    COMPILER_INDEX_STORE_ENABLE=YES \
+    >"${index}.log" 2>&1 || {
+    echo "analyze aborted: the index build failed, so periphery has nothing trustworthy to scan" >&2
+    grep -E "error:" "${index}.log" | head -20 >&2
+    exit 1
+  }
+  periphery+=(--skip-build --index-store-path "${index}/Index.noindex/DataStore")
 fi
+"${periphery[@]}"

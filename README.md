@@ -19,10 +19,10 @@ what it does and the order the pieces land in.
 - macOS 27 or later.
 - Full access to Calendars and to Reminders, asked for on first launch.
   Nothing works without Calendars; reminders are optional.
-- Optional: the Zoom app and Microsoft Edge, where Zoom calls and Google
-  Meet and Jitsi calls open unless the Join tab says otherwise. Links
-  for anything else, or when the chosen app is missing, open in the
-  default browser.
+- Optional: the Zoom app, Microsoft Teams and Microsoft Edge, where
+  Zoom, Teams and Google Meet and Jitsi calls open unless the Join tab
+  says otherwise; FaceTime links open in FaceTime. Links for anything
+  else, or when the chosen app is missing, open in the default browser.
 
 ## ✨ Features
 
@@ -151,6 +151,9 @@ A takeover shows once per occurrence per trigger: dismissing it on one
 display dismisses it everywhere and it does not return after a relaunch.
 A takeover whose moment passed while the Mac was asleep still shows on
 wake, however long the sleep, since the app noticed nothing in between.
+When the clock is set, as it is by the network time service after a
+wake, or the Mac lands in another time zone, the agenda and the next
+takeover are re-planned against the new time straight away.
 One whose moment passed while the app was not running still shows on
 launch if the moment was within the last ten minutes; older ones are
 skipped, since the agenda already lists anything overdue. Items due at
@@ -161,19 +164,22 @@ the same time queue up: dismissing the first shows the next.
 | Link | Opens in, unless Settings says otherwise |
 |---|---|
 | Zoom (`zoom.us/j/…`, `*.zoom.us/j/…`, `zoommtg://`) | the Zoom app, straight into the meeting with its passcode |
+| Microsoft Teams (`teams.microsoft.com/l/meetup-join/…`, `teams.microsoft.com/meet/…`, `teams.live.com/meet/…` and the US government hosts) | the Teams app, straight into the meeting with its passcode, or Microsoft Edge when Teams is not installed |
 | Google Meet (`meet.google.com/…`) | Microsoft Edge |
 | Jitsi (`meet.jit.si/…`) | Microsoft Edge |
+| FaceTime (`facetime.apple.com/join…`) | FaceTime |
 | the event's own URL, when it is a web address | the default browser |
 
 The Join tab picks the app for each kind: the default browser, any
-installed app that can open a web address or, for Zoom, the Zoom app.
-A Zoom link sent anywhere but the Zoom app opens as the meeting's web
-address instead of the app's deep link. Call links are found in the
-event's URL, location and notes, in that order, so an agenda link in
-the URL field does not hide the Zoom link in the notes. A plain web
-link in the location or notes (a scheduling tool's planner, a
-document) is never mistaken for a call: it stays a link in the
-details. The same join button sits on agenda rows.
+installed app that can open a web address or, for Zoom, Teams and
+FaceTime, that service's own app. A Zoom or Teams link sent anywhere
+but its own app opens as the meeting's web address instead of the
+app's deep link, and a Teams chat or channel link is not a call. Call
+links are found in the event's URL, location and notes, in that
+order, so an agenda link in the URL field does not hide the Zoom link
+in the notes. A plain web link in the location or notes (a scheduling
+tool's planner, a document) is never mistaken for a call: it stays a
+link in the details. The same join button sits on agenda rows.
 
 ### ⚙️ Settings
 
@@ -194,9 +200,10 @@ Settings opens from the agenda's footer or Cmd-, and has six tabs:
   that item, whose Complete and Snooze only dismiss it and which is
   never remembered as dismissed.
 - **Join**: the app each kind of call opens in, one picker each for
-  Zoom, Google Meet, Jitsi and other links, offering the default
-  browser, every installed app that can open a web address and, for
-  Zoom, the Zoom app.
+  Zoom, Microsoft Teams, Google Meet, Jitsi, FaceTime and other links,
+  offering the default browser, every installed app that can open a
+  web address and, for Zoom, Teams and FaceTime, that service's own
+  app.
 - **Matching**: the generic titles that merge into a real one and the
   home terms dropped from locations (a trailing `*` matches a prefix,
   so `EH*` drops Edinburgh postcodes), each a comma-separated list.
@@ -208,6 +215,30 @@ Settings opens from the agenda's footer or Cmd-, and has six tabs:
 - **About**: the app icon, the version (`0.1.<build number>`, the
   build number counting `main`'s commits), links to the source on
   GitHub and to the AGPL-3.0 licence, and the copyright.
+
+### ⌨️ Shortcuts
+
+Five actions in the Shortcuts app, in Spotlight and to Siri, each doing
+exactly what the menu bar and the takeover do:
+
+- **Get Next Item**: the item the menu bar shows, as a value with its
+  title, kind, start, end, countdown and join link, for a shortcut to
+  build on. It carries nothing else: notes, location and attendees stay
+  in the app, since they are the invitation's own text.
+- **Join Next Meeting**: opens the next item with a call link in the
+  app the Join tab chose, exactly as the join button does.
+- **Complete Next Reminder**: ticks the first incomplete reminder in
+  the agenda, the overdue one when there is one.
+- **Snooze Takeover**: snoozes the reminder takeover on screen for one
+  of the configured durations.
+- **Preview Takeover**: shows the next item as a takeover, recording
+  nothing, as Preview Takeover in the agenda does.
+
+An action with nothing to act on says so rather than doing nothing.
+Assign any of them a keyboard shortcut in the Shortcuts app for a
+system-wide join key, or chain them with Shortcuts' own actions (Set
+Focus, a Slack status) for what MinMaxCal itself will never do, since
+nothing leaves the Mac.
 
 ### 🟢 Always there
 
@@ -299,7 +330,7 @@ each usable on its own:
 What the tests cannot cover is still to be checked by hand against real
 calendars and displays after `script/install`: the permission prompts,
 the menu bar label's rendering, the takeover windows over full-screen
-apps and the Zoom, Edge and browser hand-offs.
+apps and the Zoom, Teams, FaceTime, Edge and browser hand-offs.
 
 ## 📄 Licence
 

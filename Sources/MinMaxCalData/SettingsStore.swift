@@ -8,13 +8,14 @@ import MinMaxCalDomain
 public final class SettingsStore {
     // MARK: Lifecycle
 
-    /// Uses the standard defaults unless a suite is given, as the tests do.
-    public init(defaults: UserDefaults = .standard) {
+    /// Uses the standard defaults unless a suite is given, as the tests do; `defaultJoin` stands in
+    /// until the Join tab chooses, so the app can pick it by what is installed.
+    public init(defaults: UserDefaults = .standard, defaultJoin: JoinSettings = .default()) {
         self.defaults = defaults
         selection = Self.decode(Key.selection, from: defaults) ?? .empty
         matchingRules = Self.decode(Key.matchingRules, from: defaults) ?? .default
         takeover = Self.decode(Key.takeover, from: defaults) ?? .default
-        join = Self.decode(Key.join, from: defaults) ?? .default
+        join = Self.decode(Key.join, from: defaults) ?? defaultJoin
     }
 
     // MARK: Public
