@@ -56,6 +56,21 @@ public final class AgendaModel {
         MenuBarTitle.render(agenda: agenda, now: now, limit: titleLimit)
     }
 
+    /// The item the menu bar shows.
+    public var nextItem: AgendaItem? {
+        MenuBarTitle.nextItem(in: agenda, now: now)
+    }
+
+    /// The next item with a call link that has not ended.
+    public var nextCall: AgendaItem? {
+        agenda.items.first { $0.joinLink != nil && $0.isCompleted == false && $0.hasEnded(at: now) == false }
+    }
+
+    /// The first reminder still to do, the overdue one when there is one.
+    public var nextReminder: AgendaItem? {
+        agenda.items.first { $0.kind == .reminder && $0.isCompleted == false }
+    }
+
     /// Requests access, then rebuilds for as long as the task lives. Triggers that arrive during a
     /// rebuild collapse into one more, so a burst of sync notifications costs two fetches, not a queue.
     public func run() async {

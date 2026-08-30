@@ -1,10 +1,12 @@
+import AppIntents
 import MinMaxCalData
 import MinMaxCalDomain
 import MinMaxCalFeatures
+import MinMaxCalIntents
 import SwiftUI
 
 @main
-struct MinMaxCalApp: App {
+struct MinMaxCalApp: App, AppIntentsPackage {
     // MARK: Lifecycle
 
     init() {
@@ -30,6 +32,8 @@ struct MinMaxCalApp: App {
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
+        AppDependencyManager.shared.add(dependency: agendaModel)
+        AppDependencyManager.shared.add(dependency: takeover)
         let settingsModel = SettingsModel(
             source: source,
             store: store,
@@ -45,6 +49,8 @@ struct MinMaxCalApp: App {
     }
 
     // MARK: Internal
+
+    static let includedPackages: [any AppIntentsPackage.Type] = [MinMaxCalIntents.self]
 
     var body: some Scene {
         MenuBarExtra {

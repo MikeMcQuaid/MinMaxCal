@@ -152,10 +152,12 @@ is committed, the `.xcodeproj` is gitignored).
 flowchart TD
     App["MinMaxCalApp<br/>(composition root)"]
     Features["MinMaxCalFeatures<br/>(MenuBar, Takeover, Settings)"]
+    Intents["MinMaxCalIntents<br/>(App Intents)"]
     Data["MinMaxCalData<br/>(ports and adapters)"]
     Domain["MinMaxCalDomain<br/>(pure)"]
 
-    App --> Features & Data
+    App --> Features & Data & Intents
+    Intents --> Features & Domain
     Features --> Domain
     Features -.->|ports| Data
     Data --> Domain
@@ -228,9 +230,23 @@ flowchart TD
   `TextField`s over `ListField`'s `ParseableFormatStyle`s, so they
   commit when editing ends rather than on every keystroke). Split into
   targets if one surface grows a dependency the others must not see.
+- **MinMaxCalIntents**: the App Intents and the `AgendaItemEntity`
+  they return, reaching `AgendaModel` and `TakeoverModel` through
+  `AppDependencyManager`. Its own target because `AppIntent` is
+  `Sendable` and `perform()` nonisolated, so an intent cannot be a
+  MainActor type, and `nonisolated` on a struct rejects the `@Property`
+  and `@Dependency` wrappers it needs: the target is nonisolated by
+  default and each intent hops to the main actor to call one model
+  method. Every rule it needs, which item is next, which has a call,
+  which reminder is first, lives on the models where the tests reach
+  it. The entity carries the title, kind, times, countdown and
+  detector-vetted join link and nothing else the invitation wrote
+  (P6).
 - **MinMaxCalApp**: builds adapters, injects ports, declares the
-  `MenuBarExtra` and `Settings` scenes and owns the single refresh loop.
-  No logic.
+  `MenuBarExtra` and `Settings` scenes, registers the models with
+  `AppDependencyManager`, names the Features intents package and the
+  App Shortcuts phrases (which must sit in the app bundle) and owns
+  the single refresh loop. No logic.
 
 Third-party imports: none. System frameworks are confined (P3):
 
@@ -240,6 +256,7 @@ Third-party imports: none. System frameworks are confined (P3):
 | AppKit | MinMaxCalData (`NSWorkspace`) and MinMaxCalFeatures (windows) |
 | AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
 | SwiftUI | MinMaxCalFeatures and MinMaxCalApp |
+| AppIntents | MinMaxCalIntents and MinMaxCalApp (App Shortcuts) |
 
 ## Concurrency model
 
@@ -248,6 +265,7 @@ Third-party imports: none. System frameworks are confined (P3):
 | MinMaxCalDomain | nonisolated | Sendable value types by construction |
 | MinMaxCalData | nonisolated | one actor, `EventKitCalendarSource` |
 | MinMaxCalFeatures | MainActor | `@Observable` MainActor view models |
+| MinMaxCalIntents | nonisolated | `Sendable` intents hopping to the main actor |
 | MinMaxCalApp | MainActor | wiring only |
 
 All targets build with `SWIFT_DEFAULT_ACTOR_ISOLATION` set per the table,

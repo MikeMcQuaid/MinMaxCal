@@ -216,6 +216,30 @@ Settings opens from the agenda's footer or Cmd-, and has six tabs:
   build number counting `main`'s commits), links to the source on
   GitHub and to the AGPL-3.0 licence, and the copyright.
 
+### ⌨️ Shortcuts
+
+Five actions in the Shortcuts app, in Spotlight and to Siri, each doing
+exactly what the menu bar and the takeover do:
+
+- **Get Next Item**: the item the menu bar shows, as a value with its
+  title, kind, start, end, countdown and join link, for a shortcut to
+  build on. It carries nothing else: notes, location and attendees stay
+  in the app, since they are the invitation's own text.
+- **Join Next Meeting**: opens the next item with a call link in the
+  app the Join tab chose, exactly as the join button does.
+- **Complete Next Reminder**: ticks the first incomplete reminder in
+  the agenda, the overdue one when there is one.
+- **Snooze Takeover**: snoozes the reminder takeover on screen for one
+  of the configured durations.
+- **Preview Takeover**: shows the next item as a takeover, recording
+  nothing, as Preview Takeover in the agenda does.
+
+An action with nothing to act on says so rather than doing nothing.
+Assign any of them a keyboard shortcut in the Shortcuts app for a
+system-wide join key, or chain them with Shortcuts' own actions (Set
+Focus, a Slack status) for what MinMaxCal itself will never do, since
+nothing leaves the Mac.
+
 ### 🟢 Always there
 
 MinMaxCal registers itself as a login item the first time the installed
