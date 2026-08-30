@@ -2,8 +2,8 @@
 
 How MinMaxCal works under the hood. [README.md](README.md) owns what it
 does and why; this document owns the system design. The feature groups
-referenced here (Glance, Agenda, Takeover, Settings and Always there) are
-the README's Features subsections.
+referenced here (Glance, Agenda, Takeover and Always there) are the
+README's Features subsections and Settings is its Configuration section.
 
 ## Overview
 
