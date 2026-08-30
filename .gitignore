@@ -3,4 +3,5 @@
 .test-scratch/
 *.xcodeproj/
 DerivedData/
+.DerivedData/
 .DS_Store

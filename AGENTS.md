@@ -27,8 +27,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   certificate, notarise it and zip it; every step needs credentials
   from the environment
 - `script/test`: run the unit tests
-- `script/analyze`: static analysis (SwiftLint analyzer and, on the
-  host or CI, periphery for dead code)
+- `script/analyze`: static analysis (SwiftLint analyzer and periphery
+  for dead code and unused imports)
 - `script/style`: run all linters; `--fix` also applies safe fixes
 - `script/icons`: render `App/Icons` to PNG previews in
   `.test-scratch` at menu bar and Dock sizes

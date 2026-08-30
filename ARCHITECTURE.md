@@ -582,10 +582,13 @@ distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
 `.test-scratch`),
 `analyze` (a from-scratch verbose build into `.build/analyze` so the
-SwiftLint analyzer sees every compiler invocation, then periphery
-outside a sandbox), `style [--fix]` (all linters) and `icons` (PNG
-previews of the icon sources, rendered by AppKit so no extra
-dependency is needed). Agent-driven builds inside a sandbox cannot nest
+SwiftLint analyzer sees every compiler invocation, then periphery,
+which drives xcodebuild itself on the host and inside a sandbox reads
+an index store built into `.build/analyze-index` with
+`COMPILER_INDEX_STORE_ENABLE=YES`, since the build it would drive
+cannot resolve packages there), `style [--fix]` (all linters) and
+`icons` (PNG previews of the icon sources, rendered by AppKit so no
+extra dependency is needed). Agent-driven builds inside a sandbox cannot nest
 macOS sandboxes, so build scripts gate on `SV_SESSION_ID` and pass
 `SWIFTPM_DISABLE_SANDBOX=1`, `SWIFT_BUILD_USE_SANDBOX=0`,
 `--disable-sandbox` to `swift build` and `swift test`, the
