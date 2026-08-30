@@ -31,6 +31,8 @@ flowchart LR
         ek["EventKit<br/>(calendars and reminders<br/>from every account)"]
         sm["launchd via SMAppService"]
         zoom["Zoom app"]
+        teams["Microsoft Teams"]
+        facetime["FaceTime"]
         edge["Microsoft Edge<br/>or the chosen browser"]
         browser["default browser"]
         defaults[("UserDefaults and a<br/>takeover ledger file")]
@@ -40,6 +42,8 @@ flowchart LR
     ek -.->|"change notification"| app
     app -->|"register login item"| sm
     app -->|"zoommtg:// join"| zoom
+    app -->|"msteams:// join"| teams
+    app -->|"facetime.apple.com links"| facetime
     app -->|"Meet and Jitsi links"| edge
     app -->|"other links"| browser
     app <--> defaults
@@ -163,9 +167,10 @@ flowchart TD
   and occurrence dates it merged from, title, start, end, all-day, the
   calendars it is in, location, notes, URL, organiser, attendees with
   their responses, the current user's response, acceptance and the
-  detected `JoinLink`), `JoinLink` (Zoom, Meet, Jitsi or other with
-  the web URL to open and, for Zoom, the `zoommtg://` deep link built
-  from its meeting id and passcode as well), `JoinApp` (an installed
+  detected `JoinLink`), `JoinLink` (Zoom, Teams, Meet, Jitsi, FaceTime or other
+  with the web URL to open and, for Zoom and Teams, the `zoommtg://`
+  or `msteams://` deep link built from its meeting id and passcode as
+  well), `JoinApp` (an installed
   app's bundle identifier and name), `Agenda` (items in time order
   with a horizon), `Takeover` (an item, its trigger and the moment it
   fires), `MatchingRules`, `Selection` and `JoinSettings` (which app,
@@ -192,10 +197,10 @@ flowchart TD
   over every item; `LoginItem` with `SMAppServiceLoginItem`;
   `LinkOpener` with
   `WorkspaceLinkOpener` (`open(_:in:)` opens a link in the app with a
-  bundle identifier, the `zoommtg://` deep link when that app is
-  Zoom, falling back to the default handler when the choice is nil or
-  the app is not installed; `apps(for:)` lists the installed handlers
-  of `https://` and, for Zoom, `zoommtg://` through
+  bundle identifier, the deep link when that app is the service's
+  own, falling back to the default handler when the choice is nil or
+  the app is not installed; `apps(for:)` lists the service's own app
+  when installed, then the installed handlers of `https://` through
   `NSWorkspace.urlsForApplications(toOpen:)`);
   `SettingsStore` over `UserDefaults`, MainActor-isolated because
   `UserDefaults` is not `Sendable` on the macOS 27 SDK, holding the
@@ -414,7 +419,10 @@ error restores the row and shows the message inline.
 5. Join calls `LinkOpener.open(_:in:)` with the app `JoinSettings`
    names for the link's service. By default Zoom links open as
    `zoommtg://zoom.us/join?confno=<id>&pwd=<passcode>` in
-   `us.zoom.xos` and Meet and Jitsi URLs in `com.microsoft.edgemac`,
+   `us.zoom.xos`, Teams links as `msteams://<host>/<path>?<query>` in
+   `com.microsoft.teams2` (Edge when Teams is not installed at
+   launch), FaceTime links in `com.apple.FaceTime` and Meet and Jitsi
+   URLs in `com.microsoft.edgemac`,
    via `NSWorkspace.open(_:withApplicationAt:configuration:)`; any
    other choice opens the web URL in that app, and a nil choice, a
    missing app or any other link goes through `NSWorkspace.open(_:)`.
@@ -497,9 +505,13 @@ silence is stored as `null` and kept.
   note or an attendee.
 - Link detection (P6) only ever emits, for Zoom, `https://<zoom
   host>/j/<id>` and `zoommtg://zoom.us/...` built from a numeric
-  meeting id and a passcode limited to URL-safe characters,
-  `https://meet.google.com/...`, `https://meet.jit.si/...`, or the
-  event's own URL when it has an `http` or `https` scheme. Any other
+  meeting id and a passcode limited to URL-safe characters, for Teams,
+  `https://<teams host>/l/meetup-join/<thread>/<n>` or
+  `https://<teams host>/meet/<id>` and their `msteams://` twins built
+  from a thread id, meeting id and passcode of URL-safe characters and
+  a `context` that parses as JSON, `https://meet.google.com/...`,
+  `https://meet.jit.si/...`, `https://facetime.apple.com/join...`, or
+  the event's own URL when it has an `http` or `https` scheme. Any other
   scheme in an
   invitation is ignored, so an event cannot make the app open a
   `file:` or custom-scheme URL.
@@ -716,7 +728,7 @@ the takeover ledger.
 | R2 | the `xcode-27` runner image is a public preview that may change or lag Xcode 27 betas | the build and test job asserts Xcode 27 and fails loudly rather than skipping |
 | R3 | SwiftUI `MenuBarExtra` in window style has no API to open or close itself programmatically and its window is not a normal `NSWindow` | the agenda is read-only enough to need neither; a takeover is its own windows and never depends on the popover |
 | R4 | a takeover over a screen being shared or recorded shows the meeting's details to the other side, and macOS exposes no Focus state to read | open question: a Takeover tab switch to hold takeovers while the display is captured (`CGDisplayStream` cannot tell; `NSScreen` cannot either) needs a source of truth before it can be promised |
-| R5 | join links in invitations vary by vendor and locale (`zoom.us/j`, `zoom.us/my`, `zoom.us/s`, vanity subdomains, `zoommtg://`, Meet links inside Google's `meet.google.com/...?hs=` forms, self-hosted Jitsi) | the detector is pure and fixture-tested; every new shape becomes a fixture; unrecognised links still open in the browser |
+| R5 | join links in invitations vary by vendor and locale (`zoom.us/j`, `zoom.us/my`, `zoom.us/s`, vanity subdomains, `zoommtg://`, Meet links inside Google's `meet.google.com/...?hs=` forms, self-hosted Jitsi, Teams' classic `/l/meetup-join` and short `/meet` links and the government hosts) | the detector is pure and fixture-tested; every new shape becomes a fixture; unrecognised links still open in the browser |
 | R6 | `calendarIdentifier` values change when an account is re-added | selection drops stale identifiers silently and the tab shows the truth; no attempt to match by name |
 | R7 | `NSWindow` at `.screenSaver` level over a full-screen app on another Space behaves differently across macOS betas | the window controller is the one place that knows, and the install script exists so the real app is tried on real displays early |
 | R8 | recurring events share `calendarItemIdentifier` across occurrences | every identity in the ledger includes `occurrenceDate` |

@@ -1,4 +1,5 @@
 import MinMaxCalData
+import MinMaxCalDomain
 import MinMaxCalFeatures
 import SwiftUI
 
@@ -8,8 +9,9 @@ struct MinMaxCalApp: App {
 
     init() {
         let source = EventKitCalendarSource()
-        let store = SettingsStore()
         let opener = WorkspaceLinkOpener()
+        let store =
+            SettingsStore(defaultJoin: .default(teamsInstalled: opener.apps(for: .teams).contains(JoinApp.teams)))
         let windows = TakeoverWindowController { AnyView(EmptyView()) }
         let takeover = TakeoverModel(
             source: source,

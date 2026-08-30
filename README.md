@@ -19,10 +19,10 @@ what it does and the order the pieces land in.
 - macOS 27 or later.
 - Full access to Calendars and to Reminders, asked for on first launch.
   Nothing works without Calendars; reminders are optional.
-- Optional: the Zoom app and Microsoft Edge, where Zoom calls and Google
-  Meet and Jitsi calls open unless the Join tab says otherwise. Links
-  for anything else, or when the chosen app is missing, open in the
-  default browser.
+- Optional: the Zoom app, Microsoft Teams and Microsoft Edge, where
+  Zoom, Teams and Google Meet and Jitsi calls open unless the Join tab
+  says otherwise; FaceTime links open in FaceTime. Links for anything
+  else, or when the chosen app is missing, open in the default browser.
 
 ## ✨ Features
 
@@ -164,19 +164,22 @@ the same time queue up: dismissing the first shows the next.
 | Link | Opens in, unless Settings says otherwise |
 |---|---|
 | Zoom (`zoom.us/j/…`, `*.zoom.us/j/…`, `zoommtg://`) | the Zoom app, straight into the meeting with its passcode |
+| Microsoft Teams (`teams.microsoft.com/l/meetup-join/…`, `teams.microsoft.com/meet/…`, `teams.live.com/meet/…` and the US government hosts) | the Teams app, straight into the meeting with its passcode, or Microsoft Edge when Teams is not installed |
 | Google Meet (`meet.google.com/…`) | Microsoft Edge |
 | Jitsi (`meet.jit.si/…`) | Microsoft Edge |
+| FaceTime (`facetime.apple.com/join…`) | FaceTime |
 | the event's own URL, when it is a web address | the default browser |
 
 The Join tab picks the app for each kind: the default browser, any
-installed app that can open a web address or, for Zoom, the Zoom app.
-A Zoom link sent anywhere but the Zoom app opens as the meeting's web
-address instead of the app's deep link. Call links are found in the
-event's URL, location and notes, in that order, so an agenda link in
-the URL field does not hide the Zoom link in the notes. A plain web
-link in the location or notes (a scheduling tool's planner, a
-document) is never mistaken for a call: it stays a link in the
-details. The same join button sits on agenda rows.
+installed app that can open a web address or, for Zoom, Teams and
+FaceTime, that service's own app. A Zoom or Teams link sent anywhere
+but its own app opens as the meeting's web address instead of the
+app's deep link, and a Teams chat or channel link is not a call. Call
+links are found in the event's URL, location and notes, in that
+order, so an agenda link in the URL field does not hide the Zoom link
+in the notes. A plain web link in the location or notes (a scheduling
+tool's planner, a document) is never mistaken for a call: it stays a
+link in the details. The same join button sits on agenda rows.
 
 ### ⚙️ Settings
 
@@ -197,9 +200,10 @@ Settings opens from the agenda's footer or Cmd-, and has six tabs:
   that item, whose Complete and Snooze only dismiss it and which is
   never remembered as dismissed.
 - **Join**: the app each kind of call opens in, one picker each for
-  Zoom, Google Meet, Jitsi and other links, offering the default
-  browser, every installed app that can open a web address and, for
-  Zoom, the Zoom app.
+  Zoom, Microsoft Teams, Google Meet, Jitsi, FaceTime and other links,
+  offering the default browser, every installed app that can open a
+  web address and, for Zoom, Teams and FaceTime, that service's own
+  app.
 - **Matching**: the generic titles that merge into a real one and the
   home terms dropped from locations (a trailing `*` matches a prefix,
   so `EH*` drops Edinburgh postcodes), each a comma-separated list.
@@ -302,7 +306,7 @@ each usable on its own:
 What the tests cannot cover is still to be checked by hand against real
 calendars and displays after `script/install`: the permission prompts,
 the menu bar label's rendering, the takeover windows over full-screen
-apps and the Zoom, Edge and browser hand-offs.
+apps and the Zoom, Teams, FaceTime, Edge and browser hand-offs.
 
 ## 📄 Licence
 

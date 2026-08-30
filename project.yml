@@ -26,6 +26,8 @@ targets:
         product: MinMaxCalFeatures
       - package: MinMaxCal
         product: MinMaxCalData
+      - package: MinMaxCal
+        product: MinMaxCalDomain
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

@@ -18,7 +18,7 @@ public struct WorkspaceLinkOpener: LinkOpener {
             return
         }
 
-        let url = bundleIdentifier == JoinApp.zoom.bundleIdentifier ? link.zoomURL ?? link.url : link.url
+        let url = bundleIdentifier == link.service.app?.bundleIdentifier ? link.appURL ?? link.url : link.url
         workspace.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration())
     }
 
@@ -26,30 +26,35 @@ public struct WorkspaceLinkOpener: LinkOpener {
         NSWorkspace.shared.open(url)
     }
 
-    /// The handlers of a web address and, for Zoom, of `zoommtg://` first, each app once by name order.
+    /// The service's own app when it is installed, then the handlers of a web address, each app
+    /// once by name order.
     public func apps(for service: JoinLink.Service) -> [JoinApp] {
-        let probes = service == .zoom ? [Self.zoomProbe, Self.webProbe] : [Self.webProbe]
-        var identifiers = Set<String>()
-        return probes.compactMap(\.self).flatMap { probe in
-            NSWorkspace.shared
-                .urlsForApplications(toOpen: probe)
-                .compactMap { url in
-                    guard let identifier = Bundle(url: url)?.bundleIdentifier else {
-                        return nil as JoinApp?
-                    }
-
-                    return JoinApp(
-                        bundleIdentifier: identifier,
-                        name: FileManager.default.displayName(atPath: url.path),
-                    )
-                }
-                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                .filter { identifiers.insert($0.bundleIdentifier).inserted }
+        let workspace = NSWorkspace.shared
+        let own = [service.app]
+            .compactMap(\.self)
+            .filter { workspace.urlForApplication(withBundleIdentifier: $0.bundleIdentifier) != nil }
+        var identifiers = Set(own.map(\.bundleIdentifier))
+        guard let probe = Self.webProbe else {
+            return own
         }
+
+        return own + workspace
+            .urlsForApplications(toOpen: probe)
+            .compactMap { url in
+                guard let identifier = Bundle(url: url)?.bundleIdentifier else {
+                    return nil as JoinApp?
+                }
+
+                return JoinApp(
+                    bundleIdentifier: identifier,
+                    name: FileManager.default.displayName(atPath: url.path),
+                )
+            }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            .filter { identifiers.insert($0.bundleIdentifier).inserted }
     }
 
     // MARK: Private
 
-    private static let zoomProbe: URL? = URL(string: "zoommtg://zoom.us/join")
     private static let webProbe: URL? = URL(string: "https://example.com")
 }

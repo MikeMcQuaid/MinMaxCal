@@ -50,13 +50,28 @@ public enum JoinLinkDetector {
         if isZoomHost(host), let link = zoomMeetingLink(from: url, host: host) {
             return link
         }
+        if teamsHosts.contains(host), let link = teamsLink(from: url, host: host) {
+            return link
+        }
         if host == meetHost {
             return JoinLink(service: .meet, url: secured(url))
         }
         if host == jitsiHost {
             return JoinLink(service: .jitsi, url: secured(url))
         }
+        if host == facetimeHost, url.path() == facetimePath {
+            return JoinLink(service: .facetime, url: secured(url))
+        }
         return JoinLink(service: .other, url: url)
+    }
+
+    // MARK: Internal
+
+    /// The characters a passcode may carry into a rebuilt link.
+    static let passcodeCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+
+    static func queryValue(_ name: String, in url: URL) -> String? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == name }?.value
     }
 
     // MARK: Private
@@ -68,7 +83,11 @@ public enum JoinLinkDetector {
     private static let zoomHost = "zoom.us"
     private static let meetHost = "meet.google.com"
     private static let jitsiHost = "meet.jit.si"
-    private static let passcodeCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._-"))
+    private static let facetimeHost = "facetime.apple.com"
+    private static let facetimePath = "/join"
+    private static let teamsHosts: Set<String> = [
+        "teams.microsoft.com", "teams.live.com", "gov.teams.microsoft.us", "dod.teams.microsoft.us",
+    ]
 
     private static func isZoomHost(_ host: String) -> Bool {
         host == zoomHost || host.hasSuffix(".\(zoomHost)")
@@ -116,11 +135,7 @@ public enum JoinLinkDetector {
             return nil
         }
 
-        return JoinLink(service: .zoom, url: url, zoomURL: zoomURL)
-    }
-
-    private static func queryValue(_ name: String, in url: URL) -> String? {
-        URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == name }?.value
+        return JoinLink(service: .zoom, url: url, appURL: zoomURL)
     }
 
     private static func secured(_ url: URL) -> URL {

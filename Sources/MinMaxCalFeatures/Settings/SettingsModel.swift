@@ -110,7 +110,7 @@ public final class SettingsModel {
             return installed
         }
 
-        let known = [JoinApp.zoom, JoinApp.edge].first { $0.bundleIdentifier == chosen }
+        let known = [JoinApp.zoom, .teams, .facetime, .edge].first { $0.bundleIdentifier == chosen }
         return installed + [JoinApp(bundleIdentifier: chosen, name: "\(known?.name ?? chosen) (not installed)")]
     }
 

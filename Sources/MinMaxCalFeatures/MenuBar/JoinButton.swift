@@ -43,8 +43,10 @@ public struct JoinButton: View {
         case .other:
             "Open the link"
 
-        case .jitsi,
+        case .facetime,
+             .jitsi,
              .meet,
+             .teams,
              .zoom:
             "Join with \(link.service.name)"
         }
