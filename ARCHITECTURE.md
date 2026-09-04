@@ -1,18 +1,16 @@
 # MinMaxCal Architecture
 
 How MinMaxCal works under the hood. [README.md](README.md) owns what it
-does and why; this document owns the system design. The feature groups
-referenced here (Glance, Agenda, Takeover and Always there) are the
-README's Features subsections and Settings is its Configuration section.
+does and why; this document owns the system design. Glance, Agenda,
+Takeover and Always there name the app's feature groups.
 
 ## Overview
 
 MinMaxCal is a native SwiftUI macOS menu bar app (macOS 27 or later,
 Swift 6.4, AGPL-3.0) that shows the next calendar event or reminder in
 the menu bar, lists the coming agenda on click and takes over every
-display when something is due. It is developed readme-first: this
-document describes the target system and slices of it land in the order
-given in the README's Status section.
+display when something is due. It is developed readme-first: behaviour
+is documented before the code that implements it.
 
 The architectural thesis, referenced throughout: **MinMaxCal owns no
 calendar data**. EventKit is the source of truth for every event,
