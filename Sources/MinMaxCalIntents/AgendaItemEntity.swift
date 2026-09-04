@@ -9,6 +9,7 @@ public struct AgendaItemEntity: AppEntity {
 
     init(_ item: AgendaItem, now: Date) {
         id = item.members
+            .lazy
             .map { member in
                 [member.calendarItemIdentifier, member.occurrenceDate.map { String($0.timeIntervalSinceReferenceDate) }]
                     .compactMap(\.self)

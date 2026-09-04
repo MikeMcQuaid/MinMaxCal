@@ -18,9 +18,15 @@ cd "$(dirname "$0")/.."
 : "${NOTARIZATION_ISSUER_ID:?}"
 
 app=.build/DerivedData/Build/Products/Release/MinMaxCal.app
+keychains=()
+while read -r existing_keychain; do
+  existing_keychain="${existing_keychain#\"}"
+  keychains+=("${existing_keychain%\"}")
+done < <(security list-keychains -d user)
 scratch="$(mktemp -d -t minmaxcal-package)"
 keychain="${scratch}/signing.keychain-db"
 cleanup() {
+  security list-keychains -d user -s "${keychains[@]}" &>/dev/null || true
   security delete-keychain "${keychain}" &>/dev/null || true
   rm -rf "${scratch}"
 }
@@ -35,12 +41,23 @@ security import "${scratch}/certificate.p12" -k "${keychain}" \
 # Let codesign use the key without a prompt.
 security set-key-partition-list -S apple-tool:,apple: -s \
   -k "${keychain_password}" "${keychain}" &>/dev/null
+security list-keychains -d user -s "${keychain}" "${keychains[@]}"
+
+identity="$(
+  security find-identity -v -p codesigning "${keychain}" |
+    sed -nE 's/^[[:space:]]*[0-9]+\) ([[:xdigit:]]{40}) "Developer ID Application:.*"$/\1/p'
+)"
+if [[ ! "${identity}" =~ ^[[:xdigit:]]{40}$ ]]; then
+  echo "Expected exactly one valid Developer ID Application identity; found:" >&2
+  security find-identity -p codesigning "${keychain}" >&2
+  exit 1
+fi
 
 # The build is signed ad hoc, with the get-task-allow entitlement Xcode
 # adds to ad hoc builds and notarisation rejects, so the app is signed
 # again from the source entitlements with the hardened runtime and the
 # secure timestamp notarisation requires.
-codesign --force --sign "Developer ID Application" --keychain "${keychain}" \
+codesign --force --sign "${identity}" --keychain "${keychain}" \
   --options runtime --timestamp --entitlements App/MinMaxCal.entitlements "${app}"
 
 zip="$(script/zip)"

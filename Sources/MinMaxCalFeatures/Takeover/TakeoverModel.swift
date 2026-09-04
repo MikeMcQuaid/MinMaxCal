@@ -170,6 +170,7 @@ public final class TakeoverModel {
 
     private static func announcement(for takeover: Takeover) -> String {
         takeover.entries
+            .lazy
             .map { entry in
                 switch entry.trigger {
                 case .start:
