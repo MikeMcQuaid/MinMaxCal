@@ -576,7 +576,7 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
-xcodebuild, numbered by `main`'s commits), `install`
+xcodebuild, versioned from the current commit's tag), `install`
 (build, then copy to /Applications), `zip` and `package` (the
 distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
@@ -643,16 +643,17 @@ the zip is uploaded as the run's `MinMaxCal` artifact.
 Three scripts turn a checkout into the artefact a release ships, split
 so that only the last needs credentials:
 
-- `script/build` builds as ever, signed ad hoc, passing the build
-  number as `CURRENT_PROJECT_VERSION`; `project.yml` composes
-  `MARKETING_VERSION` as `0.1.$(CURRENT_PROJECT_VERSION)`, so the
-  version is never typed. The build number counts the default branch's
-  commits (`git rev-list --count origin/main`, falling back to `main`
-  and then `HEAD`), so numbers are comparable across feature branches
-  and rise with every merge; the CI and release checkouts fetch the
-  full history (`fetch-depth: 0`) so the count is right there too,
-  and a build straight from Xcode or outside a git checkout is
-  `0.1.1`.
+- `script/build` builds as ever, signed ad hoc. `git describe` reads an
+  exact tag on the current commit and validates it as three
+  period-separated integers with no leading zeroes, matching Apple's
+  `CFBundleShortVersionString` format and SemVer's numeric core. It
+  passes that tag as `MARKETING_VERSION`, which `Info.plist` exposes to
+  Finder and the About tab; an untagged development or CI build uses
+  `0.0.0`. `CURRENT_PROJECT_VERSION` remains the build number and
+  counts the default branch's commits (`git rev-list --count
+  origin/main`, falling back to `main` and then `HEAD`), so it rises
+  with every merge. CI and release checkouts fetch the full history so
+  both the tags and count are available.
 - `script/zip` verifies the built app's signature, then zips it with
   `ditto` as `.build/MinMaxCal-<version>.zip`, the version read from
   the built `Info.plist`, with `MinMaxCal.app` as the zip's only
@@ -662,10 +663,13 @@ so that only the last needs credentials:
   encoded `.p12` export of the Developer ID Application certificate
   and its private key (`base64 -i certificate.p12`), with
   `DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD`, is imported into a
-  temporary keychain that is deleted on exit. The app is then signed
-  again in place: the ad hoc build carries the `get-task-allow`
-  entitlement Xcode adds to ad hoc signatures, which notarisation
-  rejects, so `codesign` signs from the source
+  temporary keychain. The keychain joins the user's search list only
+  while packaging, and the script selects exactly one valid Developer
+  ID Application identity from it by certificate fingerprint before
+  restoring the list and deleting the keychain on exit. The app is
+  then signed again in place: the ad hoc build carries the
+  `get-task-allow` entitlement Xcode adds to ad hoc signatures, which
+  notarisation rejects, so `codesign` signs from the source
   `App/MinMaxCal.entitlements` with the hardened runtime and the
   secure timestamp notarisation requires. `NOTARIZATION_KEY` (the
   contents of an App Store Connect API key's `.p8` file),
@@ -675,25 +679,30 @@ so that only the last needs credentials:
   is asked to assess it (`spctl --assess`) and the zip is remade around
   the stapled app.
 
-The Release workflow (`.github/workflows/release.yml`) creates the tag
-locally and pushes it only once the build has succeeded.
-`workflow_dispatch` takes no input and must be run on `main`; the job
-builds, tags the checkout with the version the build stamped (read
-from the `MinMaxCal.app` symlink's `Info.plist`), zips, signs and
-notarises (a release always does, so missing secrets fail it),
-uploads the zip as an artifact, pushes
-the tag and creates the GitHub release from it with generated notes
-and the zip attached. A push that touches the workflow or the
-packaging scripts runs the same job as a dry run that only lists
-releases in place of creating one, so the release process cannot rot
-unnoticed between releases; like CI it skips signing when the push has
-no secrets, as a Dependabot branch does. A second job, `bump-cask`,
-runs `Homebrew/actions/bump-packages` after a release so `brew bump`
-reads the new version through `brew livecheck` and opens the version
-bump pull request against homebrew-cask; its `if` is held at `false`
-until the cask exists and `HOMEBREW_GITHUB_API_TOKEN` (a personal
-access token with the `public_repo` and `workflow` scopes) is a
-repository secret.
+The Release workflow (`.github/workflows/release.yml`) requires a bare
+`MAJOR.MINOR.PATCH` version such as `0.1.0` on `workflow_dispatch` and
+must be run on `main`. It rejects leading zeroes, `v`, prerelease
+suffixes and build metadata, the development and dry-run versions, an
+existing requested tag and a commit that already carries any tag. The
+job creates the local tag before building so `script/build` stamps it
+into the app, then zips, signs and notarises. A release always runs
+`script/package`, so a missing credential or failed signature,
+notarisation, staple or Gatekeeper assessment terminates the job before
+anything is pushed. Only then does it upload the zip as an artifact,
+push the tag and create the GitHub release with generated notes and the
+zip attached. A push that touches the workflow, packaging scripts or
+metadata uses `9999.0.0` as a reserved valid local-only version and
+repeats the build, signing and notarisation as a dry run, but uploads
+no Actions artifact and pushes no tag or release. It only lists
+existing releases, so the process cannot rot unnoticed between
+releases. Dependabot cannot read Actions secrets, so its dry runs
+explicitly skip signing and notarisation. A second job,
+`bump-cask`, runs `Homebrew/actions/bump-packages` after a release so
+`brew bump` reads the new version through `brew livecheck` and opens
+the version bump pull request against homebrew-cask; its `if` is held
+at `false` until the cask exists and `HOMEBREW_GITHUB_API_TOKEN` (a
+personal access token with the `public_repo` and `workflow` scopes) is
+a repository secret.
 
 Releases ship as a Homebrew cask, so `brew upgrade` updates the app;
 there is no updater in the app and no Mac App Store listing. The cask
@@ -719,8 +728,8 @@ The target cask, for `brew create --cask` to be checked against:
 
 ```ruby
 cask "minmaxcal" do
-  version "0.1.123"
-  sha256 "<shasum --algorithm 256 MinMaxCal-0.1.123.zip>"
+  version "0.1.0"
+  sha256 "<shasum --algorithm 256 MinMaxCal-0.1.0.zip>"
 
   url "https://github.com/MikeMcQuaid/MinMaxCal/releases/download/#{version}/MinMaxCal-#{version}.zip"
   name "MinMaxCal"

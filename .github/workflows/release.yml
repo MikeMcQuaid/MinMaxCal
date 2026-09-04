@@ -3,11 +3,19 @@ name: Release
 on:
   # Run from `main` to release the current commit at its version.
   workflow_dispatch:
+    inputs:
+      version:
+        description: Bare MAJOR.MINOR.PATCH version, for example 0.1.0
+        required: true
+        type: string
   # Dry run whenever the release process itself changes, so it cannot
   # rot unnoticed between releases.
   push:
     paths:
       - .github/workflows/release.yml
+      - App/Info.plist
+      - App/MinMaxCal.entitlements
+      - project.yml
       - script/build
       - script/package
       - script/zip
@@ -29,18 +37,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write # to push the tag and create the release
-    env:
-      # A dry run on a Dependabot branch has no repository secrets, so
-      # it skips signing; a release never does. One secret stands for
-      # the set on purpose: a partly configured set is a mistake for
-      # script/package to report, not a reason to skip.
-      HAS_SIGNING_SECRETS: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE != '' }}
     steps:
       - name: Set up Git repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The build number counts the commits.
+          # The version needs tags and the build number counts commits.
           fetch-depth: 0
 
       - name: Check the branch
@@ -48,6 +50,35 @@ jobs:
         run: |
           echo "::error::Releases are cut from main, not ${GITHUB_REF}."
           exit 1
+
+      - name: Create local version tag
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            version="${RELEASE_VERSION}"
+            if [[ "${version}" == "0.0.0" || "${version}" == "9999.0.0" ]]; then
+              echo "::error::Version ${version} is reserved for development and dry runs."
+              exit 1
+            fi
+          else
+            version="9999.0.0"
+          fi
+          if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Version must be bare MAJOR.MINOR.PATCH, for example 0.1.0."
+            exit 1
+          fi
+          if git show-ref --verify --quiet "refs/tags/${version}"; then
+            echo "::error::Tag ${version} already exists."
+            exit 1
+          fi
+          if [[ -n "$(git tag --points-at HEAD)" ]]; then
+            echo "::error::The current commit already has a tag."
+            exit 1
+          fi
+          git tag "${version}"
+          [[ "$(git describe --tags --exact-match HEAD)" == "${version}" ]]
+          echo "VERSION=${version}" >>"${GITHUB_ENV}"
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@3cdb78d0f62ad29dd32de765782654f4eedea607 # 2026.08.31.1
@@ -75,21 +106,13 @@ jobs:
       - name: Build
         run: script/build
 
-      # The tag is created locally, from the version the build stamped,
-      # and pushed only once everything has succeeded, so a failed
-      # release leaves nothing behind.
-      - name: Create the tag locally
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' MinMaxCal.app/Contents/Info.plist)"
-          echo "VERSION=${version}" >>"${GITHUB_ENV}"
-          git tag "${version}"
-
       - name: Zip
         run: script/zip
 
       - name: Sign and notarise
-        if: github.event_name == 'workflow_dispatch' || env.HAS_SIGNING_SECRETS == 'true'
+        # Human dry runs test the credentials too. Dependabot cannot
+        # read Actions secrets, while a release must fail without them.
+        if: github.event_name == 'workflow_dispatch' || github.actor != 'dependabot[bot]'
         env:
           DEVELOPER_ID_APPLICATION_CERTIFICATE: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE }}
           DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
@@ -99,6 +122,7 @@ jobs:
         run: script/package
 
       - name: Upload the app
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: MinMaxCal
@@ -107,19 +131,21 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
-      - name: Create the release (dry run on push)
+      - name: Check releases in a dry run
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release list
+
+      - name: Create the release
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            gh auth setup-git
-            git push origin "refs/tags/${VERSION}"
-            gh release create "${VERSION}" --verify-tag --generate-notes \
-              ".build/MinMaxCal-${VERSION}.zip"
-          else
-            # Check the token can reach releases without creating one.
-            gh release list
-          fi
+          gh auth setup-git
+          git push origin "refs/tags/${VERSION}"
+          gh release create "${VERSION}" --verify-tag --generate-notes \
+            ".build/MinMaxCal-${VERSION}.zip"
 
   bump-cask:
     # `false` holds the bump back until the `minmaxcal` cask exists in

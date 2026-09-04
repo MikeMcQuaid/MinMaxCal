@@ -73,7 +73,11 @@ public struct AgendaRow: View {
     private let onJoin: (JoinLink) -> Void
 
     private var timeFont: Font {
-        style == .agenda ? .body : .title2
+        if style == .agenda {
+            .body
+        } else {
+            .title2
+        }
     }
 
     private var status: String? {

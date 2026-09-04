@@ -283,9 +283,9 @@ each keystroke.
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate the
   Xcode project with XcodeGen
-- `script/build`: build the app, versioned `0.1.<build number>` where
-  the build number counts `main`'s commits; `MinMaxCal.app` in the
-  repository root symlinks its output
+- `script/build`: build the app with the current commit's bare
+  `MAJOR.MINOR.PATCH` tag as its version, or `0.0.0` when untagged;
+  `MinMaxCal.app` in the repository root symlinks its output
 - `script/install`: build, then copy the app to /Applications
 - `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
 - `script/package`: sign the built app with the Developer ID
@@ -302,13 +302,18 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 
 ### 🚀 Releasing
 
-Run the **Release** workflow from the Actions tab on `main`. There is
-nothing to type: the workflow builds, signs and notarises the app,
-tags the commit with its version and publishes a GitHub release
-carrying `MinMaxCal-0.1.<build number>.zip` with generated notes. A
-push that touches the workflow or the packaging scripts runs the same
-job as a dry run that publishes nothing, and every CI run uploads the
-zip it built as an artifact.
+Run the **Release** workflow from the Actions tab on `main` with a bare
+`MAJOR.MINOR.PATCH` version such as `0.1.0`: three integers, with no
+`v`, prerelease suffix or build metadata. The workflow validates and
+locally tags the commit before building, so the tag becomes the app's
+version in Finder and About as well as the GitHub release and zip name.
+It pushes the tag only after signing and notarisation succeed. No new
+commit or push is needed: dispatching it builds the current `main`
+commit. A push that touches the release workflow, packaging scripts or
+metadata creates the reserved local test tag `9999.0.0`, signs and
+notarises as a dry run but uploads nothing; Dependabot skips that step
+because GitHub withholds its secrets. Every CI run uploads the zip it
+built as an artifact.
 
 ## 🚧 Status
 
