@@ -574,7 +574,7 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
-xcodebuild, versioned from the current commit's tag), `install`
+xcodebuild, versioned from the nearest reachable tag), `install`
 (build, then copy to /Applications), `zip` and `package` (the
 distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
@@ -641,14 +641,19 @@ the zip is uploaded as the run's `MinMaxCal` artifact.
 Three scripts turn a checkout into the artefact a release ships, split
 so that only the last needs credentials:
 
-- `script/build` builds as ever, signed ad hoc. `git describe` reads an
-  exact tag on the current commit and validates it as three
-  period-separated integers with no leading zeroes, matching Apple's
-  `CFBundleShortVersionString` format and SemVer's numeric core. It
-  passes that tag as `MARKETING_VERSION`, which `Info.plist` exposes to
-  Finder and the About tab; an untagged development or CI build uses
-  `0.0.0`. `CURRENT_PROJECT_VERSION` remains the build number and
-  counts the default branch's commits (`git rev-list --count
+- `script/build` builds as ever, signed ad hoc. `script/version` uses
+  `git describe` to read the nearest reachable tag and validates it as
+  three period-separated integers with no leading zeroes, matching
+  Apple's `CFBundleShortVersionString` format and SemVer's numeric
+  core. It writes that tag as `MARKETING_VERSION` in
+  `.build/Version.xcconfig`, which `Info.plist` exposes to Finder and
+  the About tab; a build with no reachable tag uses `0.0.0`.
+  XcodeGen runs the script before generating the project, and the
+  shared scheme runs it before every build, so direct Xcode builds
+  also refresh the version from Git. Both Debug and Release use the
+  generated configuration file. `CURRENT_PROJECT_VERSION` remains
+  the build number for `script/build` and counts the default branch's
+  commits (`git rev-list --count
   origin/main`, falling back to `main` and then `HEAD`), so it rises
   with every merge. CI and release checkouts fetch the full history so
   both the tags and count are available.

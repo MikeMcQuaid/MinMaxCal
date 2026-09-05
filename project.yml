@@ -5,6 +5,7 @@ options:
   deploymentTarget:
     macOS: "27.0"
   xcodeVersion: "27.0"
+  preGenCommand: script/version
 packages:
   MinMaxCal:
     path: .
@@ -30,6 +31,14 @@ targets:
         product: MinMaxCalDomain
       - package: MinMaxCal
         product: MinMaxCalIntents
+    configFiles:
+      Debug: .build/Version.xcconfig
+      Release: .build/Version.xcconfig
+    scheme:
+      preActions:
+        - name: Set version from Git
+          settingsTarget: MinMaxCal
+          script: '"${PROJECT_DIR}/script/version"'
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -38,7 +47,6 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_HARDENED_RUNTIME: YES
         INFOPLIST_FILE: App/Info.plist
-        MARKETING_VERSION: "0.0.0"
         PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
