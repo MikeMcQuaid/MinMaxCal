@@ -15,6 +15,7 @@ on:
       - .github/workflows/release.yml
       - App/Info.plist
       - App/MinMaxCal.entitlements
+      - Version.xcconfig
       - project.yml
       - script/build
       - script/package

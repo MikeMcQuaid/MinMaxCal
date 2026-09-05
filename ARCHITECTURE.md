@@ -651,7 +651,10 @@ so that only the last needs credentials:
   XcodeGen runs the script before generating the project, and the
   shared scheme runs it before every build, so direct Xcode builds
   also refresh the version from Git. Both Debug and Release use the
-  generated configuration file. `CURRENT_PROJECT_VERSION` remains
+  tracked `Version.xcconfig`, which defaults to `0.0.0` and optionally
+  includes the generated file. Xcode can load the project after
+  `.build` is cleared, before the pre-action regenerates the version.
+  `CURRENT_PROJECT_VERSION` remains
   the build number for `script/build` and counts the default branch's
   commits (`git rev-list --count
   origin/main`, falling back to `main` and then `HEAD`), so it rises
