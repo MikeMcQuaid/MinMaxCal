@@ -117,6 +117,10 @@ Settings opens from the agenda's footer or Cmd-, and controls:
 - `script/icons`: render the menu bar `Leaf.svg` and app `AppMark.svg`
   to PNG previews
 
+Both `script/build` and direct Xcode builds refresh the version from
+Git before each build: the nearest reachable `MAJOR.MINOR.PATCH` tag,
+or `0.0.0` without one.
+
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
 

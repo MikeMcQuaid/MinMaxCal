@@ -4,14 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# A release workflow creates its local version tag before building.
-version="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
-version="${version:-0.0.0}"
-if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-  echo "Version tag must be bare MAJOR.MINOR.PATCH: ${version}" >&2
-  exit 1
-fi
-
+script/version
 [[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
 
 # Capped parallelism inside the sandbox: full-width builds have
@@ -36,7 +29,7 @@ BUILD_NUMBER="$(
     git rev-list --count HEAD 2>/dev/null ||
     echo 1
 )"
-ARGS+=("CURRENT_PROJECT_VERSION=${BUILD_NUMBER}" "MARKETING_VERSION=${version}")
+ARGS+=("CURRENT_PROJECT_VERSION=${BUILD_NUMBER}")
 
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
   export SWIFTPM_DISABLE_SANDBOX=1

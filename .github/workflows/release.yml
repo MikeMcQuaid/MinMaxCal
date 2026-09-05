@@ -18,6 +18,7 @@ on:
       - project.yml
       - script/build
       - script/package
+      - script/version
       - script/zip
 
 defaults:

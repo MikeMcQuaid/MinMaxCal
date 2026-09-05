@@ -1,0 +1,16 @@
+#!/bin/bash
+# Generate the Git-derived version build setting.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# A release workflow creates its local version tag before building.
+version="$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)"
+version="${version:-0.0.0}"
+if [[ ! "${version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+  echo "Version tag must be bare MAJOR.MINOR.PATCH: ${version}" >&2
+  exit 1
+fi
+
+mkdir -p .build
+echo "MARKETING_VERSION = ${version}" >.build/Version.xcconfig
