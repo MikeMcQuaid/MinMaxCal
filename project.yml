@@ -32,8 +32,8 @@ targets:
       - package: MinMaxCal
         product: MinMaxCalIntents
     configFiles:
-      Debug: .build/Version.xcconfig
-      Release: .build/Version.xcconfig
+      Debug: Version.xcconfig
+      Release: Version.xcconfig
     scheme:
       preActions:
         - name: Set version from Git
