@@ -28,6 +28,7 @@ struct MinMaxCalApp: App, AppIntentsPackage {
             settings: store,
             opener: opener,
             systemChanges: SystemChanges.stream,
+            powerChanges: PowerState.changes,
         )
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview

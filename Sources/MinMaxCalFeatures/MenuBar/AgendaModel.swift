@@ -3,18 +3,19 @@ import MinMaxCalData
 import MinMaxCalDomain
 import Observation
 
-/// Owns the agenda and rebuilds it on every change, minute, system change or setting.
+/// Owns the agenda, fetching on changes and updating countdowns locally between fetches.
 @Observable
 public final class AgendaModel {
     // MARK: Lifecycle
 
-    /// Wires the ports; `systemChanges`, `clock` and `calendar` are injectable for tests.
+    /// Wires the ports; system and power changes, the clock and the calendar are injectable for tests.
     @preconcurrency
     public init(
         source: any CalendarSource,
         settings: SettingsStore,
         opener: any LinkOpener,
         systemChanges: AsyncStream<Void> = AsyncStream { $0.finish() },
+        powerChanges: AsyncStream<Bool> = AsyncStream { $0.finish() },
         clock: @escaping @Sendable () -> Date = { Date() },
         calendar: Calendar = .current,
     ) {
@@ -22,6 +23,7 @@ public final class AgendaModel {
         self.settings = settings
         self.opener = opener
         self.systemChanges = systemChanges
+        self.powerChanges = powerChanges
         self.clock = clock
         self.calendar = calendar
         now = clock()
@@ -34,7 +36,7 @@ public final class AgendaModel {
 
     /// The current agenda: today and tomorrow, filtered, merged and sorted.
     public private(set) var agenda: Agenda = .empty
-    /// The clock reading of the last rebuild.
+    /// The clock reading of the last refresh or local tick.
     public private(set) var now: Date
     /// The grants the app was given at launch.
     public private(set) var access: AccessStatus = .notDetermined
@@ -52,9 +54,7 @@ public final class AgendaModel {
     public var preview: (AgendaItem) -> Void = { _ in }
 
     /// The menu bar title, or nil for the icon alone.
-    public var title: String? {
-        MenuBarTitle.render(agenda: agenda, now: now, limit: titleLimit)
-    }
+    public private(set) var title: String?
 
     /// The item the menu bar shows.
     public var nextItem: AgendaItem? {
@@ -74,34 +74,53 @@ public final class AgendaModel {
     /// Requests access, then rebuilds for as long as the task lives. Triggers that arrive during a
     /// rebuild collapse into one more, so a burst of sync notifications costs two fetches, not a queue.
     public func run() async {
+        let feeds = [source.changes, systemChanges, settings.changes]
         access = await source.requestAccess()
         await rebuild()
-        let (triggers, trigger) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let feeds = [source.changes, MinuteTicks.stream(clock: clock), systemChanges, settings.changes, refreshRequests]
         await withTaskGroup(of: Void.self) { group in
             for feed in feeds {
                 group.addTask {
                     for await _ in feed {
-                        trigger.yield()
+                        await self.requestRefresh()
                     }
                 }
             }
-            for await _ in triggers {
-                await rebuild()
+            group.addTask {
+                for await saving in self.powerChanges {
+                    await self.setPowerSaving(saving)
+                }
             }
+            var timer = scheduleTick()
+            defer { timer.cancel() }
+            for await _ in refreshRequests {
+                timer.cancel()
+                if refreshRequired {
+                    refreshRequired = false
+                    await rebuild()
+                } else {
+                    await tick()
+                }
+                timer = scheduleTick()
+            }
+            group.cancelAll()
         }
     }
 
     /// Fetches, filters, merges and publishes the agenda once.
     public func rebuild() async {
         let rebuildTime = clock()
-        now = rebuildTime
+        publish(\.now, rebuildTime)
         publish(\.titleLimit, settings.titleLimit)
         let selection = settings.selection
         publish(\.rules, settings.matchingRules)
         publish(\.hasSelection, selection.isEmpty == false)
         let horizon = horizon(around: rebuildTime)
-        let raw = await source.agenda(from: horizon.start, to: horizon.end, selection: selection)
+        let raw = selection.isEmpty ? [] : await source.agenda(
+            from: horizon.start,
+            to: horizon.end,
+            selection: selection,
+        )
+        lastFetchedAt = rebuildTime
         let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
         recentlyCompleted.removeAll { rebuildTime.timeIntervalSince($0.at) > Self.undoWindow }
         let undoable = recentlyCompleted.map(\.item)
@@ -109,6 +128,7 @@ public final class AgendaModel {
         let items = (AgendaFilter.named(merged, rules: rules) + undoable)
             .sorted { ($0.start, $0.title) < ($1.start, $1.title) }
         publish(\.agenda, Agenda(items: items, horizon: horizon))
+        updateTitle()
         onRebuild(agenda, rebuildTime)
     }
 
@@ -130,7 +150,50 @@ public final class AgendaModel {
 
     /// Asks the loop for a rebuild.
     public func requestRefresh() {
+        refreshRequired = true
         refresh.yield()
+    }
+
+    // MARK: Internal
+
+    var nextTick: Date {
+        let fallback = (lastFetchedAt ?? now).addingTimeInterval(refreshInterval)
+        guard agenda.items.isEmpty == false else {
+            return fallback
+        }
+
+        return min(fallback, Date(timeIntervalSinceReferenceDate:
+            (floor(now.timeIntervalSinceReferenceDate / Self.secondsPerMinute) + 1) * Self.secondsPerMinute))
+    }
+
+    func setPowerSaving(_ saving: Bool) {
+        guard powerSaving != saving else {
+            return
+        }
+
+        powerSaving = saving
+        refresh.yield()
+    }
+
+    func tick() async {
+        let tickTime = clock()
+        guard let lastFetchedAt,
+              tickTime >= now,
+              tickTime.timeIntervalSince(lastFetchedAt) < refreshInterval,
+              calendar.isDate(tickTime, inSameDayAs: now)
+        else {
+            await rebuild()
+            return
+        }
+
+        publish(\.now, tickTime)
+        recentlyCompleted.removeAll { tickTime.timeIntervalSince($0.at) > Self.undoWindow }
+        let items = agenda.items.filter { item in
+            item.hasEnded(at: tickTime) == false
+                && (item.isCompleted == false || recentlyCompleted.contains { $0.item.id == item.id })
+        }
+        publish(\.agenda, Agenda(items: items, horizon: agenda.horizon))
+        updateTitle()
     }
 
     // MARK: Private
@@ -138,16 +201,48 @@ public final class AgendaModel {
     private static let horizonDays = 2
     private static let secondsPerDay: TimeInterval = 86_400
     private static let undoWindow: TimeInterval = 300
+    private static let secondsPerMinute: TimeInterval = 60
+    private static let mainsRefreshInterval: TimeInterval = 300
+    private static let batteryRefreshInterval: TimeInterval = 900
+    private static let tickTolerance: TimeInterval = 5
 
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let opener: any LinkOpener
     @ObservationIgnored private let systemChanges: AsyncStream<Void>
+    @ObservationIgnored private let powerChanges: AsyncStream<Bool>
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let refreshRequests: AsyncStream<Void>
     @ObservationIgnored private let refresh: AsyncStream<Void>.Continuation
     @ObservationIgnored private var recentlyCompleted: [(item: AgendaItem, at: Date)] = []
+    @ObservationIgnored private var lastFetchedAt: Date?
+    @ObservationIgnored private var refreshRequired = false
+    @ObservationIgnored private var powerSaving = false
+
+    private var refreshInterval: TimeInterval {
+        if powerSaving {
+            Self.batteryRefreshInterval
+        } else {
+            Self.mainsRefreshInterval
+        }
+    }
+
+    private func scheduleTick() -> Task<Void, Never> {
+        let delay = max(0, nextTick.timeIntervalSince(clock()))
+        return Task { [refresh] in
+            do {
+                try await Task.sleep(for: .seconds(delay), tolerance: .seconds(Self.tickTolerance))
+                refresh.yield()
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func updateTitle() {
+        publish(\.title, MenuBarTitle.render(agenda: agenda, now: now, limit: titleLimit))
+    }
 
     private func setCompleted(_ completed: Bool, _ item: AgendaItem) async {
         guard let member = item.members.first, let index = agenda.items.firstIndex(where: { $0.id == item.id }) else {
@@ -158,6 +253,7 @@ public final class AgendaModel {
         var changed = item
         changed.isCompleted = completed
         agenda.items[index] = changed
+        updateTitle()
         recentlyCompleted.removeAll { $0.item.id == item.id }
         if completed {
             recentlyCompleted.append((item: changed, at: clock()))
@@ -168,6 +264,7 @@ public final class AgendaModel {
             requestRefresh()
         } catch {
             agenda = previous
+            updateTitle()
             recentlyCompleted.removeAll { $0.item.id == item.id }
             errorMessage = error.localizedDescription
         }

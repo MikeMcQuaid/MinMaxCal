@@ -6,7 +6,9 @@ import Synchronization
 nonisolated final class FakeCalendarSource: CalendarSource {
     // MARK: Internal
 
-    let changes = AsyncStream<Void> { $0.finish() }
+    var changes: AsyncStream<Void> {
+        notifications.stream
+    }
 
     var items: [AgendaItem] {
         get { state.withLock(\.items) }
@@ -29,6 +31,10 @@ nonisolated final class FakeCalendarSource: CalendarSource {
     var completionError: FakeError? {
         get { state.withLock(\.completionError) }
         set { state.withLock { $0.completionError = newValue } }
+    }
+
+    func notifyChange() {
+        notifications.continuation.yield()
     }
 
     func requestAccess() -> AccessStatus {
@@ -75,4 +81,6 @@ nonisolated final class FakeCalendarSource: CalendarSource {
     }
 
     private let state: Mutex = .init(State())
+    private let notifications: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) =
+        AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
 }

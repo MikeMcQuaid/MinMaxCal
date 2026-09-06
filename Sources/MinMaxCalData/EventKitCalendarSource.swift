@@ -10,7 +10,7 @@ public actor EventKitCalendarSource: CalendarSource {
     // MARK: Public
 
     nonisolated public var changes: AsyncStream<Void> {
-        AsyncStream { continuation in
+        AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 for await _ in NotificationCenter.default.notifications(named: .EKEventStoreChanged) {
                     continuation.yield()
