@@ -721,13 +721,7 @@ repeats the build, signing and notarisation as a dry run, but uploads
 no Actions artifact and pushes no tag or release. It only lists
 existing releases, so the process cannot rot unnoticed between
 releases. Dependabot cannot read Actions secrets, so its dry runs
-explicitly skip signing and notarisation. A second job,
-`bump-cask`, runs `Homebrew/actions/bump-packages` after a release so
-`brew bump` reads the new version through `brew livecheck` and opens
-the version bump pull request against homebrew-cask; its `if` is held
-at `false` until the cask exists and `HOMEBREW_GITHUB_API_TOKEN` (a
-personal access token with the `public_repo` and `workflow` scopes) is
-a repository secret.
+explicitly skip signing and notarisation.
 
 Releases ship as a Homebrew cask, so `brew upgrade` updates the app;
 there is no updater in the app and no Mac App Store listing. The cask
