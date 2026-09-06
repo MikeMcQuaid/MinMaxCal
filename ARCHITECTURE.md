@@ -62,8 +62,8 @@ Boundary facts the design relies on:
 ## Guiding principles
 
 1. **P1: Derive, don't own.** EventKit is the source of truth. The app
-   re-reads it on every change notification, every minute and every
-   wake, and never caches event data across launches.
+   re-reads it on every change notification and every wake, with a
+   periodic fallback, and never caches event data across launches.
 2. **P2: Pure rules.** Merging, truncation, countdowns, link detection,
    acceptance and takeover timing are pure functions over value types,
    unit tested without EventKit or a window.
@@ -111,8 +111,8 @@ from the calendar port whenever any of these fire, merged into one
 `AsyncStream` so there is exactly one consumer loop:
 
 - `EKEventStoreChanged` (any calendar or reminder changed, in any app);
-- the minute boundary (for the countdown, past-event pruning and the
-  next takeover);
+- a fallback every five minutes on mains power or fifteen minutes on
+  battery, UPS power or in Low Power Mode;
 - `NSWorkspace.didWakeNotification` (the minute timer may have slept
   through several boundaries);
 - `NSSystemClockDidChange`, `NSSystemTimeZoneDidChange` and
@@ -122,13 +122,24 @@ from the calendar port whenever any of these fire, merged into one
   sleeping for a duration computed against the old clock, so the
   rebuild re-plans them at once);
 - the selection or matching rules changing in Settings;
-- a reminder completed or a takeover dismissed from the app's own UI.
+- a reminder completed or a takeover dismissed from the app's own UI;
+- opening the agenda.
 
 Each rebuild fetches today and tomorrow for the selected calendars
 and lists, converts to Domain values inside the EventKit actor, runs the
 pure merge and filter rules and publishes the new `Agenda`. The menu bar
 title, the agenda list and the takeover scheduler all derive from that
 one value.
+
+Between fetches, minute ticks update countdowns, prune ended events and
+expire completed rows from the current in-memory agenda. They neither
+decode nor merge EventKit data and do not restart takeover alarms.
+An empty agenda sleeps until the next fallback refresh. Power-source
+and Low Power Mode notifications adjust that deadline, fetching only
+if the new fallback is already due. The power state is held in memory,
+never polled on a tick. The Data adapter uses IOKit's
+`kIOPSNotifyPowerSource`, which fires only when the active source
+changes, and Foundation's Low Power Mode notification.
 
 Three rules keep an idle minute cheap. The merged trigger stream keeps
 only the newest pending element (`bufferingNewest(1)`), so a burst of
@@ -137,8 +148,11 @@ notification. The minute tick sleeps with a five-second tolerance so
 the system can coalesce the wake-up with others; a tolerance only ever
 lands late, never before the boundary. And a rebuild assigns only the
 values that changed, so a minute in which nothing moved re-renders the
-countdown alone. The fetch itself stays: calendar and reminder data is
-re-read every minute by decision.
+countdown alone. The title is published only when its text changes.
+Change notifications still fetch immediately on battery; only the
+fallback slows, so a missed notification may leave data stale for up
+to fifteen minutes. Opening the agenda, waking or changing the clock
+always fetches and re-plans the timers immediately.
 
 ## Package architecture
 
@@ -251,6 +265,7 @@ Third-party imports: none. System frameworks are confined (P3):
 | Framework | Only importable in |
 |---|---|
 | EventKit, ServiceManagement | MinMaxCalData |
+| IOKit (power-source notifications) | MinMaxCalData |
 | AppKit | MinMaxCalData (`NSWorkspace`) and MinMaxCalFeatures (windows) |
 | AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
 | SwiftUI | MinMaxCalFeatures and MinMaxCalApp |
@@ -285,13 +300,16 @@ is marked `@concurrent`: the heaviest work is merging a day of events,
 which is not worth moving off the main actor.
 
 Events flow as `AsyncStream`s (the store's change notification, the
-minute tick, the system changes of wake, clock, time zone and day, and
+system changes of wake, clock, time zone and day, power state and
 settings changes) consumed by `AgendaModel.run()`,
 which the app starts in one `Task` from its initialiser: a menu bar app
 has no view that is reliably alive to host the loop as a `.task`, and
 modifiers on the `MenuBarExtra` label never run. The task lives as long
 as the process. `run()` merges the streams in one task group and
-rebuilds on every element.
+fetches on invalidation or when the fallback is due. One cancellable
+timer feeds the same loop for local minute updates and fallback
+fetches; each pass re-plans it against the current clock and power
+state. A pending fetch request cannot be overwritten by a timer tick.
 The takeover scheduler is one `Task` stored on `TakeoverModel`,
 sleeping until the planned moment, cancelled and replaced on every
 agenda rebuild, so a changed or deleted event can never fire a stale
@@ -368,9 +386,10 @@ older incomplete reminders remain in the agenda while the menu bar
 moves on. The `MenuBarExtra` label is an `Image` of the template icon
 followed by that `Text`, written as two sibling views: wrapped in a
 `Label`, SwiftUI shows the icon alone.
-SwiftUI re-renders it when `AgendaModel` publishes, which the minute
-tick guarantees at least once a minute. A long title is capped rather than truncated by the
-system because status items push their neighbours off the bar.
+SwiftUI re-renders it only when `AgendaModel` publishes changed title
+text, computed at each minute tick while the agenda has items. A long
+title is capped rather than truncated by the system because status
+items push their neighbours off the bar.
 
 ### Completing a reminder (Agenda and Takeover)
 
@@ -786,6 +805,6 @@ fresh takeover in the ledger, so there is no cap and no automatic
 repeat. Other open questions: whether the agenda should offer
 Accept and Decline for unanswered invitations (EventKit cannot answer
 an invitation, so this would open Calendar); and how many calendars
-is too many for a fetch on every minute tick, which already runs on
-the EventKit actor, before the per-minute re-read itself has to be
-revisited.
+is too many for the periodic fallback fetch, which runs on the
+EventKit actor. Host profiling determines whether the five-minute
+mains and fifteen-minute battery intervals need revisiting.

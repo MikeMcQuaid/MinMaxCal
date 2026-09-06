@@ -41,6 +41,11 @@ your data on your Mac.
   action and Escape dismisses.
 - MinMaxCal starts at login by default. Settings can turn this off and
   open the system approval pane when required.
+- Calendar changes refresh immediately. Idle fallback refreshes run
+  every five minutes on mains power and every fifteen minutes on
+  battery or in Low Power Mode. Countdowns still update each minute
+  and takeover alarms keep their exact timing. Opening the agenda
+  refreshes it too; an empty agenda needs no minute timer.
 
 ## 🚫 Out of Scope
 

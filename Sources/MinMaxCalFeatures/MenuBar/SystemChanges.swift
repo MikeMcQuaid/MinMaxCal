@@ -5,7 +5,7 @@ import AppKit
 nonisolated public enum SystemChanges {
     /// Yields once per wake, clock change, time zone change or day change.
     public static var stream: AsyncStream<Void> {
-        AsyncStream { continuation in
+        AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask {

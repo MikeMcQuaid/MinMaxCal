@@ -23,7 +23,7 @@ public final class SettingsStore {
     /// Fires whenever any value in the defaults changes; subscribe before writing.
     public var changes: AsyncStream<Void> {
         let identity = ObjectIdentifier(defaults)
-        return AsyncStream { continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 let notifications = NotificationCenter.default.notifications(named: UserDefaults.didChangeNotification)
                 for await notification in notifications where Self.identity(of: notification) == identity {

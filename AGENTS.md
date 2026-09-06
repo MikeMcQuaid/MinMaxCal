@@ -103,9 +103,11 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 
 The app is always running, so an idle minute is the budget.
 
-- An idle minute costs one EventKit fetch (by decision) and
-  arithmetic: no file read, no JSON decode and no formatter, regex or
-  detector construction happens on a tick.
+- An idle minute costs arithmetic only: no EventKit fetch, file read,
+  JSON decode or formatter, regex or detector construction. Fallback
+  fetches run every five minutes on mains, fifteen on battery or in
+  Low Power Mode; changes still fetch immediately. An empty agenda
+  needs no minute timer.
 - Trigger streams buffer `newest(1)`; a rebuild never queues behind
   another, however many notifications a sync posts.
 - Costly Foundation objects (`NSDataDetector`, `NumberFormatter`,

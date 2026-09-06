@@ -44,6 +44,7 @@ public struct AgendaView: View {
             footer
         }
         .frame(width: Self.width)
+        .onAppear { model.requestRefresh() }
     }
 
     // MARK: Private
