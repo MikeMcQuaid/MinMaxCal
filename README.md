@@ -73,16 +73,18 @@ documented rule or left out; private APIs are never used:
 
 ## 📦 Installation
 
-Download `MinMaxCal-<version>.zip` from the
+Install with Homebrew:
+
+```bash
+brew install --cask minmaxcal
+```
+
+`brew upgrade` updates the app.
+
+Alternatively, download `MinMaxCal-<version>.zip` from the
 [releases page](https://github.com/MikeMcQuaid/MinMaxCal/releases),
 unzip it and move `MinMaxCal.app` to /Applications. Releases are signed
 with a Developer ID certificate and notarised by Apple.
-
-Releases will also ship as a Homebrew cask
-(`brew install --cask minmaxcal`) as soon as the repository is notable
-enough for
-[Homebrew/homebrew-cask](https://github.com/Homebrew/homebrew-cask);
-`brew upgrade` then updates the app.
 
 To run the current source instead:
 
