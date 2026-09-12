@@ -37,8 +37,11 @@ your data on your Mac.
 - When an accepted event starts or a reminder is due, MinMaxCal covers
   every display, including full-screen apps. **Join** or **Complete**
   is the primary action, **Dismiss** sits on the left and reminders can
-  be snoozed for a configured duration. Return triggers the primary
-  action and Escape dismisses.
+  be snoozed for a configured duration. Snooze uses the shortest
+  duration; its menu offers all configured durations. The takeover
+  takes keyboard focus: Return joins the call or completes the
+  reminder, and Escape snoozes reminders for the shortest configured
+  duration, dismissing instead when snooze is unavailable.
 - MinMaxCal starts at login by default. Settings can turn this off and
   open the system approval pane when required.
 - Calendar changes refresh immediately. Idle fallback refreshes run
