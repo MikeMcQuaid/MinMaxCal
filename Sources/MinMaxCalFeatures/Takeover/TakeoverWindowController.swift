@@ -98,6 +98,7 @@ public final class TakeoverWindowController: TakeoverPresenting {
         window.isReleasedWhenClosed = false
         window.alphaValue = 0
         window.contentView = NSHostingView(rootView: content())
+        window.makeFirstResponder(window.contentView)
         return window
     }
 

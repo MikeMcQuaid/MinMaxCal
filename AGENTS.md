@@ -77,9 +77,10 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   this app's conventions: at most one primary action per surface,
   rendered prominent and bound to Return (Join, Complete); every
   other button is plain glass, icon-only with hover help when the
-  icon is unambiguous and short text otherwise. Escape dismisses a
-  takeover from any display. In a row of actions the primary button
-  trails and Dismiss leads, as in a system dialog.
+  icon is unambiguous and short text otherwise. Escape snoozes for the
+  shortest duration, or dismisses when snooze is unavailable, from
+  any display. In a row of actions the primary button trails and
+  Dismiss leads, as in a system dialog.
 - Button and menu titles use title case (`Choose Calendars…`,
   `5 Minutes`); toggles, labels, footers and help use sentence case.
 - Every clickable row is a button for the pointer, the keyboard and
