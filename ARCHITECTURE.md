@@ -431,8 +431,8 @@ error restores the row and shows the message inline.
    behaviour `canJoinAllSpaces`, `fullScreenAuxiliary` and
    `stationary`, each hosting the same `TakeoverView` through
    `NSHostingView`, with the key window on the screen holding the
-   mouse. The windows fade in over 0.2 seconds through
-   `NSAnimationContext`, or appear at once when
+   mouse and keyboard focus in its hosted content. The windows fade in
+   over 0.2 seconds through `NSAnimationContext`, or appear at once when
    `accessibilityDisplayShouldReduceMotion` is set, the sound from
    `TakeoverSettings` plays once through `AudioServicesPlayAlertSound`
    (a `SystemSoundID` registered once per name from the file of that
@@ -448,9 +448,11 @@ error restores the row and shows the message inline.
    where it stopped; Join leaves the front to the call's app.
 4. The view shows the README's content with Dismiss leading and the
    primary action trailing, as in a system dialog, and marks the panel
-   modal for VoiceOver. Return triggers the primary action, Escape
-   dismisses; every window forwards to the one model, so a click on
-   any display acts for all.
+   modal for VoiceOver. Return joins the call or completes the
+   reminder. Escape snoozes reminders for the shortest configured
+   duration through the Snooze menu's primary action, or dismisses
+   when snooze is unavailable; every window forwards to the one model,
+   so a click on any display acts for all.
 5. Join calls `LinkOpener.open(_:in:)` with the app `JoinSettings`
    names for the link's service. By default Zoom links open as
    `zoommtg://zoom.us/join?confno=<id>&pwd=<passcode>` in
@@ -639,8 +641,10 @@ replaced by fakes (plain classes guarding their state with a `Mutex`,
 since a MainActor type cannot conform to a `Sendable` port), so the
 agenda, the title, completion and the takeover schedule test without a
 calendar account or a window. View rendering is checked with headless
-`ImageRenderer` snapshots. Nothing in the suite touches the user's real
-calendars: EventKit access is only ever requested by the app itself.
+`ImageRenderer` snapshots. Takeover keyboard tests send Return and
+Escape to hosted windows using the same fakes. Nothing in the suite
+touches the user's real calendars: EventKit access is only ever
+requested by the app itself.
 
 CI ("GitHub Actions CI" in `.github/workflows/tests.yml`) runs the style
 checks on every push and pull request. The build-and-test job and the

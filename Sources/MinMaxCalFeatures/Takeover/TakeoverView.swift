@@ -64,7 +64,7 @@ public struct TakeoverView: View {
         HStack {
             Button("Dismiss", action: model.dismiss)
                 .buttonStyle(.glass)
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(takeover.reminders.isEmpty || model.snoozeMinutes.isEmpty ? .cancelAction : nil)
             Spacer()
             if takeover.reminders.isEmpty == false {
                 Menu("Snooze") {
@@ -73,7 +73,12 @@ public struct TakeoverView: View {
                             model.snooze(minutes: minutes)
                         }
                     }
+                } primaryAction: {
+                    if let minutes = model.snoozeMinutes.min() {
+                        model.snooze(minutes: minutes)
+                    }
                 }
+                .keyboardShortcut(model.snoozeMinutes.isEmpty ? nil : .cancelAction)
                 .fixedSize()
                 CompleteButton(isPrimary: completeIsPrimary) {
                     Task { await model.complete() }
