@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 
 script/version
 [[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
+xcodegen generate --use-cache --quiet
 
 # Capped parallelism inside the sandbox: full-width builds have
 # triggered resource kills that tore down the whole sandbox user.
@@ -45,7 +46,7 @@ if [[ -n "${SV_SESSION_ID:-}" ]]; then
   )
 fi
 
-xcodebuild "${ARGS[@]}" build | grep -E 'error:|warning:|BUILD' || true
+xcodebuild "${ARGS[@]}" build
 
 app=.build/DerivedData/Build/Products/Release/MinMaxCal.app
 [[ -d "${app}" ]] || {

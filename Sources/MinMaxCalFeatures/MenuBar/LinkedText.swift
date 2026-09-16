@@ -63,8 +63,9 @@ enum LinkedText {
         }
 
         let stripped = html.replacing(scriptAndStyleBlocks, with: "").replacing(loadingElements, with: "")
+        // No document-attributes output pointer is passed to the importer.
         guard let data = stripped.data(using: .utf8),
-              let imported = try? NSAttributedString(
+              let imported = unsafe try? NSAttributedString(
                   data: data,
                   options: [
                       .documentType: NSAttributedString.DocumentType.html,
