@@ -108,6 +108,16 @@ jobs:
       - name: Test
         run: script/test
 
+      - name: Test with Address Sanitizer
+        env:
+          ASAN_OPTIONS: halt_on_error=1
+        run: script/test --sanitize address --scratch-path .build/address-sanitizer
+
+      - name: Test with Thread Sanitizer
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: script/test --sanitize thread --scratch-path .build/thread-sanitizer
+
       - name: Render icons
         run: script/icons
 

@@ -47,7 +47,8 @@ extension TakeoverSound {
         }
 
         var identifier: SystemSoundID = 0
-        guard AudioServicesCreateSystemSoundID(file as CFURL, &identifier) == kAudioServicesNoError else {
+        // The output identifier is written synchronously and its pointer is not retained.
+        guard unsafe AudioServicesCreateSystemSoundID(file as CFURL, &identifier) == kAudioServicesNoError else {
             return nil
         }
 

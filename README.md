@@ -133,6 +133,15 @@ or `0.0.0` without one.
 The generated project remains usable after clearing `.build`; the
 next scheme build restores the Git-derived version.
 
+Builds treat compiler and linker warnings as errors, including Swift
+memory-safety and soft-deprecation diagnostics. The build script keeps
+all diagnostics visible and fails even when an older app bundle exists.
+It refreshes the generated project when sources or settings change.
+`script/style --fix` checks the final output with both Swift linters.
+CI also runs the tests separately with Address Sanitizer and Thread
+Sanitizer. Run them locally with `script/test --sanitize address` and
+`script/test --sanitize thread`.
+
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
 

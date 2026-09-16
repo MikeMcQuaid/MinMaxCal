@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 
 rm -rf .test-scratch
 mkdir -p .test-scratch
+bash Tests/ScriptTests.sh
 
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
   export SWIFTPM_DISABLE_SANDBOX=1

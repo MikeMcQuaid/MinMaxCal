@@ -3,6 +3,9 @@ import PackageDescription
 
 func swiftSettings(mainActorByDefault: Bool) -> [SwiftSetting] {
     var settings: [SwiftSetting] = [
+        .treatAllWarnings(as: .error),
+        .strictMemorySafety(),
+        .unsafeFlags(["-warn-implicit-overrides", "-Xfrontend", "-warn-soft-deprecated"]),
         .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
         .enableUpcomingFeature("InferIsolatedConformances"),
     ]
@@ -61,3 +64,11 @@ let package = Package(
     ],
     swiftLanguageModes: [.v6],
 )
+
+for target in package.targets {
+    target.linkerSettings = (target.linkerSettings ?? []) + [
+        .unsafeFlags(["-Xlinker", "-fatal_warnings"]),
+        .unsafeFlags(["-Xlinker", "-warn_unused_dylibs"]),
+        .unsafeFlags(["-Xlinker", "-warn_duplicate_libraries"]),
+    ]
+}

@@ -10,7 +10,8 @@ public enum PowerState {
     public static var changes: AsyncStream<Bool> {
         AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             var token: Int32 = 0
-            let status = notify_register_dispatch(kIOPSNotifyPowerSource, &token, .main) { _ in
+            // The name and output token pointers are used only during registration.
+            let status = unsafe notify_register_dispatch(kIOPSNotifyPowerSource, &token, .main) { _ in
                 continuation.yield(isConstrained)
             }
             let task = Task {

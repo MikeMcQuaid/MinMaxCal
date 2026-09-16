@@ -47,7 +47,7 @@ public struct WorkspaceLinkOpener: LinkOpener {
 
                 return JoinApp(
                     bundleIdentifier: identifier,
-                    name: FileManager.default.displayName(atPath: url.path),
+                    name: FileManager.default.displayName(atPath: url.path(percentEncoded: false)),
                 )
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

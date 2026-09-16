@@ -617,8 +617,22 @@ xcodebuild also sandboxes the macro plugin server that expands
 `@Observable`.
 
 The guardrails are layered so a mistake is caught as early as possible:
-Swift 6 strict concurrency and the type system at compile time;
-SwiftLint and SwiftFormat with every rule enabled at `script/style`
+Swift 6 strict concurrency, strict memory safety and the type system at
+compile time, with warnings treated as errors in every app, package and
+test target. Compiler checks include soft deprecations and implicit
+protocol overrides; linker warnings also fail builds. Xcode runs deep
+Clang static analysis with its additional security, localisation and
+conversion checks enabled, ready for any C-family sources. These Clang
+checks do not analyse Swift, whose checks run in its own compiler.
+`script/build` refreshes the generated project, preserves all build
+diagnostics and propagates failure even if an older app bundle remains.
+`script/test` first checks build and style failure handling with stub
+tools, including failures in an individual linter family.
+After both Swift fixers run, `script/style --fix` checks the result with
+both linters so conflicting fixes cannot silently pass.
+
+Further checks include SwiftLint and SwiftFormat with every rule enabled
+at `script/style`
 (`.swiftformat` enables everything and settles per-line disagreements
 in the code; `.swiftlint.yml` names each SwiftLint rule it turns off
 and the rule or SwiftFormat behaviour it conflicts with;
@@ -652,6 +666,10 @@ analyze job run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
 built, the tests passed and static analysis was clean (R2). The
+test job also runs the suite separately under Address Sanitizer and
+Thread Sanitizer, each in its own build directory and stopping on its
+first finding. These instrument test builds only, so the shipped app
+keeps its normal Release configuration. The
 build-and-test job zips the app it built and, when the run has the
 repository secrets, signs and notarises it first; pull requests from
 forks and Dependabot have no secrets, so their signing step is skipped

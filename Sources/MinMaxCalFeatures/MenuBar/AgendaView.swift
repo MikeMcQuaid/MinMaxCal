@@ -144,11 +144,11 @@ public struct AgendaView: View {
             onUncomplete: { Task { await model.uncomplete(item) } },
         )
         .contentShape([.interaction, .focusEffect], RoundedRectangle(cornerRadius: Self.focusRadius))
-        .background(
+        .background {
             RoundedRectangle(cornerRadius: Self.focusRadius)
                 .fill(.quaternary)
                 .opacity(hovered == item.id ? 1 : 0)
-        )
+        }
         .onHover { inside in
             if inside {
                 hovered = item.id

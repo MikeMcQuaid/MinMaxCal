@@ -33,8 +33,9 @@ struct MinMaxCalApp: App, AppIntentsPackage {
         agendaModel.onRebuild = takeover.schedule
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
-        AppDependencyManager.shared.add(dependency: agendaModel)
-        AppDependencyManager.shared.add(dependency: takeover)
+        // Register dependencies on the main actor before any intent can run.
+        unsafe AppDependencyManager.shared.add(dependency: agendaModel)
+        unsafe AppDependencyManager.shared.add(dependency: takeover)
         let settingsModel = SettingsModel(
             source: source,
             store: store,

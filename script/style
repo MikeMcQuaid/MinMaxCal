@@ -8,17 +8,17 @@ STYLE_FIX=""
 [[ "${1-}" == "--fix" ]] && STYLE_FIX="1"
 
 shell_style() {
-  shellcheck script/*
+  shellcheck script/* Tests/*.sh
   if [[ -n "${STYLE_FIX}" ]]; then
-    shfmt -i 2 -ci -w script/*
+    shfmt -i 2 -ci -w script/* Tests/*.sh
   else
-    shfmt -i 2 -ci -d script/*
+    shfmt -i 2 -ci -d script/* Tests/*.sh
   fi
 }
 
 github_actions_style() {
   actionlint
-  zizmor --no-online-audits .github/workflows
+  zizmor --offline --strict-collection .github/workflows
 
   # Only first-party (actions/*) and Homebrew (Homebrew/actions/*)
   # actions are allowed; anything else needs a human decision, so add
@@ -57,9 +57,8 @@ swift_style() {
   if [[ -n "${STYLE_FIX}" ]]; then
     swiftformat .
     swiftlint --fix --quiet
-  else
-    swiftformat --lint .
   fi
+  swiftformat --lint .
   swiftlint --strict --quiet
 }
 
@@ -81,12 +80,12 @@ run_family() {
 families=(shell github_actions docs swift)
 for family in "${families[@]}"; do
   (
-    status=0
+    set +e
     (
       set -e
       run_family "${family}"
-    ) >"${scratch}/${family}.log" 2>&1 || status=$?
-    echo "${status}" >"${scratch}/${family}.status"
+    ) >"${scratch}/${family}.log" 2>&1
+    echo "$?" >"${scratch}/${family}.status"
   ) &
 done
 wait
