@@ -50,6 +50,7 @@ public final class TakeoverModel {
     /// Plans the next takeover from the agenda and sleeps until its moment.
     public func schedule(agenda: Agenda, now: Date) {
         alarm?.cancel()
+        updateCurrent(agenda: agenda, now: now)
         planned = TakeoverPlanner.next(
             agenda: agenda,
             ledger: ledger.load(),
@@ -81,6 +82,29 @@ public final class TakeoverModel {
             }
 
             present(planned)
+        }
+    }
+
+    /// Removes finished items from the live takeover without fetching or restarting its alarm.
+    public func updateCurrent(agenda: Agenda, now: Date) {
+        guard var takeover = current, takeover.isPreview == false else {
+            return
+        }
+
+        takeover.entries = takeover.entries.compactMap { entry in
+            guard let item = agenda.items.first(where: { item in
+                item.members.contains { entry.item.members.contains($0) }
+            }), item.isCompleted == false, item.hasEnded(at: now) == false else {
+                return nil
+            }
+
+            return Takeover.Entry(item: item, trigger: entry.trigger)
+        }
+        if takeover.entries.isEmpty {
+            current = nil
+            presenter.hide(returningFocus: true)
+        } else if current != takeover {
+            current = takeover
         }
     }
 

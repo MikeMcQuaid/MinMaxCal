@@ -50,6 +50,8 @@ public final class AgendaModel {
     public private(set) var errorMessage: String?
     /// Called with every new agenda; the app points this at the takeover scheduler.
     public var onRebuild: (Agenda, Date) -> Void = { _, _ in }
+    /// Retires finished takeovers on local ticks without restarting the alarm.
+    public var onTick: (Agenda, Date) -> Void = { _, _ in }
     /// Shows an item as a takeover preview; the app points this at `TakeoverModel.preview`.
     public var preview: (AgendaItem) -> Void = { _ in }
 
@@ -194,6 +196,7 @@ public final class AgendaModel {
         }
         publish(\.agenda, Agenda(items: items, horizon: agenda.horizon))
         updateTitle()
+        onTick(agenda, tickTime)
     }
 
     // MARK: Private
