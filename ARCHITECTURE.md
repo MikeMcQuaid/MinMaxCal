@@ -6,11 +6,11 @@ Takeover and Always there name the app's feature groups.
 
 ## Overview
 
-MinMaxCal is a native SwiftUI macOS menu bar app (macOS 27 or later,
-Swift 6.4, AGPL-3.0) that shows the next calendar event or reminder in
-the menu bar, lists the coming agenda on click and takes over every
-display when something is due. It is developed readme-first: behaviour
-is documented before the code that implements it.
+MinMaxCal is a native SwiftUI macOS menu bar app (macOS 26 or later on
+Apple silicon, Swift 6.4, AGPL-3.0) that shows the next calendar event or
+reminder in the menu bar, lists the coming agenda on click and takes
+over every display when something is due. It is developed readme-first:
+behaviour is documented before the code that implements it.
 
 The architectural thesis, referenced throughout: **MinMaxCal owns no
 calendar data**. EventKit is the source of truth for every event,
@@ -134,6 +134,10 @@ one value.
 Between fetches, minute ticks update countdowns, prune ended events and
 expire completed rows from the current in-memory agenda. They neither
 decode nor merge EventKit data and do not restart takeover alarms.
+Rebuilds and minute ticks also reconcile the live takeover with the
+agenda. When its item disappears, ends or is completed, the windows
+close and return focus without recording a dismissal or fetching again.
+Previews remain open until acted on.
 An empty agenda sleeps until the next fallback refresh. Power-source
 and Low Power Mode notifications adjust that deadline, fetching only
 if the new fallback is already due. The power state is held in memory,
@@ -735,12 +739,17 @@ job creates the local tag before building so `script/build` stamps it
 into the app, then zips, signs and notarises. A release always runs
 `script/package`, so a missing credential or failed signature,
 notarisation, staple or Gatekeeper assessment terminates the job before
-anything is pushed. Only then does it upload the zip as an artifact,
-push the tag and create the GitHub release with generated notes and the
-zip attached. A push that touches the workflow, packaging scripts or
-metadata uses `9999.0.0` as a reserved valid local-only version and
-repeats the build, signing and notarisation as a dry run, but uploads
-no Actions artifact and pushes no tag or release. It only lists
+anything is pushed. The packaged zip is uploaded as an artefact and
+launched on the ARM64 `macos-26` and `xcode-27` runners. Each checks its
+actual OS and architecture and fails if the app exits within ten
+seconds. These startup checks catch crashes and linking failures;
+calendar access and UI interactions still need host testing. Only after
+both pass does a separate publishing job tag the original commit and
+create the GitHub release with generated notes and that exact zip.
+A push that touches the workflow, packaging scripts or metadata uses
+`9999.0.0` as a reserved valid local-only version and
+repeats the build, signing, notarisation and startup checks as a dry run,
+uploading the test artefact but pushing no tag or release. It only lists
 existing releases, so the process cannot rot unnoticed between
 releases. Dependabot cannot read Actions secrets, so its dry runs
 explicitly skip signing and notarisation.
@@ -750,6 +759,8 @@ there is no updater in the app and no Mac App Store listing. The cask
 lives in Homebrew/homebrew-cask, whose rules the release contract is
 written to satisfy:
 
+- Compatibility: releases are ARM64-only and require macOS Tahoe (26)
+  or later. Builds still use Xcode 27 and the macOS 27 SDK.
 - Gatekeeper: homebrew-cask audits signing (`brew audit --signing`
   runs `spctl --assess` on the installed app), so a release is
   Developer ID signed with the hardened runtime, notarised and stapled;
@@ -777,7 +788,8 @@ cask "minmaxcal" do
   desc "Menu bar calendar with a full-screen takeover when something is due"
   homepage "https://github.com/MikeMcQuaid/MinMaxCal"
 
-  depends_on macos: ">= :golden_gate"
+  depends_on arch: :arm64
+  depends_on macos: ">= :tahoe"
 
   app "MinMaxCal.app"
 

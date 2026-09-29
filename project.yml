@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.mikemcquaid
   createIntermediateGroups: true
   deploymentTarget:
-    macOS: "27.0"
+    macOS: "26.0"
   xcodeVersion: "27.0"
   preGenCommand: script/version
 packages:
@@ -11,6 +11,7 @@ packages:
     path: .
 settings:
   base:
+    ARCHS: arm64
     CLANG_ANALYZER_GCD_PERFORMANCE: YES
     CLANG_ANALYZER_LOCALIZABILITY_EMPTY_CONTEXT: YES
     CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
@@ -38,6 +39,7 @@ settings:
     MTL_TREAT_WARNINGS_AS_ERRORS: YES
     OTHER_LDFLAGS: $(inherited) -Wl,-fatal_warnings
     OTHER_SWIFT_FLAGS: $(inherited) -warn-implicit-overrides -Xfrontend -warn-soft-deprecated
+    ONLY_ACTIVE_ARCH: YES
     RUN_CLANG_STATIC_ANALYZER: YES
     SUPPRESS_WARNINGS: NO
     SWIFT_STRICT_MEMORY_SAFETY: YES

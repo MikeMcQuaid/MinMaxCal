@@ -18,7 +18,7 @@ func swiftSettings(mainActorByDefault: Bool) -> [SwiftSetting] {
 // swiftlint:disable:next prefixed_toplevel_constant - SwiftPM requires this exact name
 let package = Package(
     name: "MinMaxCal",
-    platforms: [.macOS(.v27)],
+    platforms: [.macOS(.v26)],
     products: [
         .library(name: "MinMaxCalDomain", targets: ["MinMaxCalDomain"]),
         .library(name: "MinMaxCalData", targets: ["MinMaxCalData"]),
@@ -41,9 +41,8 @@ let package = Package(
             name: "MinMaxCalIntents",
             dependencies: ["MinMaxCalDomain", "MinMaxCalFeatures"],
             swiftSettings: swiftSettings(mainActorByDefault: false),
-            // Weak so the test bundle still loads on a macOS older than the
-            // deployment target, as CI's runner is: AppIntents symbols the
-            // running OS lacks resolve to null instead of failing `dlopen`.
+            // Weak so AppIntents symbols absent from the running OS resolve
+            // to null instead of preventing the test bundle from loading.
             linkerSettings: [.unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "AppIntents"])],
         ),
         .testTarget(

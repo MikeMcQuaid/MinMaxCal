@@ -31,6 +31,7 @@ struct MinMaxCalApp: App, AppIntentsPackage {
             powerChanges: PowerState.changes,
         )
         agendaModel.onRebuild = takeover.schedule
+        agendaModel.onTick = takeover.updateCurrent
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
         // Register dependencies on the main actor before any intent can run.

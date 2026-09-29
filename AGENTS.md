@@ -197,11 +197,11 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   (`'nonisolated' cannot be applied to mutable stored properties`);
   intents live in the nonisolated `MinMaxCalIntents` target and hop
   to the main actor with `MainActor.run`. App Shortcuts phrases must
-  sit in the app bundle, so `AppShortcuts` is in `App/`. CI's runner
-  is a macOS older than the deployment target, and a test bundle that
-  references a newer AppIntents symbol (`allowedExecutionTargets`,
-  macOS 27) fails to `dlopen` there, so the Intents target weak-links
-  AppIntents and such symbols resolve to null instead.
+  sit in the app bundle, so `AppShortcuts` is in `App/`. A test bundle
+  built for a newer macOS can reference AppIntents symbols the runner
+  lacks (`allowedExecutionTargets`, macOS 27) and fail to `dlopen`, so
+  the Intents target weak-links AppIntents. Keep the deployment target
+  at macOS 26 and gate any newer APIs by availability.
 - `NSAnimationContext.runAnimationGroup`'s completion handler is a
   nonisolated `@Sendable` closure, so it cannot capture windows; take
   a `@MainActor @Sendable` closure instead (which may capture them)

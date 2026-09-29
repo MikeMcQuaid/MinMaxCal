@@ -30,6 +30,63 @@ struct TakeoverModelTests {
     }
 
     @Test
+    func `a rebuild hides a reminder completed in another app`() {
+        let reminder = Fixtures.reminder("reminder", dueIn: 0)
+        model.present(Takeover(entries: [Takeover.Entry(item: reminder, trigger: .due)], moment: reminder.start))
+
+        model.schedule(agenda: agenda([]), now: Fixtures.now)
+
+        #expect(model.current == nil)
+        #expect(presenter.focusReturns == [true])
+        #expect(ledger.load() == .empty)
+        #expect(source.completed.isEmpty)
+    }
+
+    @Test
+    func `a completed reminder kept for undo no longer takes over`() {
+        var reminder = Fixtures.reminder("reminder", dueIn: 0)
+        model.present(Takeover(entries: [Takeover.Entry(item: reminder, trigger: .due)], moment: reminder.start))
+        reminder.isCompleted = true
+
+        model.schedule(agenda: agenda([reminder]), now: Fixtures.now)
+
+        #expect(model.current == nil)
+        #expect(presenter.focusReturns == [true])
+        #expect(model.planned == nil)
+    }
+
+    @Test
+    func `a rebuild hides an ended event`() {
+        let event = Fixtures.event("event", startingIn: -30)
+        model.present(Takeover(entries: [Takeover.Entry(item: event, trigger: .start)], moment: event.start))
+
+        model.schedule(agenda: agenda([]), now: Fixtures.now)
+
+        #expect(model.current == nil)
+        #expect(presenter.focusReturns == [true])
+        #expect(ledger.load() == .empty)
+    }
+
+    @Test
+    func `a rebuild keeps a live item and a preview visible`() {
+        let reminder = Fixtures.reminder("reminder", dueIn: 0)
+        let takeover = Takeover(entries: [Takeover.Entry(item: reminder, trigger: .due)], moment: reminder.start)
+        model.present(takeover)
+
+        model.schedule(agenda: agenda([reminder]), now: Fixtures.now)
+
+        #expect(model.current == takeover)
+        #expect(presenter.hidden == 0)
+        model.dismiss()
+        model.preview(reminder)
+
+        model.schedule(agenda: agenda([]), now: Fixtures.now)
+
+        #expect(model.current?.isPreview == true)
+        #expect(presenter.hidden == 1)
+    }
+
+    @Test
     func `dismiss records the ledger hides and notifies`() throws {
         let event = Fixtures.event("event", startingIn: 0)
         model.schedule(agenda: agenda([event]), now: Fixtures.now)

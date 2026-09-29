@@ -41,7 +41,9 @@ your data on your Mac.
   duration; its menu offers all configured durations. The takeover
   takes keyboard focus: Return joins the call or completes the
   reminder, and Escape snoozes reminders for the shortest configured
-  duration, dismissing instead when snooze is unavailable.
+  duration, dismissing instead when snooze is unavailable. The takeover
+  closes automatically when its event ends or its reminder is completed,
+  including in another app, and returns focus to the previous app.
 - MinMaxCal starts at login by default. Settings can turn this off and
   open the system approval pane when required.
 - Calendar changes refresh immediately. Idle fallback refreshes run
@@ -68,7 +70,7 @@ documented rule or left out; private APIs are never used:
 
 ## 📋 Requirements
 
-- macOS 27 or later.
+- An Apple silicon Mac running macOS Tahoe (26) or later.
 - Full access to Calendars is required. Reminders access is requested
   on first launch but can be declined.
 - Optional: the Zoom app, Microsoft Teams and Microsoft Edge for
@@ -88,6 +90,8 @@ Alternatively, download `MinMaxCal-<version>.zip` from the
 [releases page](https://github.com/MikeMcQuaid/MinMaxCal/releases),
 unzip it and move `MinMaxCal.app` to /Applications. Releases are signed
 with a Developer ID certificate and notarised by Apple.
+Releases publish only after the packaged app passes startup checks on
+macOS Tahoe and macOS 27.
 
 To run the current source instead:
 

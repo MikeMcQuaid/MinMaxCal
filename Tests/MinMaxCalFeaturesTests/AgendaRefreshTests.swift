@@ -44,6 +44,34 @@ struct AgendaRefreshTests {
     }
 
     @Test
+    func `a minute hides an ended takeover without fetching or replanning`() async throws {
+        let event = Fixtures.event("ending", startingIn: -29)
+        let presenter = FakePresenter()
+        let takeover = TakeoverModel(
+            source: source,
+            opener: FakeLinkOpener(),
+            ledger: Fixtures.ledgerStore(),
+            settings: store,
+            presenter: presenter,
+            clock: clock.read,
+        )
+        source.items = [event, Fixtures.event("next", startingIn: 30)]
+        model.onRebuild = takeover.schedule
+        model.onTick = takeover.updateCurrent
+        await model.rebuild()
+        let planned = try #require(takeover.planned)
+        takeover.present(Takeover(entries: [Takeover.Entry(item: event, trigger: .start)], moment: event.start))
+
+        clock.now = Fixtures.now.addingTimeInterval(60)
+        await model.tick()
+
+        #expect(takeover.current == nil)
+        #expect(presenter.focusReturns == [true])
+        #expect(takeover.planned == planned)
+        #expect(source.fetches == 1)
+    }
+
+    @Test
     func `an overdue reminder leaves the title without fetching`() async {
         source.items = [Fixtures.reminder("overdue", dueIn: -59), Fixtures.event("next", startingIn: 30)]
         await model.rebuild()
