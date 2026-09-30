@@ -113,8 +113,11 @@ from the calendar port whenever any of these fire, merged into one
 - `EKEventStoreChanged` (any calendar or reminder changed, in any app);
 - a fallback every five minutes on mains power or fifteen minutes on
   battery, UPS power or in Low Power Mode;
-- `NSWorkspace.didWakeNotification` (the minute timer may have slept
-  through several boundaries);
+- `NSWorkspace.didWakeNotification`, `screensDidWakeNotification`
+  and `sessionDidBecomeActiveNotification` on the workspace's own
+  notification centre, so returning to the Mac refreshes the agenda
+  and reconciles any visible takeover even if only the displays slept
+  or the user session was inactive;
 - `NSSystemClockDidChange`, `NSSystemTimeZoneDidChange` and
   `NSCalendarDayChanged` (the clock was set, as NTP does after a wake,
   or the Mac landed in another time zone: every displayed time and the
@@ -304,8 +307,8 @@ is marked `@concurrent`: the heaviest work is merging a day of events,
 which is not worth moving off the main actor.
 
 Events flow as `AsyncStream`s (the store's change notification, the
-system changes of wake, clock, time zone and day, power state and
-settings changes) consumed by `AgendaModel.run()`,
+system changes of wake, session activation, clock, time zone and day,
+power state and settings changes) consumed by `AgendaModel.run()`,
 which the app starts in one `Task` from its initialiser: a menu bar app
 has no view that is reliably alive to host the loop as a `.task`, and
 modifiers on the `MenuBarExtra` label never run. The task lives as long
@@ -317,7 +320,13 @@ state. A pending fetch request cannot be overwritten by a timer tick.
 The takeover scheduler is one `Task` stored on `TakeoverModel`,
 sleeping until the planned moment, cancelled and replaced on every
 agenda rebuild, so a changed or deleted event can never fire a stale
-takeover. The only other unstructured tasks bridge
+takeover. An already-due takeover is presented synchronously during
+the rebuild, so successive wake refreshes cannot cancel it before it
+appears and then move it outside the catch-up window.
+If the planned takeover is already visible, the scheduler leaves it in
+place without reactivating the app or repeating its sound and VoiceOver
+announcement.
+The only other unstructured tasks bridge
 `NotificationCenter` sequences into the streams and run the async
 Complete action from SwiftUI button callbacks.
 

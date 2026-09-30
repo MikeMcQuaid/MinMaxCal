@@ -22,11 +22,40 @@ struct TakeoverModelTests {
     // MARK: Internal
 
     @Test
-    func `schedules the next takeover from the agenda`() {
-        let event = Fixtures.event("event", startingIn: 5)
+    func `schedules and shows a future takeover`() async throws {
+        let event = Fixtures.event("event", startingIn: 1.0 / 60)
         model.schedule(agenda: agenda([event]), now: Fixtures.now)
         #expect(model.planned?.entries.first?.item == event)
         #expect(model.planned?.moment == event.start)
+        #expect(model.current == nil)
+
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.current == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(model.current?.entries.first?.item == event)
+        #expect(presenter.shown == 1)
+    }
+
+    @Test(arguments: [
+        Fixtures.event("event", startingIn: -20),
+        Fixtures.reminder("reminder", dueIn: -20),
+        Fixtures.event("event", startingIn: -5),
+        Fixtures.reminder("reminder", dueIn: -5),
+    ])
+    func `successive wake refreshes show an overdue takeover only once`(item: AgendaItem) async throws {
+        model.schedule(agenda: agenda([item]), now: Fixtures.now.addingTimeInterval(-60 * 60))
+
+        model.schedule(agenda: agenda([item]), now: Fixtures.now)
+        model.schedule(agenda: agenda([item]), now: Fixtures.now)
+
+        let deadline = ContinuousClock.now + .seconds(5)
+        while model.current == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(model.current?.entries.first?.item == item)
+        #expect(presenter.shown == 1)
+        #expect(ledger.load() == .empty)
     }
 
     @Test
@@ -94,7 +123,6 @@ struct TakeoverModelTests {
         var notified = 0
         model.onAction = { notified += 1 }
 
-        model.present(takeover)
         #expect(presenter.announcements == ["Event is starting"])
         #expect(model.current == takeover)
 
