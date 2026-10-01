@@ -59,7 +59,12 @@ public final class TakeoverModel {
             since: lastScheduledAt,
         )
         lastScheduledAt = now
-        guard let planned else {
+        guard let planned, current != planned else {
+            return
+        }
+
+        if planned.moment <= now {
+            present(planned)
             return
         }
 

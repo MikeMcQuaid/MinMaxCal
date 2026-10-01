@@ -1,19 +1,21 @@
 import AppKit
 
-/// Bridges the system's own changes into the refresh loop: waking from sleep, the clock being set
-/// (as the network time service does after a wake), a new time zone (as landing does) and a new day.
+/// Bridges returning to the Mac and clock, time zone or day changes into the refresh loop.
 nonisolated public enum SystemChanges {
-    /// Yields once per wake, clock change, time zone change or day change.
+    /// Yields when the device or displays wake, the session resumes or the clock changes.
     public static var stream: AsyncStream<Void> {
         AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             let task = Task {
                 await withTaskGroup(of: Void.self) { group in
-                    group.addTask {
-                        let wakes = NSWorkspace.shared
-                            .notificationCenter
-                            .notifications(named: NSWorkspace.didWakeNotification)
-                        for await _ in wakes {
-                            continuation.yield()
+                    for name in [
+                        NSWorkspace.didWakeNotification,
+                        NSWorkspace.screensDidWakeNotification,
+                        NSWorkspace.sessionDidBecomeActiveNotification,
+                    ] {
+                        group.addTask {
+                            for await _ in NSWorkspace.shared.notificationCenter.notifications(named: name) {
+                                continuation.yield()
+                            }
                         }
                     }
                     for name in [

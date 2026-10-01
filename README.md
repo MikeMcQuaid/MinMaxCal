@@ -50,7 +50,12 @@ your data on your Mac.
   every five minutes on mains power and every fifteen minutes on
   battery or in Low Power Mode. Countdowns still update each minute
   and takeover alarms keep their exact timing. Opening the agenda
-  refreshes it too; an empty agenda needs no minute timer.
+  refreshes it too; an empty agenda needs no minute timer. Waking the
+  Mac or its displays, or returning to the user session, refreshes the
+  agenda and closes takeovers for items finished while away. The next
+  takeover missed while asleep appears immediately if its item is still
+  active. Refreshing a visible takeover does not replay its sound or
+  announcement.
 
 ## 🚫 Out of Scope
 
