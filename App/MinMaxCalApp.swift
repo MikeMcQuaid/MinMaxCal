@@ -30,7 +30,13 @@ struct MinMaxCalApp: App, AppIntentsPackage {
             systemChanges: SystemChanges.stream,
             powerChanges: PowerState.changes,
         )
-        agendaModel.onRebuild = takeover.schedule
+        let sync = CalendarSyncModel(source: source, settings: store)
+        agendaModel.syncLinks = { sync.links }
+        agendaModel.onRebuild = { agenda, now in
+            takeover.schedule(agenda: agenda, now: now)
+            sync.requestRefresh()
+        }
+        sync.onMappingChange = agendaModel.requestRefresh
         agendaModel.onTick = takeover.updateCurrent
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
@@ -43,6 +49,7 @@ struct MinMaxCalApp: App, AppIntentsPackage {
             loginItem: SMAppServiceLoginItem(),
             opener: opener,
         )
+        settingsModel.sync = sync
         settingsModel.registerLoginItemOnFirstInstalledLaunch()
         // The loop lives as long as the app: nothing in a menu bar app
         // owns a view that is reliably alive to host it as a `.task`.

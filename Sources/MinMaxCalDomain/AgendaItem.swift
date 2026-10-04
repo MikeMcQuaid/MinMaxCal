@@ -23,6 +23,7 @@ public struct AgendaItem: Hashable, Identifiable, Sendable {
         isCompleted: Bool = false,
         joinLink: JoinLink? = nil,
         recurrence: Recurrence? = nil,
+        recurrenceDate: Date? = nil,
     ) {
         self.members = members
         self.inviteIdentifier = inviteIdentifier
@@ -43,6 +44,7 @@ public struct AgendaItem: Hashable, Identifiable, Sendable {
         self.isCompleted = isCompleted
         self.joinLink = joinLink
         self.recurrence = recurrence
+        self.recurrenceDate = recurrenceDate
     }
 
     // MARK: Public
@@ -66,6 +68,7 @@ public struct AgendaItem: Hashable, Identifiable, Sendable {
     public var isCompleted: Bool
     public var joinLink: JoinLink?
     public var recurrence: Recurrence?
+    public var recurrenceDate: Date?
 
     public var id: [MemberIdentity] {
         members

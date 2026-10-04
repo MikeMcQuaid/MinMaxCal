@@ -28,7 +28,7 @@ struct TidierTests {
     }
 
     @Test
-    func `removes zoom's event details banner and reclaim's visibility notice`() {
+    func `removes zoom's event details banner and the visibility notice`() {
         let notes = """
         Prep the deck.
         ~~~~~ Event Details ~~~~~
@@ -44,7 +44,7 @@ struct TidierTests {
         This description is visible to anyone who can view normal events on your calendar.
         """
         #expect(NotesTidier.removingBoilerplate(from: notes, hasCallLink: true) == "Prep the deck.")
-        let reclaimOnly = "Focus time.\nThis time has been blocked on your calendar and is marked as Default."
+        let legacyOnly = "Focus time.\nThis time has been blocked on your calendar and is marked as Default."
         let bare = """
         Bring questions.
         JJ Cranston (he/him) is inviting you to a scheduled Zoom meeting.
@@ -57,7 +57,7 @@ struct TidierTests {
         ---
         """
         #expect(NotesTidier.removingBoilerplate(from: bare, hasCallLink: true) == "Bring questions.")
-        #expect(NotesTidier.removingBoilerplate(from: reclaimOnly, hasCallLink: false) == "Focus time.")
+        #expect(NotesTidier.removingBoilerplate(from: legacyOnly, hasCallLink: false) == "Focus time.")
     }
 
     @Test

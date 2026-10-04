@@ -259,9 +259,9 @@ Hard-won on macOS 27 beta; check before assuming they expired.
    do not provide is a decision for the user, not a computation to
    invent: ask before building a substitute.
 3. Derive everything from EventKit on demand; cache nothing across
-   launches except the selection, the rules and the takeover ledger.
-   Within a launch the stores that own those files keep a copy in
-   memory and write through.
+   launches except the selection, the rules, the takeover ledger and
+   sync ownership. Within a launch the stores that own those files keep
+   a copy in memory and write through.
 4. Keep dependency directions clean: Domain depends on nothing,
    Data and Features depend on Domain and App composes them.
 5. Treat invitation content as untrusted: titles, notes and URLs

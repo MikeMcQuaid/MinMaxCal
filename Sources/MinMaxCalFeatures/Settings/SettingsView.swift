@@ -14,6 +14,11 @@ public struct SettingsView: View {
             Tab("Calendars", systemImage: "calendar") {
                 CalendarsTab(model: model)
             }
+            if let sync = model.sync {
+                Tab("Sync", systemImage: "arrow.triangle.2.circlepath") {
+                    CalendarSyncTab(model: sync, calendars: model.lists)
+                }
+            }
             Tab("Takeover", systemImage: "rectangle.inset.filled") {
                 TakeoverTab(model: model)
             }

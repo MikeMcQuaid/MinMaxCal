@@ -1,3 +1,5 @@
 # The app shell in App/ consumes the package's public API from outside
 # the package, so public declarations are never dead by construction.
 retain_public: true
+# Synthesised encoding reads these fields when writing diagnostic JSON.
+retain_encodable_properties: true

@@ -27,7 +27,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>MinMaxCal shows your next event in the menu bar and takes over the screen when it starts.</string>
+	<string>MinMaxCal shows upcoming events and, when you enable calendar sync, maintains copies between your chosen calendars.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Mike McQuaid.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>

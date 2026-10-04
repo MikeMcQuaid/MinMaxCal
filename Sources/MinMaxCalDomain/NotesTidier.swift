@@ -12,7 +12,7 @@ public enum NotesTidier {
     /// The notes without the rails, headers and notices other tools wrapped around them.
     public static func removingBoilerplate(from notes: String, hasCallLink: Bool) -> String {
         var text = notes
-        // Reclaim's notice about the block it created.
+        // The scheduling tool’s notice about the block it created.
         let visibilityNotice =
             /(?:This time has been blocked on your calendar|This description is visible to anyone)[^\n]*\n?/
         text = text.replacing(visibilityNotice, with: "")

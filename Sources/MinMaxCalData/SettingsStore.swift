@@ -16,6 +16,7 @@ public final class SettingsStore {
         matchingRules = Self.decode(Key.matchingRules, from: defaults) ?? .default
         takeover = Self.decode(Key.takeover, from: defaults) ?? .default
         join = Self.decode(Key.join, from: defaults) ?? defaultJoin
+        sync = Self.decode(Key.sync, from: defaults) ?? SyncSettings()
     }
 
     // MARK: Public
@@ -54,6 +55,11 @@ public final class SettingsStore {
         didSet { encode(join, for: Key.join) }
     }
 
+    /// Calendar mirroring mode and source/destination pairs.
+    public var sync: SyncSettings {
+        didSet { encode(sync, for: Key.sync) }
+    }
+
     /// The menu bar title length, clamped to `MenuBarTitle.limitRange`.
     public var titleLimit: Int {
         get {
@@ -76,6 +82,7 @@ public final class SettingsStore {
         static let matchingRules = "matchingRules"
         static let takeover = "takeover"
         static let join = "join"
+        static let sync = "sync"
         static let titleLimit = "titleLimit"
         static let loginItemRegistered = "loginItemRegistered"
     }

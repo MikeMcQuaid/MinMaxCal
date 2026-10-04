@@ -12,13 +12,14 @@ reminder in the menu bar, lists the coming agenda on click and takes
 over every display when something is due. It is developed readme-first:
 behaviour is documented before the code that implements it.
 
-The architectural thesis, referenced throughout: **MinMaxCal owns no
-calendar data**. EventKit is the source of truth for every event,
+The architectural thesis, referenced throughout: **EventKit owns calendar
+content**. EventKit is the source of truth for every event,
 reminder, attendee and calendar; the app reads it on demand, converts it
 to its own value types and keeps nothing of it. What the app persists is
 its own: which calendars are selected, the matching rules and a small
-ledger of takeovers already dismissed or snoozed. Killing, crashing or
-updating the app loses at most a snooze.
+ledger of takeovers already dismissed or snoozed. Optional mirroring
+also persists sync rules and the identities connecting originals to
+managed copies, never a cache of event content.
 
 ## System context
 
@@ -33,10 +34,10 @@ flowchart LR
         facetime["FaceTime"]
         edge["Microsoft Edge<br/>or the chosen browser"]
         browser["default browser"]
-        defaults[("UserDefaults and a<br/>takeover ledger file")]
+        defaults[("UserDefaults and<br/>takeover and sync ledgers")]
     end
 
-    app -->|"read events and reminders,<br/>complete reminders"| ek
+    app -->|"read events and reminders,<br/>complete reminders,<br/>maintain enabled calendar copies"| ek
     ek -.->|"change notification"| app
     app -->|"register login item"| sm
     app -->|"zoommtg:// join"| zoom
@@ -56,8 +57,9 @@ Boundary facts the design relies on:
   the Dock or the Cmd-Tab switcher and its only standing UI is the menu
   bar item. Settings and the takeover are windows the app activates
   itself to show.
-- Nothing leaves the Mac. The app has no network code; the join links
-  it opens are handed to other apps.
+- The app has no network code; join links are handed to other apps.
+  Enabled mirroring writes to EventKit and macOS synchronises those
+  changes through the destination account.
 
 ## Guiding principles
 
@@ -239,7 +241,7 @@ flowchart TD
   for the same notes by every takeover window at once),
   `Takeover` (`TakeoverModel`, the panel view and the AppKit window
   controller that puts one borderless window on each screen) and
-  `Settings` (the six tabs and `SettingsModel`, which lists the
+  `Settings` (the tabs and `SettingsModel`, which lists the
   takeover sounds by reading the audio files, by `UTType`, of the
   account's `~/Library/Sounds` rather than the sandbox container's,
   which the app sandbox lets it read, then `/Library/Sounds` and
@@ -296,8 +298,8 @@ may be used from any thread but `EKEvent`, `EKReminder` and `EKCalendar`
 objects must not cross threads, so the actor owns the store, performs
 every fetch and write, and converts to Domain values before returning;
 no EventKit object ever leaves it. Any further actor needs a written
-justification here. `TakeoverLedgerStore` guards its in-memory ledger
-with a `Mutex` from `Synchronization` rather than a second actor,
+justification here. `TakeoverLedgerStore` and `SyncLedgerStore` guard
+their in-memory ledgers with a `Mutex` from `Synchronization`,
 because its callers are synchronous and the critical section is a
 copy. `@unchecked Sendable` and `nonisolated(unsafe)` are banned.
 
@@ -326,7 +328,10 @@ appears and then move it outside the catch-up window.
 If the planned takeover is already visible, the scheduler leaves it in
 place without reactivating the app or repeating its sound and VoiceOver
 announcement.
-The only other unstructured tasks bridge
+`CalendarSyncModel` coalesces refresh requests into its own task after
+the agenda publishes, so a month of mirroring never delays the title.
+It uses the same change, wake and power-aware fallback triggers, never
+the minute tick. The other unstructured tasks bridge
 `NotificationCenter` sequences into the streams and run the async
 Complete action from SwiftUI button callbacks.
 
@@ -368,7 +373,10 @@ Complete action from SwiftUI button callbacks.
    the current user declined, events whose end has passed and completed
    reminders; all-day events and reminders without a due time stay in
    the agenda but are excluded from the title and from takeovers.
-4. `AgendaMerger` groups by invite identifier first, then by exact
+4. `AgendaMerger` first folds locally linked sync copies into their
+   originals, retaining members and calendar colours while taking all
+   content and acceptance from the original. It then groups by invite
+   identifier and original recurrence date, then by exact
    start and end where titles are equal after trimming and case folding
    or one side is in `MatchingRules.genericTitles`. A group with two
    distinct specific titles splits into one item per specific title,
@@ -384,6 +392,110 @@ Complete action from SwiftUI button callbacks.
    title, since a lone `Busy` block is not a meeting and several never
    combine into one, and the result is sorted by start, reminders and
    events interleaved, and published as the new `Agenda`.
+
+### Calendar mirroring (Settings)
+
+`SyncSettings` stores Off, Compare or Sync and disabled-by-default
+`SyncPolicy` calendar pairs in defaults. `CalendarSyncModel` asks the
+`CalendarSyncSource` port, implemented by the existing EventKit actor,
+for a rolling calendar month independent of the agenda selection.
+Writable destinations must support Busy availability. Rules select
+Busy, Travel or original title, location and links, Busy-only filtering
+and all-day inclusion. No original notes, attendees or alarms are added.
+Unknown availability resolves to Busy for both eligibility filters and
+copy content, including the Busy-only all-day option. Explicit Free,
+Tentative and Unavailable values retain their meaning.
+
+`SyncPlanner` is pure. It expands the EventKit snapshot's occurrences
+into individual destination events, excluding generated copies and
+unaccepted invitations other than tentative responses. For syncing,
+events with no current-user RSVP count as accepted even if they list
+other attendees. Explicit pending, declined or unknown responses do not
+gain this fallback. A `SyncIdentity` includes calendar, local item/event
+identifiers, external UID and the
+original recurrence date. External UIDs recover changed local IDs;
+ambiguous identities pause that item. Native invitations already on the
+destination need no copy. A shared invitation across source pairs needs
+only the first pair's copy on that destination.
+
+The private `sync.json` ledger stores identities, an opaque UUID, the
+last known end, a missing-since time and whether a write has been
+attempted, never event content. Comparison-only mappings can be dropped
+when a pair changes; attempted writes retain ownership. An atomic
+ledger write precedes calendar writes. Copies carry `MinMaxCal sync:`
+and that UUID in their notes, so a crash after saving an event but
+before recording its ID can recover it without another creation.
+A corrupt or unwritable ledger stops writes. Missing calendars pause a
+pair; absent originals and known copies require a second observation
+at least a minute later before removal or recreation. Ended links are
+pruned. Public EventKit IDs are read-only, so no UID is manufactured.
+
+Compare records mappings and proposed changes but never writes to
+EventKit. Per-event assessments reuse the eligibility rules and explain
+exclusions, adoption, missing copies, existing invitations, shared pairs
+and deferred work. Settings derives total and per-pair action counts
+from the same writes, including removals without a source event.
+Shared action labels and event details explain every write, including
+field differences, alarms, tracking footers and removal reasons.
+Events without changes appear only as counts; sources whose copies
+will be removed are not counted again as unchanged or skipped.
+Deferred work and unmatched copies show counts without event lists;
+manual legacy-copy removal is collapsed and available only in Sync mode.
+Unchecked pairs and errors remain visible.
+Changing configuration invalidates the previous report. Refresh keeps
+the last completed report visible until a replacement is ready, even
+on failure. The Sync pane uses an explicit scroll view with pair editors
+before the report and stable status rows, avoiding focus-driven Form
+scrolling and transient removal of report content. Disabled or missing
+calendar pairs remain editable and removable even with owned copies.
+Links for previous calendar choices remain owned but are not maintained
+by a pair with different calendars. Removal previews fetch owned copies within the
+window and confirmation removes only that reviewed set. A write rehearsal
+refreshes Compare and runs the same event, ownership,
+destination and duplicate validation as live writes. Field preparation
+uses a new unsaved EventKit event, never the existing copy. Rehearsal
+does not call save, remove or commit and does not mark ledger entries as
+managed. Per-operation results are transient and cleared when a new
+comparison completes; they establish local checks only, not provider
+acceptance or propagation.
+
+The model retains the last check's input snapshot, interval and ledger
+in memory alongside its plan. Export Report serialises these with the
+current settings and ownership, action counts, reasons, rehearsal
+results, errors and app/OS versions into a versioned JSON document.
+It uses the displayed check without fetching, rehearsing or writing to
+EventKit. Configuration changes clear stale snapshots;
+an export without a snapshot still includes settings and errors.
+The native file exporter writes only to a user-selected destination.
+Event content is included only in this explicitly requested export and
+is never added to the persistent sync ledger.
+
+Legacy candidates require a recognised Calendar Sync signup marker,
+no attendees and one original with exactly matching times and all-day
+status among the configured source calendars. For recognised legacy
+Google event IDs, Base32hex decoding recovers an embedded source UID.
+That UID takes precedence over time-only inference, while times and
+recurring occurrences must still match. Conflicting or duplicate copies
+remain unclaimed. Unknown ID formats retain conservative time matching.
+This format is inferred from exported calendar data, not a documented
+provider API contract. Referral tokens identify neither events nor pairs.
+Ambiguity suppresses creation and appears in Settings. Newly arriving
+legacy copies are checked even when an earlier comparison already
+reserved a new copy. Sync adopts surviving copies or recreates copies
+the previous sync tool removed when stopped. Unlinked legacy copies
+require individual review and explicit removal. That
+cleanup and the pair's Remove Copies action only cover the next month.
+Later and historical events remain untouched.
+
+Every mutation re-reads the event and rejects changed snapshots,
+attendees and missing ownership markers. Writes use `.thisEvent`,
+never edit originals and check that configuration still permits each
+operation. Creation also checks for newly arrived destination copies.
+Store notifications request another coalesced check; equal
+content produces no write. Turning Off or disabling a pair retains its
+copies. Known copies fold into the app's agenda before its existing
+matching rules, and MinMaxCal-marked copies alone cannot trigger a
+takeover. External calendar applications retain their own merge rules.
 
 ### The menu bar title (Glance)
 
@@ -537,22 +649,25 @@ the compiled icon.
 | Fact | Source of truth | The app's role |
 |---|---|---|
 | Events, reminders, attendees, responses, calendars, accounts | EventKit | read on every change, convert, never cache across launches |
-| Reminder completion, and its undo | EventKit | the only write |
+| Reminder completion, its undo and enabled calendar copies | EventKit | write through the EventKit actor |
 | Login item registration | launchd via `SMAppService` | register once, reflect status |
 | Selected calendars and lists, matching rules, takeover switches, sound and snooze durations, join apps, title limit | `UserDefaults` | sole owner |
 | Dismissed and snoozed takeovers | `Application Support/MinMaxCal/takeovers.json` inside the app's sandbox container | sole owner, pruned daily |
+| Sync rules and mode | `UserDefaults` | off by default |
+| Original/copy identities and pending sync operations | `Application Support/MinMaxCal/sync.json` | sole owner; atomic writes before calendar mutations |
 
-Deleting the defaults and the ledger loses the selection and any snooze
-in flight; everything else re-derives from EventKit (P1).
+Deleting defaults and ledgers loses selections, snoozes and sync
+ownership. Unknown tracking footers are reported rather than adopted
+as authority to modify an event.
 `TakeoverSettings` codes itself by hand so that settings saved before
 the sound existed decode with the default sound, while a chosen
 silence is stored as `null` and kept.
 
 ## Security and privacy model
 
-- Calendar and reminder data never leaves the process. There is no
-  network code, no analytics and no log line containing a title, a
-  note or an attendee.
+- There is no network code, no analytics and no log line containing a
+  title, a note or an attendee. Enabled mirroring shares the selected
+  fields through the destination calendar's existing account.
 - Link detection (P6) only ever emits, for Zoom, `https://<zoom
   host>/j/<id>` and `zoommtg://zoom.us/...` built from a numeric
   meeting id and a passcode limited to URL-safe characters, for Teams,
@@ -582,8 +697,9 @@ silence is stored as `null` and kept.
 Never-do list:
 
 - Never call private EventKit API, including through KVC (P5).
-- Never modify an event or a reminder beyond completing a reminder the
-  user ticked.
+- Never modify an original event. Calendar writes are confined to
+  enabled sync copies and explicitly selected legacy-copy cleanup;
+  reminder writes remain completion and undo.
 - Never register a development build as a login item.
 - Never open a URL from calendar data whose scheme and host the
   detector did not produce; the only other URLs opened are the app's
