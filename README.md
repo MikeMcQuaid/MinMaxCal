@@ -14,8 +14,8 @@ Calendar apps either hide in a window you forgot to look at or nag with
 notifications you learnt to swipe away. MinMaxCal works at both
 extremes: it is effortless to glance at and difficult to ignore when
 something is due. It reads the calendars and reminder lists macOS
-already has through EventKit, so it needs no separate account and keeps
-your data on your Mac.
+already has through EventKit, so it needs no separate account. Optional
+calendar mirroring writes through those same macOS accounts.
 
 ## ✨ Features
 
@@ -34,6 +34,13 @@ your data on your Mac.
   take over. Declined and cancelled events are hidden.
 - Duplicate meetings merge across calendars by invitation ID or
   matching times and titles, retaining overlapping calendar colours.
+- Optional calendar mirroring maintains copies for the next calendar
+  month while the app runs. Each pair chooses original title, location
+  and links or a generic Busy or Travel title, with Busy-only and
+  all-day filters. Configure pairs in **Settings → Sync**; syncing is
+  off by default and originals are never changed. **Compare** previews
+  changes without writing to calendars, with local validation and JSON
+  reports available before enabling **Sync**.
 - When an accepted event starts or a reminder is due, MinMaxCal covers
   every display, including full-screen apps. **Join** or **Complete**
   is the primary action, **Dismiss** sits on the left and reminders can
@@ -62,8 +69,11 @@ your data on your Mac.
 Anything EventKit's public APIs do not expose is either derived by a
 documented rule or left out; private APIs are never used:
 
-- **Accounts, servers and sync.** macOS owns all three; MinMaxCal reads
-  their local EventKit data.
+- **Accounts and servers.** macOS owns accounts and provider syncing;
+  MinMaxCal only reads and writes their local EventKit data.
+- **Automatic scheduling.** Create focus and habit events in Calendar;
+  MinMaxCal can mirror them but never chooses or rearranges their times.
+- **Multiple sync computers.** Run calendar mirroring on one Mac only.
 - **Travel time and leave alerts.** EventKit does not expose travel
   time; the takeover is at the start, not before it.
 - **Answering invitations.** Unanswered invitations show their status
@@ -111,6 +121,8 @@ Settings opens from the agenda's footer or Cmd-, and controls:
 
 - **Calendars**: selected calendars and reminder lists, grouped by
   account and shown in their colours.
+- **Sync**: calendar pairs, copied content, all-day and Busy-only
+  filters, comparison and automatic mirroring.
 - **Takeover**: event and reminder triggers, the alert sound, snooze
   durations.
 - **Join**: the preferred app for Zoom, Teams, Meet, Jitsi, FaceTime

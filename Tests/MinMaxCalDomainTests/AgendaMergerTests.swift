@@ -113,13 +113,13 @@ struct AgendaMergerTests {
 
     @Test
     func `prefers the description that is not a scheduling tool's`() {
-        var reclaim = Fixtures.event("reclaim", title: "Planning", invite: "uid")
-        reclaim.notes = "Planning block. https://app.reclaim.ai/planner"
+        var legacy = Fixtures.event("legacy", title: "Planning", invite: "uid")
+        legacy.notes = "Planning block. https://app.reclaim.ai/planner"
         var real = Fixtures.event("real", title: "Planning", invite: "uid", calendar: Fixtures.team)
         real.notes = "Agenda: roadmap."
 
-        #expect(AgendaMerger.merge([reclaim, real], rules: rules)[0].notes == "Agenda: roadmap.")
-        #expect(AgendaMerger.merge([reclaim], rules: rules)[0].notes == reclaim.notes)
+        #expect(AgendaMerger.merge([legacy, real], rules: rules)[0].notes == "Agenda: roadmap.")
+        #expect(AgendaMerger.merge([legacy], rules: rules)[0].notes == legacy.notes)
     }
 
     @Test
@@ -127,6 +127,17 @@ struct AgendaMergerTests {
         let one = Fixtures.reminder("one", title: "Busy")
         let two = Fixtures.reminder("two", title: "Busy")
         #expect(AgendaMerger.merge([one, two], rules: rules).count == 2)
+    }
+
+    @Test
+    func `recurring occurrences with one invitation identifier remain separate`() {
+        var first = Fixtures.event("series", title: "Standup", invite: "series")
+        var second = Fixtures.event("series", title: "Standup", invite: "series", startingIn: 1_440)
+        first.members[0].occurrenceDate = first.start
+        second.members[0].occurrenceDate = second.start
+        first.recurrenceDate = first.start
+        second.recurrenceDate = second.start
+        #expect(AgendaMerger.merge([first, second], rules: rules).count == 2)
     }
 
     // MARK: Private

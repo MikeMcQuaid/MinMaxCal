@@ -1,4 +1,4 @@
-public enum AttendeeResponse: Hashable, Sendable {
+public enum AttendeeResponse: String, Codable, Hashable, Sendable {
     case accepted
     case declined
     case pending

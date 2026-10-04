@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ListColour: Hashable, Sendable {
+public struct ListColour: Codable, Hashable, Sendable {
     // MARK: Lifecycle
 
     public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {

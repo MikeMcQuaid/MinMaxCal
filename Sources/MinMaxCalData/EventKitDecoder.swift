@@ -15,6 +15,8 @@ public enum EventKitDecoder {
             colour: colour(calendar.color),
             kind: kind,
             accountName: calendar.source?.title ?? "",
+            allowsChanges: calendar.allowsContentModifications,
+            supportsBusy: calendar.supportedEventAvailabilities.contains(.busy),
         )
     }
 
@@ -41,7 +43,8 @@ public enum EventKitDecoder {
             organiser: organiser,
             attendees: attendees,
             currentUserResponse: attendees.first(where: \.isCurrentUser)?.response,
-            isAccepted: Acceptance.isAccepted(organiser: organiser, attendees: attendees),
+            isAccepted: SyncMarker.containsMarker(event.notes) == false
+                && Acceptance.isAccepted(organiser: organiser, attendees: attendees),
             isCancelled: event.status == .canceled,
             joinLink: JoinLinkDetector.detect(
                 url: event.url,
@@ -49,6 +52,7 @@ public enum EventKitDecoder {
                 notes: event.notes,
             ),
             recurrence: recurrence(event.recurrenceRules ?? []),
+            recurrenceDate: event.hasRecurrenceRules || event.isDetached ? event.occurrenceDate : nil,
         )
     }
 

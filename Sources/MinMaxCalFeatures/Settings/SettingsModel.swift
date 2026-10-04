@@ -37,6 +37,8 @@ public final class SettingsModel {
     public private(set) var installedApps: [JoinLink.Service: [JoinApp]] = [:]
     /// Why the last login item change failed.
     public private(set) var errorMessage: String?
+    /// The optional calendar mirroring settings and status.
+    public var sync: CalendarSyncModel?
 
     /// The selected calendars and lists, written through to the store.
     public var selection: Selection {

@@ -2,7 +2,7 @@ import EventKit
 import Foundation
 import MinMaxCalDomain
 
-public actor EventKitCalendarSource: CalendarSource {
+public actor EventKitCalendarSource: CalendarSource, CalendarSyncSource {
     // MARK: Lifecycle
 
     public init() {}
@@ -51,9 +51,11 @@ public actor EventKitCalendarSource: CalendarSource {
         try store.save(reminder, commit: true)
     }
 
-    // MARK: Private
+    // MARK: Internal
 
-    private let store: EKEventStore = .init()
+    let store: EKEventStore = .init()
+
+    // MARK: Private
 
     private static func grant(_ status: EKAuthorizationStatus) -> AccessStatus.Grant {
         switch status {

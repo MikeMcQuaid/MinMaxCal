@@ -5,8 +5,9 @@ public enum AgendaMerger {
     // MARK: Public
 
     /// Groups by invitation identifier, then by identical timing with matching or generic titles.
-    public static func merge(_ items: [AgendaItem], rules: MatchingRules) -> [AgendaItem] {
-        let units = groupedByInvite(items).flatMap { splitBySpecificTitle($0, rules: rules) }
+    public static func merge(_ items: [AgendaItem], rules: MatchingRules, syncLinks: [SyncLink] = []) -> [AgendaItem] {
+        let units = groupedByInvite(foldSyncCopies(items, links: syncLinks))
+            .flatMap { splitBySpecificTitle($0, rules: rules) }
         return mergedByTiming(units, rules: rules).map { combine($0, rules: rules) }
     }
 
@@ -21,17 +22,18 @@ public enum AgendaMerger {
 
     private static func groupedByInvite(_ items: [AgendaItem]) -> [[AgendaItem]] {
         var groups = [[AgendaItem]]()
-        var indexByInvite = [String: Int]()
+        var indexByInvite = [MemberIdentity: Int]()
         for item in items {
             guard item.kind == .event, let invite = item.inviteIdentifier else {
                 groups.append([item])
                 continue
             }
 
-            if let index = indexByInvite[invite] {
+            let key = MemberIdentity(calendarItemIdentifier: invite, occurrenceDate: item.recurrenceDate)
+            if let index = indexByInvite[key] {
                 groups[index].append(item)
             } else {
-                indexByInvite[invite] = groups.count
+                indexByInvite[key] = groups.count
                 groups.append([item])
             }
         }

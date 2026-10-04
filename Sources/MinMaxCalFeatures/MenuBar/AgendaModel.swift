@@ -50,6 +50,8 @@ public final class AgendaModel {
     public private(set) var errorMessage: String?
     /// Called with every new agenda; the app points this at the takeover scheduler.
     public var onRebuild: (Agenda, Date) -> Void = { _, _ in }
+    /// Supplies known copies for merging independently of calendar selection.
+    public var syncLinks: () -> [SyncLink] = { [] }
     /// Retires finished takeovers on local ticks without restarting the alarm.
     public var onTick: (Agenda, Date) -> Void = { _, _ in }
     /// Shows an item as a takeover preview; the app points this at `TakeoverModel.preview`.
@@ -123,7 +125,9 @@ public final class AgendaModel {
             selection: selection,
         )
         lastFetchedAt = rebuildTime
-        let merged = AgendaMerger.merge(AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules)
+        let merged = AgendaMerger.merge(
+            AgendaFilter.upcoming(raw, now: rebuildTime), rules: rules, syncLinks: syncLinks(),
+        )
         recentlyCompleted.removeAll { rebuildTime.timeIntervalSince($0.at) > Self.undoWindow }
         let undoable = recentlyCompleted.map(\.item)
             .filter { completed in merged.contains { $0.id == completed.id } == false }
