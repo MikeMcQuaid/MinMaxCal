@@ -12,11 +12,12 @@ xcodegen generate --use-cache --quiet
 # triggered resource kills that tore down the whole sandbox user.
 JOBS="$(sysctl -n hw.ncpu)"
 [[ -n "${SV_SESSION_ID:-}" ]] && JOBS=6
+configuration="${XCODE_CONFIGURATION:-Release}"
 
 ARGS=(
   -project MinMaxCal.xcodeproj
   -scheme MinMaxCal
-  -configuration Release
+  -configuration "${configuration}"
   -destination "${XCODE_DESTINATION:-platform=macOS,arch=arm64}"
   -derivedDataPath .build/DerivedData
   -jobs "${JOBS}"
@@ -48,12 +49,12 @@ fi
 
 xcodebuild "${ARGS[@]}" build
 
-app=.build/DerivedData/Build/Products/Release/MinMaxCal.app
+app=".build/DerivedData/Build/Products/${configuration}/MinMaxCal.app"
 [[ -d "${app}" ]] || {
   echo "Build failed: ${app} is missing" >&2
   exit 1
 }
 # Icon caches key on the bundle's modification time; bump it so the
 # Finder notices icon changes through the repository-root symlink.
-touch MinMaxCal.app
+touch "${app}"
 echo "${app}"

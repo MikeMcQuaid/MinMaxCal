@@ -724,7 +724,8 @@ via xcode-select; CommandLineTools alone cannot load SourceKit.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
-xcodebuild, versioned from the nearest reachable tag), `install`
+xcodebuild, defaulting to Release with `XCODE_CONFIGURATION` as an
+override, versioned from the nearest reachable tag), `install`
 (build, then copy to /Applications), `zip` and `package` (the
 distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
@@ -806,12 +807,28 @@ forks and Dependabot have no secrets, so their signing step is skipped
 read secrets directly) and their zip stays ad hoc signed. Either way
 the zip is uploaded as the run's `MinMaxCal` artifact.
 
+The test and release build jobs cache SwiftPM's download cache at
+`~/Library/Caches/org.swift.swiftpm` and dependency checkouts and
+repositories under `.build/DerivedData/SourcePackages`. The test job
+also caches `.build/checkouts` and `.build/repositories`. Analysis
+restores only the shared download cache, since its scratch build is
+deleted before every run; the sanitizer builds also reuse downloads
+from that cache. Keys include the runner OS, job and hashes of
+`Package.swift`, `Package.resolved` when present and `project.yml`.
+No compiled app, build product or signing credential is cached.
+Dependabot groups GitHub Actions and Swift updates separately, checking
+on Fridays at 08:00 UTC with a seven-day cooldown. There are currently
+no external Swift dependencies, so the Swift group has nothing to update.
+
 ### Releases
 
 Three scripts turn a checkout into the artefact a release ships, split
 so that only the last needs credentials:
 
-- `script/build` builds as ever, signed ad hoc. `script/version` uses
+- `script/build` defaults to Release, signed ad hoc. The repository's
+  `MinMaxCal.app` symlink and the packaging scripts use the Release
+  output even when `XCODE_CONFIGURATION=Debug` builds a debug app.
+  The release workflow explicitly selects Release. `script/version` uses
   `git describe` to read the nearest reachable tag and validates it as
   three period-separated integers with no leading zeroes, matching
   Apple's `CFBundleShortVersionString` format and SemVer's numeric
@@ -869,8 +886,9 @@ launched on the ARM64 `macos-26` and `xcode-27` runners. Each checks its
 actual OS and architecture and fails if the app exits within ten
 seconds. These startup checks catch crashes and linking failures;
 calendar access and UI interactions still need host testing. Only after
-both pass does a separate publishing job tag the original commit and
-create the GitHub release with generated notes and that exact zip.
+both pass does a separate publishing job automatically tag the original
+commit and create the GitHub release with generated notes and that exact
+zip.
 A push that touches the workflow, packaging scripts or metadata uses
 `9999.0.0` as a reserved valid local-only version and
 repeats the build, signing, notarisation and startup checks as a dry run,
