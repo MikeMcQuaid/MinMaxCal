@@ -17,11 +17,14 @@ cat >"${scratch}/bin/xcodebuild" <<'BUILDER'
 #!/bin/bash
 echo 'Build diagnostic on stdout'
 echo 'Build diagnostic on stderr' >&2
+while [[ "$1" != -configuration ]]; do shift || exit 1; done
+[[ "$2" == "${XCODE_CONFIGURATION:-Release}" ]] || exit 1
 exit "${BUILD_TEST_STATUS}"
 BUILDER
 chmod +x "${scratch}/bin/"* "${scratch}/script/"*
 
 export PATH="${scratch}/bin:${PATH}"
+unset XCODE_CONFIGURATION
 export BUILD_TEST_STATUS=65
 if "${scratch}/script/build" >"${scratch}/failure.log" 2>&1; then
   echo 'Build failure was hidden by an existing app bundle' >&2
@@ -30,6 +33,10 @@ fi
 
 export BUILD_TEST_STATUS=0
 "${scratch}/script/build" >"${scratch}/success.log" 2>&1
+grep -Fqx '.build/DerivedData/Build/Products/Release/MinMaxCal.app' "${scratch}/success.log"
+mkdir -p "${scratch}/.build/DerivedData/Build/Products/Debug/MinMaxCal.app"
+XCODE_CONFIGURATION=Debug "${scratch}/script/build" >"${scratch}/debug.log" 2>&1
+grep -Fqx '.build/DerivedData/Build/Products/Debug/MinMaxCal.app' "${scratch}/debug.log"
 for log in failure success; do
   for stream in stdout stderr; do
     grep -q "Build diagnostic on ${stream}" "${scratch}/${log}.log"

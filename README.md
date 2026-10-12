@@ -136,10 +136,11 @@ Settings opens from the agenda's footer or Cmd-, and controls:
 
 - `script/bootstrap`: install `Brewfile` dependencies and generate the
   Xcode project with XcodeGen
-- `script/build`: build the app; `MinMaxCal.app` in the repository root
-  symlinks its output
+- `script/build`: build the app in Release by default; set
+  `XCODE_CONFIGURATION=Debug` for a debug build. `MinMaxCal.app` in
+  the repository root symlinks the Release output
 - `script/install`: build, then copy the app to /Applications
-- `script/zip`: zip the built app as `MinMaxCal-<version>.zip`
+- `script/zip`: zip the Release app as `MinMaxCal-<version>.zip`
 - `script/package`: sign, notarise and zip the app using credentials
   from the environment
 - `script/test`: unit tests
@@ -162,6 +163,17 @@ It refreshes the generated project when sources or settings change.
 CI also runs the tests separately with Address Sanitizer and Thread
 Sanitizer. Run them locally with `script/test --sanitize address` and
 `script/test --sanitize thread`.
+
+CI caches Swift package downloads and source checkouts for tests,
+analysis and releases, keyed by dependency manifests and lockfiles.
+Compiled apps and signing credentials are never cached. Dependabot
+groups GitHub Actions and Swift updates separately each Friday, with a
+seven-day cooldown.
+
+Dispatch the Release workflow from `main` with a bare
+`MAJOR.MINOR.PATCH` version to publish automatically after signing,
+notarisation and startup checks pass. Pushes affecting the release
+process run those checks as dry runs without publishing.
 
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.

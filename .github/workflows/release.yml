@@ -15,6 +15,7 @@ on:
       - .github/workflows/release.yml
       - App/Info.plist
       - App/MinMaxCal.entitlements
+      - Package.resolved
       - Package.swift
       - Version.xcconfig
       - project.yml
@@ -103,10 +104,22 @@ jobs:
       - name: Download Metal toolchain
         run: xcodebuild -downloadComponent MetalToolchain
 
+      - name: Cache Swift package dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            .build/DerivedData/SourcePackages/checkouts
+            .build/DerivedData/SourcePackages/repositories
+          key: ${{ runner.os }}-swiftpm-release-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}
+          restore-keys: ${{ runner.os }}-swiftpm-release-
+
       - name: Bootstrap
         run: script/bootstrap
 
       - name: Build
+        env:
+          XCODE_CONFIGURATION: Release
         run: script/build
 
       - name: Zip
