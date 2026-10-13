@@ -1,17 +1,24 @@
 import Foundation
 import MinMaxCalDomain
+import Observation
 
 /// The app's own settings, held in memory and written through to `UserDefaults`, and a stream of
 /// their changes.
 @preconcurrency
 @MainActor
+@Observable
 public final class SettingsStore {
     // MARK: Lifecycle
 
     /// Uses the standard defaults unless a suite is given, as the tests do; `defaultJoin` stands in
     /// until the Join tab chooses, so the app can pick it by what is installed.
-    public init(defaults: UserDefaults = .standard, defaultJoin: JoinSettings = .default()) {
+    public init(
+        defaults: UserDefaults = .standard,
+        defaultJoin: JoinSettings = .default(),
+        defaultAllCalendars: Bool = false,
+    ) {
         self.defaults = defaults
+        allCalendars = defaults.object(forKey: Key.allCalendars) as? Bool ?? defaultAllCalendars
         selection = Self.decode(Key.selection, from: defaults) ?? .empty
         matchingRules = Self.decode(Key.matchingRules, from: defaults) ?? .default
         takeover = Self.decode(Key.takeover, from: defaults) ?? .default
@@ -20,6 +27,11 @@ public final class SettingsStore {
     }
 
     // MARK: Public
+
+    /// Includes newly available lists automatically instead of using the saved selection.
+    public var allCalendars: Bool {
+        didSet { defaults.set(allCalendars, forKey: Key.allCalendars) }
+    }
 
     /// Fires whenever any value in the defaults changes; subscribe before writing.
     public var changes: AsyncStream<Void> {
@@ -78,6 +90,7 @@ public final class SettingsStore {
     // MARK: Private
 
     private enum Key {
+        static let allCalendars = "allCalendars"
         static let selection = "selection"
         static let matchingRules = "matchingRules"
         static let takeover = "takeover"

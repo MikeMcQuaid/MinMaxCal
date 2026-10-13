@@ -26,4 +26,8 @@ public struct AccessStatus: Hashable, Sendable {
 
     public var events: Grant
     public var reminders: Grant
+
+    public var canReadAgenda: Bool {
+        events.isFull || reminders.isFull
+    }
 }

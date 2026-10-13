@@ -1,9 +1,15 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import MinMaxCalDomain
 
+// MARK: - LinkedText
+
 /// Turns untrusted notes into text with clickable `http(s)` links: HTML is reduced to its text and
-/// anchors through AppKit's importer, plain text gets its bare URLs detected.
+/// anchors through the system importer, plain text gets its bare URLs detected.
 enum LinkedText {
     // MARK: Internal
 

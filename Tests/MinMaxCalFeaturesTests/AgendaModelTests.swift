@@ -1,7 +1,7 @@
 import Foundation
+@testable import MinMaxCalAgenda
 import MinMaxCalData
 import MinMaxCalDomain
-@testable import MinMaxCalFeatures
 import Testing
 
 struct AgendaModelTests {

@@ -5,7 +5,10 @@ import MinMaxCalDomain
 public actor EventKitCalendarSource: CalendarSource, CalendarSyncSource {
     // MARK: Lifecycle
 
-    public init() {}
+    @preconcurrency
+    public init(makeStore: @escaping @Sendable () -> EKEventStore = { EKEventStore() }) {
+        self.makeStore = makeStore
+    }
 
     // MARK: Public
 
@@ -53,9 +56,11 @@ public actor EventKitCalendarSource: CalendarSource, CalendarSyncSource {
 
     // MARK: Internal
 
-    let store: EKEventStore = .init()
+    lazy var store: EKEventStore = makeStore()
 
     // MARK: Private
+
+    private let makeStore: @Sendable () -> EKEventStore
 
     private static func grant(_ status: EKAuthorizationStatus) -> AccessStatus.Grant {
         switch status {

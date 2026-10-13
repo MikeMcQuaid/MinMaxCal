@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import Foundation
 import MinMaxCalDomain
@@ -58,3 +59,4 @@ public struct WorkspaceLinkOpener: LinkOpener {
 
     private static let webProbe: URL? = URL(string: "https://example.com")
 }
+#endif

@@ -4,6 +4,7 @@ options:
   createIntermediateGroups: true
   deploymentTarget:
     macOS: "26.0"
+    iOS: "26.0"
   xcodeVersion: "27.0"
   preGenCommand: script/version
 packages:
@@ -63,6 +64,8 @@ targets:
         buildPhase: resources
     dependencies:
       - package: MinMaxCal
+        product: MinMaxCalAgenda
+      - package: MinMaxCal
         product: MinMaxCalFeatures
       - package: MinMaxCal
         product: MinMaxCalData
@@ -91,3 +94,37 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
+  MinMaxCal-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: iOSApp
+        excludes:
+          - Info.plist
+      - path: App/Icons/AppIcon.icon
+        type: file
+        buildPhase: resources
+    dependencies:
+      - package: MinMaxCal
+        product: MinMaxCalAgenda
+      - package: MinMaxCal
+        product: MinMaxCalData
+      - package: MinMaxCal
+        product: MinMaxCalDomain
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: iOSApp/Info.plist
+        MARKETING_VERSION: "0.1.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal.iOS
+        PRODUCT_NAME: MinMaxCal
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"

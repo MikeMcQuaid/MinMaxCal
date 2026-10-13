@@ -18,10 +18,11 @@ func swiftSettings(mainActorByDefault: Bool) -> [SwiftSetting] {
 // swiftlint:disable:next prefixed_toplevel_constant - SwiftPM requires this exact name
 let package = Package(
     name: "MinMaxCal",
-    platforms: [.macOS(.v26)],
+    platforms: [.macOS(.v26), .iOS(.v26)],
     products: [
         .library(name: "MinMaxCalDomain", targets: ["MinMaxCalDomain"]),
         .library(name: "MinMaxCalData", targets: ["MinMaxCalData"]),
+        .library(name: "MinMaxCalAgenda", targets: ["MinMaxCalAgenda"]),
         .library(name: "MinMaxCalFeatures", targets: ["MinMaxCalFeatures"]),
         .library(name: "MinMaxCalIntents", targets: ["MinMaxCalIntents"]),
     ],
@@ -33,13 +34,18 @@ let package = Package(
             swiftSettings: swiftSettings(mainActorByDefault: false),
         ),
         .target(
-            name: "MinMaxCalFeatures",
+            name: "MinMaxCalAgenda",
             dependencies: ["MinMaxCalDomain", "MinMaxCalData"],
             swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
         .target(
+            name: "MinMaxCalFeatures",
+            dependencies: ["MinMaxCalDomain", "MinMaxCalData", "MinMaxCalAgenda"],
+            swiftSettings: swiftSettings(mainActorByDefault: true),
+        ),
+        .target(
             name: "MinMaxCalIntents",
-            dependencies: ["MinMaxCalDomain", "MinMaxCalFeatures"],
+            dependencies: ["MinMaxCalDomain", "MinMaxCalAgenda", "MinMaxCalFeatures"],
             swiftSettings: swiftSettings(mainActorByDefault: false),
             // Weak so AppIntents symbols absent from the running OS resolve
             // to null instead of preventing the test bundle from loading.
@@ -57,7 +63,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MinMaxCalFeaturesTests",
-            dependencies: ["MinMaxCalFeatures", "MinMaxCalIntents"],
+            dependencies: ["MinMaxCalAgenda", "MinMaxCalFeatures", "MinMaxCalIntents"],
             swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
     ],

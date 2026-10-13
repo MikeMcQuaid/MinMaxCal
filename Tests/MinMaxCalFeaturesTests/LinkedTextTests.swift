@@ -1,5 +1,5 @@
 import Foundation
-@testable import MinMaxCalFeatures
+@testable import MinMaxCalAgenda
 import Testing
 
 struct LinkedTextTests {

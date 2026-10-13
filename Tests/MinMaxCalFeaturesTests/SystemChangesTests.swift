@@ -1,4 +1,5 @@
 import AppKit
+import MinMaxCalAgenda
 import MinMaxCalData
 @testable import MinMaxCalFeatures
 import Testing

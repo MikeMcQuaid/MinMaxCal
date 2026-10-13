@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import IOKit.ps
 import notify
@@ -38,3 +39,4 @@ public enum PowerState {
             || IOPSGetTimeRemainingEstimate() != kIOPSTimeRemainingUnlimited
     }
 }
+#endif

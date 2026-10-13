@@ -1,6 +1,6 @@
 import Foundation
+@testable import MinMaxCalAgenda
 import MinMaxCalData
-@testable import MinMaxCalFeatures
 import Testing
 
 struct AgendaRefreshLoopTests {
@@ -72,6 +72,23 @@ struct AgendaRefreshLoopTests {
         model.setPowerSaving(true)
         try await waitForFetches(2)
 
+        #expect(model.agenda.items == source.items)
+    }
+
+    @Test
+    func `a restarted view task still accepts refresh requests`() async throws {
+        var loop = Task { await model.run() }
+        try await waitForFetches(1)
+        loop.cancel()
+        await loop.value
+
+        loop = Task { await model.run() }
+        defer { loop.cancel() }
+        try await waitForFetches(2)
+
+        source.items = [Fixtures.event("new")]
+        model.requestRefresh()
+        try await waitForFetches(3)
         #expect(model.agenda.items == source.items)
     }
 

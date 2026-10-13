@@ -1,5 +1,5 @@
 import AppIntents
-import MinMaxCalFeatures
+import MinMaxCalAgenda
 
 /// Resolves entities against the current agenda.
 public struct AgendaItemQuery: EntityQuery {
