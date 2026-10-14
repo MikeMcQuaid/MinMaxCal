@@ -1,3 +1,4 @@
+import MinMaxCalAgenda
 import MinMaxCalDomain
 import SwiftUI
 
@@ -28,8 +29,6 @@ struct CalendarsTab: View {
     private static let groupSpacing: CGFloat = 16
     private static let rowSpacing: CGFloat = 4
     private static let headingSpacing: CGFloat = 6
-    private static let markSize: CGFloat = 13
-    private static let markSpacing: CGFloat = 3
 
     @ViewBuilder
     private func groups(_ title: String, _ groups: [AccountGroup]) -> some View {
@@ -49,12 +48,7 @@ struct CalendarsTab: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 ForEach(group.lists) { list in
-                    Toggle(isOn: model.isSelected(list)) {
-                        HStack(spacing: Self.markSpacing) {
-                            CalendarMarks(calendars: [list], size: Self.markSize, columnWidth: 0)
-                            Text(list.title)
-                        }
-                    }
+                    CalendarToggle(list: list, isOn: model.isSelected(list))
                 }
             }
         }

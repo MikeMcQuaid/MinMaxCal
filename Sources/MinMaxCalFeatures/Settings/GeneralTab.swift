@@ -1,3 +1,4 @@
+import MinMaxCalAgenda
 import MinMaxCalData
 import MinMaxCalDomain
 import SwiftUI
@@ -63,7 +64,7 @@ struct GeneralTab: View {
     private func permission(_ name: String, _ grant: AccessStatus.Grant, pane: String) -> some View {
         LabeledContent(name) {
             HStack {
-                Text(Self.description(of: grant))
+                Text(grant.description)
                     .foregroundStyle(.secondary)
                 if grant.isFull == false, let url = Self.privacyPane(pane) {
                     Button("Open Privacy Settings") {
@@ -77,24 +78,5 @@ struct GeneralTab: View {
 
     private static func privacyPane(_ pane: String) -> URL? {
         URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")
-    }
-
-    private static func description(of grant: AccessStatus.Grant) -> String {
-        switch grant {
-        case .full:
-            "Full access"
-
-        case .denied:
-            "Denied"
-
-        case .restricted:
-            "Restricted"
-
-        case .writeOnly:
-            "Add only"
-
-        case .notDetermined:
-            "Not asked yet"
-        }
     }
 }

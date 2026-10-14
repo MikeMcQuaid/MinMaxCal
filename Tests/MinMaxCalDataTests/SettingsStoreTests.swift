@@ -1,6 +1,8 @@
 import Foundation
 import MinMaxCalData
 import MinMaxCalDomain
+import Observation
+import Synchronization
 import Testing
 
 @MainActor
@@ -19,6 +21,7 @@ struct SettingsStoreTests {
     @Test
     func `starts with nothing selected and the defaults`() {
         #expect(store.selection == .empty)
+        #expect(store.allCalendars == false)
         #expect(store.matchingRules == .default)
         #expect(store.takeover == .default)
         #expect(store.join == .default())
@@ -49,6 +52,31 @@ struct SettingsStoreTests {
         #expect(reloaded.join == JoinSettings(meet: "com.apple.Safari"))
         #expect(reloaded.titleLimit == 30)
         #expect(reloaded.hasRegisteredLoginItem)
+    }
+
+    @Test
+    func `all lists defaults can be overridden and survive relaunching`() {
+        let phone = SettingsStore(defaults: defaults, defaultAllCalendars: true)
+        #expect(phone.allCalendars)
+        phone.allCalendars = false
+        #expect(SettingsStore(defaults: defaults, defaultAllCalendars: true).allCalendars == false)
+        phone.allCalendars = true
+        #expect(SettingsStore(defaults: defaults).allCalendars)
+    }
+
+    @Test
+    func `direct settings edits notify views and persist`() {
+        let changed = Mutex(false)
+        withObservationTracking {
+            _ = store.matchingRules
+        } onChange: {
+            changed.withLock { $0 = true }
+        }
+
+        store.matchingRules.homeTerms = ["Leith"]
+
+        #expect(changed.withLock { $0 } == true)
+        #expect(SettingsStore(defaults: defaults).matchingRules.homeTerms == ["Leith"])
     }
 
     @Test

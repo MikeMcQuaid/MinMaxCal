@@ -1,4 +1,5 @@
 import AppIntents
+import MinMaxCalAgenda
 import MinMaxCalData
 import MinMaxCalDomain
 import MinMaxCalFeatures

@@ -1,4 +1,5 @@
 import AppIntents
+import MinMaxCalAgenda
 import MinMaxCalFeatures
 
 public struct PreviewTakeoverIntent: AppIntent {

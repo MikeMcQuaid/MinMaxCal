@@ -1,4 +1,5 @@
 import AppKit
+import MinMaxCalAgenda
 import MinMaxCalDomain
 import SwiftUI
 
@@ -54,15 +55,13 @@ public struct AgendaView: View {
     private static let sectionSpacing: CGFloat = 8
     private static let rowSpacing: CGFloat = 4
     private static let padding: CGFloat = 8
-    private static let detailIndent: CGFloat = 20
-    private static let focusRadius: CGFloat = 6
 
     @Environment(\.calendar)
     private var calendar
     @Environment(\.openSettings)
     private var openSettings
+    // periphery:ignore - Read and written through the projected SwiftUI binding.
     @State private var expanded: AgendaItem.ID?
-    @State private var hovered: AgendaItem.ID?
 
     private let model: AgendaModel
 
@@ -114,68 +113,16 @@ public struct AgendaView: View {
             }
             VStack(alignment: .leading, spacing: Self.rowSpacing) {
                 ForEach(items) { item in
-                    row(item)
+                    AgendaEntry(
+                        item: item,
+                        model: model,
+                        expanded: $expanded,
+                        onJoin: model.join,
+                        onPreview: { model.preview(item) },
+                    )
                 }
             }
         }
-    }
-
-    private func row(_ item: AgendaItem) -> some View {
-        VStack(alignment: .leading, spacing: Self.rowSpacing) {
-            rowButton(item)
-            if expanded == item.id {
-                ItemDetails(item: item, rules: model.rules)
-                    .font(.callout)
-                    .padding(.leading, Self.detailIndent)
-                    .padding(.bottom, Self.rowSpacing)
-            }
-        }
-    }
-
-    /// A row is a button for the pointer, the keyboard (under Full Keyboard Access) and VoiceOver
-    /// alike. For VoiceOver it contains its children rather than combining them, so the join and
-    /// complete buttons inside it stay reachable as their own controls.
-    private func rowButton(_ item: AgendaItem) -> some View {
-        AgendaRow(
-            item: item,
-            style: .agenda,
-            onJoin: model.join,
-            onComplete: { Task { await model.complete(item) } },
-            onUncomplete: { Task { await model.uncomplete(item) } },
-        )
-        .contentShape([.interaction, .focusEffect], RoundedRectangle(cornerRadius: Self.focusRadius))
-        .background {
-            RoundedRectangle(cornerRadius: Self.focusRadius)
-                .fill(.quaternary)
-                .opacity(hovered == item.id ? 1 : 0)
-        }
-        .onHover { inside in
-            if inside {
-                hovered = item.id
-            } else if hovered == item.id {
-                hovered = nil
-            }
-        }
-        .onTapGesture { toggle(item) }
-        .focusable(interactions: .activate)
-        .onKeyPress(keys: [.return, .space]) { _ in
-            toggle(item)
-            return .handled
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(item.displayTitle)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint(expanded == item.id ? "Hides the details" : "Shows the details")
-        .accessibilityAction { toggle(item) }
-        .contextMenu {
-            Button(expanded == item.id ? "Hide Details" : "Show Details") { toggle(item) }
-            Button("Preview Takeover") { model.preview(item) }
-        }
-    }
-
-    /// One row open at a time: opening another closes the last.
-    private func toggle(_ item: AgendaItem) {
-        expanded = expanded == item.id ? nil : item.id
     }
 
     private func showSettings() {

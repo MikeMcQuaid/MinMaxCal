@@ -17,6 +17,75 @@ something is due. It reads the calendars and reminder lists macOS
 already has through EventKit, so it needs no separate account. Optional
 calendar mirroring writes through those same macOS accounts.
 
+## 📱 iPhone preview
+
+The iOS 26 companion shows today and tomorrow from the phone's system
+calendars and reminder lists, using the Mac's merging and filtering.
+Overdue reminders stay visible; reminders without a due date are
+omitted. Events are read-only. Complete a reminder with its tick, then
+Undo from the struck-through row for five minutes while the app runs.
+
+Both platforms share compact rows with truncated titles, aligned time
+columns and a separate trailing action. Tap a row to expand its full
+title and the same details as the Mac. iPhone text keeps standard iOS
+sizes and buttons retain full touch targets. Calendar marks match the
+small app icon beside the title; Settings opens from the main screen.
+
+The agenda refreshes on launch, foregrounding and EventKit changes,
+with a periodic fallback. These refreshes read local data; system
+accounts handle cloud syncing. Calendar and Reminders permissions are
+independent. Missing access is explained in the agenda and Settings,
+with a link to system settings. All available lists are included;
+turn off **Show all calendars and lists** to choose individual lists.
+Settings also offers the Mac's generic-title matching rules and home
+terms for tidying locations, plus version, source and licence details.
+Rule fields accept comma-separated values and save on Return or when
+editing ends. Selection and rules are saved on the phone independently
+of the Mac. Join buttons, takeovers and calendar mirroring are outside
+this first version, so their settings are available only on the Mac,
+along with launch at login and menu bar title length.
+
+### Run on your iPhone
+
+1. Install Xcode 27 with iOS platform support, then run
+   `script/bootstrap` and open `MinMaxCal.xcodeproj` on your Mac.
+2. Choose the **MinMaxCal-iOS** scheme. Connect and unlock your iPhone,
+   trust the Mac if prompted and select the phone as the run destination.
+3. In Xcode's **Settings → Apple Accounts**, sign in. Select the
+   **MinMaxCal-iOS** target's **Signing & Capabilities**, keep automatic
+   signing enabled and choose your team. A Personal Team works for
+   testing on your own device. If needed, use a unique bundle identifier.
+   These local signing changes may need reapplying after XcodeGen runs.
+4. Enable **Settings → Privacy & Security → Developer Mode** on the
+   phone, restarting and confirming when asked. Press **Run** in Xcode.
+5. Allow full Calendar access and Reminders access when prompted.
+   Reading events requires full access even though the app never edits
+   them. Add the desired accounts in the phone's system settings first.
+
+See Apple's guides to [running on a device][run-on-device] and
+[Developer Mode][developer-mode].
+
+If Xcode's Run leaves a white screen but opening the app from its icon
+works, compare a run with **Product → Scheme → Edit Scheme → Run →
+Info → Debug executable** turned off. This isolates debugger attachment
+from normal launch. Turn it back on when you need breakpoints.
+
+To check the first version, create matching events in two calendars
+with identical titles and times: they should appear as one row with
+both calendar colours. Create a reminder due today, complete it here
+and check its state in Reminders; try Undo too. Change an event in
+Calendar and return to MinMaxCal to check that it refreshes. Permission
+changes in Settings should also take effect when you return.
+Check that declining both permissions shows the access explanation,
+that Settings remembers selected lists after relaunching and that
+tapping an event reveals its details without allowing edits.
+Edit the generic titles and home terms, finish editing and check that
+the agenda updates and the changes survive relaunching. Check the
+compact rows with larger system text sizes too.
+
+[run-on-device]: https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices
+[developer-mode]: https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device
+
 ## ✨ Features
 
 - The menu bar item shows the app icon, the next item's title and a

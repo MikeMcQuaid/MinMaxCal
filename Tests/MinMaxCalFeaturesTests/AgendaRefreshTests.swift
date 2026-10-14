@@ -1,7 +1,8 @@
 import Foundation
+@testable import MinMaxCalAgenda
 import MinMaxCalData
 import MinMaxCalDomain
-@testable import MinMaxCalFeatures
+import MinMaxCalFeatures
 import Observation
 import Synchronization
 import Testing

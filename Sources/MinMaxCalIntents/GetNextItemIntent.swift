@@ -1,5 +1,5 @@
 import AppIntents
-import MinMaxCalFeatures
+import MinMaxCalAgenda
 
 public struct GetNextItemIntent: AppIntent {
     // MARK: Lifecycle

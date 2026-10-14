@@ -2,15 +2,14 @@ import Foundation
 import MinMaxCalDomain
 import SwiftUI
 
-/// One item as a table row: colour dots, title, the action column, then the start and end
-/// times in columns of their own so every row's times line up.
+/// The shared agenda and takeover row, with platform-specific dimensions.
 public struct AgendaRow: View {
     // MARK: Lifecycle
 
     public init(
         item: AgendaItem,
         style: Style,
-        onJoin: @escaping (JoinLink) -> Void,
+        onJoin: ((JoinLink) -> Void)? = nil,
         onComplete: @escaping () -> Void = {},
         onUncomplete: @escaping () -> Void = {},
         joinIsPrimary: Bool = false,
@@ -43,41 +42,89 @@ public struct AgendaRow: View {
             action
                 .frame(width: style == .agenda ? GlassIconButtonStyle.side : nil)
         }
-        .frame(height: style == .agenda ? Self.agendaRowHeight : Self.takeoverRowHeight)
+        .frame(height: style == .agenda ? agendaRowHeight : Self.takeoverRowHeight)
+        .accessibilityElement(children: .contain)
+    }
+
+    // MARK: Internal
+
+    static let usesTwelveHourClock = Date.now
+        .formatted(date: .omitted, time: .shortened)
+        .contains(where: \.isLetter)
+
+    /// Reserve both columns even for reminders, which have only a start time.
+    @ViewBuilder var times: some View {
+        if style == .takeover {
+            Text(range)
+                .font(timeFont)
+                .monospacedDigit()
+        } else {
+            HStack(spacing: Self.spacing) {
+                if item.isAllDay {
+                    Text("All day")
+                        .foregroundStyle(.secondary)
+                        .frame(
+                            width: (timeWidth + Self.spacing) * Self.timeColumnCount + Self.dashColumnWidth,
+                            alignment: .leading,
+                        )
+                } else {
+                    Text(Self.clock(item.start))
+                        .frame(width: timeWidth, alignment: .trailing)
+                    Text(item.end == nil ? "" : "–")
+                        .frame(width: Self.dashColumnWidth)
+                        .accessibilityHidden(true)
+                    Text(item.end.map(Self.clock) ?? "")
+                        .frame(width: timeWidth, alignment: .trailing)
+                }
+            }
+            .font(timeFont)
+            .monospacedDigit()
+            .lineLimit(1)
+            .fixedSize()
+        }
     }
 
     // MARK: Private
 
-    private static let statusPadding: CGFloat = 6
     private static let spacing: CGFloat = 4
-    private static let takeoverTitleLines = 2
     private static let dashColumnWidth: CGFloat = 6
-    private static let agendaMarkSize: CGFloat = 13
+    private static let timeColumnCount: CGFloat = 2
+    private static let statusPadding: CGFloat = 6
+    private static let takeoverTitleLines = 2
     private static let takeoverMarkSize: CGFloat = 24
     private static let takeoverMarkGap: CGFloat = 8
-    private static let agendaRowHeight: CGFloat = 24
     private static let takeoverRowHeight: CGFloat = 44
-    /// Wide enough for `10:05`, or `10:05 PM` where the clock has a period.
-    private static let agendaTimeWidth: CGFloat = usesTwelveHourClock ? twelveHourTimeWidth : twentyFourHourTimeWidth
-    private static let twelveHourTimeWidth: CGFloat = 62
-    private static let twentyFourHourTimeWidth: CGFloat = 40
-    private static let usesTwelveHourClock = Date.now
-        .formatted(date: .omitted, time: .shortened)
-        .contains(where: \.isLetter)
+
+    @ScaledMetric(relativeTo: Self.agendaTimeStyle)
+    private var timeWidth: CGFloat = Self.agendaTimeWidth
+
+    @ScaledMetric(relativeTo: .body)
+    private var agendaRowHeight: CGFloat = Self.agendaMinimumHeight
 
     private let item: AgendaItem
     private let style: Style
     private let joinIsPrimary: Bool
     private let onComplete: () -> Void
     private let onUncomplete: () -> Void
-    private let onJoin: (JoinLink) -> Void
+    private let onJoin: ((JoinLink) -> Void)?
 
     private var timeFont: Font {
         if style == .agenda {
-            .body
+            .system(Self.agendaTimeStyle)
         } else {
             .title2
         }
+    }
+
+    private var range: String {
+        if item.isAllDay {
+            return "All day"
+        }
+        guard let end = item.end else {
+            return Self.clock(item.start)
+        }
+
+        return "\(Self.clock(item.start)) – \(Self.clock(end))"
     }
 
     private var status: String? {
@@ -96,22 +143,12 @@ public struct AgendaRow: View {
         }
     }
 
-    private var range: String {
-        if item.isAllDay {
-            return "All day"
-        }
-        guard let end = item.end else {
-            return Self.clock(item.start)
-        }
-
-        return "\(Self.clock(item.start)) – \(Self.clock(end))"
-    }
-
     private var title: some View {
         HStack(spacing: Self.statusPadding) {
             Text(item.displayTitle)
                 .font(style == .agenda ? .body : .title)
                 .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
+                .truncationMode(.tail)
                 .strikethrough(item.isCompleted)
                 .foregroundStyle(item.isCompleted ? .secondary : .primary)
             if let status {
@@ -133,37 +170,10 @@ public struct AgendaRow: View {
                 undo: item.isCompleted,
                 action: item.isCompleted ? onUncomplete : onComplete,
             )
-        } else if let link = item.joinLink {
+        } else if let link = item.joinLink, let onJoin {
             JoinButton(link: link, isPrimary: joinIsPrimary, action: onJoin)
         } else {
             Color.clear
-        }
-    }
-
-    /// Agenda rows align their times in columns; a takeover has one row, so its range is one text.
-    @ViewBuilder private var times: some View {
-        if style == .takeover {
-            Text(range)
-                .font(timeFont)
-                .monospacedDigit()
-        } else if item.isAllDay {
-            Text("All day")
-                .font(timeFont)
-                .foregroundStyle(.secondary)
-                .frame(width: Self.agendaTimeWidth + Self.dashColumnWidth + Self.agendaTimeWidth, alignment: .leading)
-        } else {
-            Text(Self.clock(item.start))
-                .font(timeFont)
-                .monospacedDigit()
-                .frame(width: Self.agendaTimeWidth, alignment: .trailing)
-            Text(item.end == nil ? "" : "–")
-                .font(timeFont)
-                .frame(width: Self.dashColumnWidth)
-                .accessibilityHidden(true)
-            Text(item.end.map(Self.clock) ?? "")
-                .font(timeFont)
-                .monospacedDigit()
-                .frame(width: Self.agendaTimeWidth, alignment: .trailing)
         }
     }
 

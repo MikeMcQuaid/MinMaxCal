@@ -1,4 +1,4 @@
-import AppKit
+import CoreGraphics
 import EventKit
 import Foundation
 import MinMaxCalDomain
@@ -12,7 +12,7 @@ public enum EventKitDecoder {
         CalendarList(
             identifier: calendar.calendarIdentifier,
             title: calendar.title,
-            colour: colour(calendar.color),
+            colour: colour(calendar.cgColor),
             kind: kind,
             accountName: calendar.source?.title ?? "",
             allowsChanges: calendar.allowsContentModifications,
@@ -145,16 +145,19 @@ public enum EventKitDecoder {
         }
     }
 
-    private static func colour(_ color: NSColor?) -> ListColour {
-        guard let rgb = color?.usingColorSpace(.sRGB) else {
+    private static func colour(_ color: CGColor?) -> ListColour {
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let rgb = color?.converted(to: space, intent: .defaultIntent, options: nil)?.components,
+              rgb.count == 4 // swiftlint:disable:this no_magic_numbers - sRGB has four RGBA components.
+        else {
             return .grey
         }
 
         return ListColour(
-            red: rgb.redComponent,
-            green: rgb.greenComponent,
-            blue: rgb.blueComponent,
-            alpha: rgb.alphaComponent,
+            red: rgb[0],
+            green: rgb[1],
+            blue: rgb[2], // swiftlint:disable:this no_magic_numbers - RGBA component offset.
+            alpha: rgb[3], // swiftlint:disable:this no_magic_numbers - RGBA component offset.
         )
     }
 }

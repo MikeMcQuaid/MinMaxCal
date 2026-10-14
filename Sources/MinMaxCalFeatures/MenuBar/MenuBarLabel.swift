@@ -1,3 +1,4 @@
+import MinMaxCalAgenda
 import SwiftUI
 
 /// The status item's content: the template icon, then the title when there is one. A `Label`

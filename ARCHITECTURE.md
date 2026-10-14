@@ -12,6 +12,20 @@ reminder in the menu bar, lists the coming agenda on click and takes
 over every display when something is due. It is developed readme-first:
 behaviour is documented before the code that implements it.
 
+The iOS 26 companion in `iOSApp/` composes the shared agenda and
+settings views in an agenda screen and Settings sheet, built by the
+`MinMaxCal-iOS` scheme. It only writes reminder completion or Undo and
+has no mirroring ledger or background mode. Settings binds directly to
+the observable `SettingsStore`; its existing change stream refreshes
+the agenda after saved edits. Preferences remain local to each app.
+The EventKit store is created lazily on the calendar source actor so
+initialising it cannot block the main thread before the first screen.
+The root view owns the agenda task and asks for a refresh when its
+scene becomes active or the system reports a significant time change.
+Each run creates a fresh refresh stream so a cancelled view task can
+restart without losing updates. Rebuilds recheck permissions and lists,
+including changes made while the app was away.
+
 The architectural thesis, referenced throughout: **EventKit owns calendar
 content**. EventKit is the source of truth for every event,
 reminder, attendee and calendar; the app reads it on demand, converts it
@@ -172,18 +186,37 @@ is committed, the `.xcodeproj` is gitignored).
 ```mermaid
 flowchart TD
     App["MinMaxCalApp<br/>(composition root)"]
+    iOS["MinMaxCal-iOS<br/>(single agenda screen)"]
+    Agenda["MinMaxCalAgenda<br/>(shared model, rows and buttons)"]
     Features["MinMaxCalFeatures<br/>(MenuBar, Takeover, Settings)"]
     Intents["MinMaxCalIntents<br/>(App Intents)"]
     Data["MinMaxCalData<br/>(ports and adapters)"]
     Domain["MinMaxCalDomain<br/>(pure)"]
 
-    App --> Features & Data & Intents
-    Intents --> Features & Domain
-    Features --> Domain
+    App --> Features & Agenda & Data & Intents
+    iOS --> Agenda & Data
+    Intents --> Features & Agenda & Domain
+    Features --> Agenda & Domain
+    Agenda --> Data & Domain
     Features -.->|ports| Data
     Data --> Domain
 ```
 
+- **MinMaxCalAgenda**: the shared `AgendaModel`, agenda rows, calendar
+  marks, item details, calendar toggles, permission labels, matching
+  fields, About links and action buttons. `AgendaRow` shares layout,
+  time columns and title truncation; platform dimensions, time fonts
+  and supported focus shapes live in separate files. `AgendaEntry`
+  shares expansion, full titles, details, hover, keyboard and
+  accessibility behaviour. The iOS shell defaults to all available
+  lists without changing the Mac's persisted selection. Its rows retain
+  larger touch targets and scaled dimensions.
+  Passing no join or takeover preview action omits those controls.
+  Mac-only presentation, settings and takeovers remain in
+  `MinMaxCalFeatures`. `LinkedText` shares HTML sanitisation and
+  attributed text, importing AppKit or UIKit as needed. It converts
+  each notes string once and caches the result because the HTML
+  importer is slow and main-thread bound.
 - **MinMaxCalDomain**: entities and pure logic. Entities: `CalendarList`
   (identifier, title, colour, kind event or reminder, account name),
   `AgendaItem` (an event or a reminder: the set of member identifiers
@@ -235,10 +268,7 @@ flowchart TD
   violations appear.
 - **MinMaxCalFeatures**: SwiftUI views and `@Observable` view models,
   MainActor by default, given ports via injection. Three folders, one
-  per surface: `MenuBar` (the label, the agenda list and `AgendaModel`;
-  `LinkedText` converts each notes string once and keeps the result,
-  since AppKit's HTML importer is slow, main-thread bound and asked
-  for the same notes by every takeover window at once),
+  per surface: `MenuBar` (the label and agenda list),
   `Takeover` (`TakeoverModel`, the panel view and the AppKit window
   controller that puts one borderless window on each screen) and
   `Settings` (the tabs and `SettingsModel`, which lists the
@@ -275,9 +305,11 @@ Third-party imports: none. System frameworks are confined (P3):
 |---|---|
 | EventKit, ServiceManagement | MinMaxCalData |
 | IOKit (power-source notifications) | MinMaxCalData |
-| AppKit | MinMaxCalData (`NSWorkspace`) and MinMaxCalFeatures (windows) |
+| CoreGraphics (calendar colours) | MinMaxCalData |
+| AppKit | MinMaxCalData (`NSWorkspace`), MinMaxCalAgenda (notes) and MinMaxCalFeatures (windows) |
 | AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
-| SwiftUI | MinMaxCalFeatures and MinMaxCalApp |
+| SwiftUI | MinMaxCalAgenda, MinMaxCalFeatures and both app shells |
+| UIKit | the iOS app shell and shared notes importer on iOS |
 | AppIntents | MinMaxCalIntents and MinMaxCalApp (App Shortcuts) |
 
 ## Concurrency model
@@ -286,9 +318,11 @@ Third-party imports: none. System frameworks are confined (P3):
 |---|---|---|
 | MinMaxCalDomain | nonisolated | Sendable value types by construction |
 | MinMaxCalData | nonisolated | one actor, `EventKitCalendarSource` |
+| MinMaxCalAgenda | MainActor | shared agenda model and views |
 | MinMaxCalFeatures | MainActor | `@Observable` MainActor view models |
 | MinMaxCalIntents | nonisolated | `Sendable` intents hopping to the main actor |
 | MinMaxCalApp | MainActor | wiring only |
+| MinMaxCal-iOS | MainActor | agenda screen and scene lifecycle |
 
 All targets build with `SWIFT_DEFAULT_ACTOR_ISOLATION` set per the table,
 `SWIFT_APPROACHABLE_CONCURRENCY=YES` and the Swift 6 language mode.
@@ -715,7 +749,7 @@ yet: EventKit, ServiceManagement, AppKit and SwiftUI cover the whole
 app, and the rule exists so the first proposal is held to it.
 
 Toolchain: Xcode 27, the macOS 27 SDK and Swift 6.4. XcodeGen generates
-the app project from `project.yml`; the `.xcodeproj` is gitignored.
+both app targets from `project.yml`; the `.xcodeproj` is gitignored.
 SwiftLint and SwiftFormat run with every rule enabled; disagreements
 are disabled per line with a reason, and configuration excludes only
 rules that conflict with other enabled rules or tools, each with a
@@ -796,7 +830,8 @@ analyze job run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
 built, the tests passed and static analysis was clean (R2). The
-test job also runs the suite separately under Address Sanitizer and
+test job also builds the iOS app unsigned for a generic device and
+runs the suite separately under Address Sanitizer and
 Thread Sanitizer, each in its own build directory and stopping on its
 first finding. These instrument test builds only, so the shipped app
 keeps its normal Release configuration. The

@@ -17,5 +17,7 @@
 --trailingcommas multi-element-lists
 --extensionacl on-extension
 --self remove
+# Platform guards should not reindent an otherwise unchanged file.
+--ifdef no-indent
 # SwiftLint's modifier_order wants `nonisolated` ahead of access control.
 --modifierorder nonisolated,override,private,fileprivate,internal,package,public,open,private(set),fileprivate(set),internal(set),package(set),public(set),dynamic,mutating,nonmutating,lazy,final,required,convenience,static,class

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 import ServiceManagement
 
@@ -45,3 +46,4 @@ public struct SMAppServiceLoginItem: LoginItem {
         SMAppService.openSystemSettingsLoginItems()
     }
 }
+#endif

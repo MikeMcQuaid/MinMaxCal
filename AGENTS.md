@@ -43,6 +43,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 - `App/`: the app shell; `project.yml` defines the XcodeGen target
   (the generated `.xcodeproj` stays gitignored); `App/Icons` holds
   the icon sources and `App/Assets.xcassets` the catalogue
+- `iOSApp/`: the iPhone agenda shell; the `MinMaxCal-iOS` scheme
+  shares `MinMaxCalAgenda`, Data and Domain with the Mac
 - `script/`: development tasks
 - `Brewfile`: development dependencies
 - `.github/workflows/tests.yml`: CI; `release.yml`: the release
@@ -50,7 +52,7 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 
 ## Code Standards
 
-- Swift 6.4 with strict concurrency: App and Features targets use
+- Swift 6.4 with strict concurrency: App, Agenda and Features use
   MainActor default isolation; Domain, Data and Intents are
   nonisolated, and `EventKitCalendarSource` is the only actor
 - Every SwiftLint and SwiftFormat rule is enabled; disable per line
@@ -71,6 +73,9 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   view used by the agenda and the takeover alike. Before
   adding a second approach to any such concern, get explicit
   confirmation.
+- Use the macOS UI as the default on iOS. Share layout and behaviour,
+  including time columns, truncation and details expansion; keep only
+  platform sizing and system integration separate.
 - The menu bar title is the app: it must be correct within a minute
   of any change and never wider than the configured limit. Anything
   that delays or widens it is a bug.

@@ -20,12 +20,21 @@ nonisolated final class FakeCalendarSource: CalendarSource {
         set { state.withLock { $0.availableLists = newValue } }
     }
 
+    var access: AccessStatus {
+        get { state.withLock(\.access) }
+        set { state.withLock { $0.access = newValue } }
+    }
+
     var completed: [MemberIdentity] {
         state.withLock(\.completed)
     }
 
     var fetches: Int {
         state.withLock(\.fetches)
+    }
+
+    var selection: Selection {
+        state.withLock(\.selection)
     }
 
     var completionError: FakeError? {
@@ -52,6 +61,7 @@ nonisolated final class FakeCalendarSource: CalendarSource {
     func agenda(from _: Date, to _: Date, selection: Selection) -> [AgendaItem] {
         state.withLock { state in
             state.fetches += 1
+            state.selection = selection
             return selection.isEmpty ? [] : state.items
         }
     }
@@ -76,6 +86,7 @@ nonisolated final class FakeCalendarSource: CalendarSource {
         var availableLists: [CalendarList] = []
         var completed: [MemberIdentity] = []
         var fetches = 0
+        var selection: Selection = .empty
         var completionError: FakeError?
         var access: AccessStatus = .init(events: .full, reminders: .full)
     }

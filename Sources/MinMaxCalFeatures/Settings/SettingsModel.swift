@@ -1,4 +1,5 @@
 import Foundation
+import MinMaxCalAgenda
 import MinMaxCalData
 import MinMaxCalDomain
 import Observation

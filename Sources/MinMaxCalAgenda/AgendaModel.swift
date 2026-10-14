@@ -13,7 +13,7 @@ public final class AgendaModel {
     public init(
         source: any CalendarSource,
         settings: SettingsStore,
-        opener: any LinkOpener,
+        opener: (any LinkOpener)? = nil,
         systemChanges: AsyncStream<Void> = AsyncStream { $0.finish() },
         powerChanges: AsyncStream<Bool> = AsyncStream { $0.finish() },
         clock: @escaping @Sendable () -> Date = { Date() },
@@ -29,7 +29,6 @@ public final class AgendaModel {
         now = clock()
         titleLimit = settings.titleLimit
         rules = settings.matchingRules
-        (refreshRequests, refresh) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     }
 
     // MARK: Public
@@ -38,7 +37,7 @@ public final class AgendaModel {
     public private(set) var agenda: Agenda = .empty
     /// The clock reading of the last refresh or local tick.
     public private(set) var now: Date
-    /// The grants the app was given at launch.
+    /// The current Calendar and Reminders grants.
     public private(set) var access: AccessStatus = .notDetermined
     /// The matching rules of the last rebuild, for the views that tidy what they show.
     public private(set) var rules: MatchingRules
@@ -78,6 +77,12 @@ public final class AgendaModel {
     /// Requests access, then rebuilds for as long as the task lives. Triggers that arrive during a
     /// rebuild collapse into one more, so a burst of sync notifications costs two fetches, not a queue.
     public func run() async {
+        let (requests, continuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        refresh = continuation
+        defer { continuation.finish() }
+        if refreshRequired {
+            continuation.yield()
+        }
         let feeds = [source.changes, systemChanges, settings.changes]
         access = await source.requestAccess()
         await rebuild()
@@ -96,7 +101,7 @@ public final class AgendaModel {
             }
             var timer = scheduleTick()
             defer { timer.cancel() }
-            for await _ in refreshRequests {
+            for await _ in requests {
                 timer.cancel()
                 if refreshRequired {
                     refreshRequired = false
@@ -113,9 +118,15 @@ public final class AgendaModel {
     /// Fetches, filters, merges and publishes the agenda once.
     public func rebuild() async {
         let rebuildTime = clock()
+        publish(\.access, source.accessStatus())
         publish(\.now, rebuildTime)
         publish(\.titleLimit, settings.titleLimit)
-        let selection = settings.selection
+        let selection =
+            if settings.allCalendars {
+                await source.lists().reduce(into: Selection.empty) { $0.set($1, selected: true) }
+            } else {
+                settings.selection
+            }
         publish(\.rules, settings.matchingRules)
         publish(\.hasSelection, selection.isEmpty == false)
         let horizon = horizon(around: rebuildTime)
@@ -151,13 +162,13 @@ public final class AgendaModel {
 
     /// Opens a call link in the app Settings chose for its service.
     public func join(_ link: JoinLink) {
-        opener.open(link, in: settings.join[link.service])
+        opener?.open(link, in: settings.join[link.service])
     }
 
     /// Asks the loop for a rebuild.
     public func requestRefresh() {
         refreshRequired = true
-        refresh.yield()
+        refresh?.yield()
     }
 
     // MARK: Internal
@@ -178,7 +189,7 @@ public final class AgendaModel {
         }
 
         powerSaving = saving
-        refresh.yield()
+        refresh?.yield()
     }
 
     func tick() async {
@@ -215,13 +226,12 @@ public final class AgendaModel {
 
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
-    @ObservationIgnored private let opener: any LinkOpener
+    @ObservationIgnored private let opener: (any LinkOpener)?
     @ObservationIgnored private let systemChanges: AsyncStream<Void>
     @ObservationIgnored private let powerChanges: AsyncStream<Bool>
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let calendar: Calendar
-    @ObservationIgnored private let refreshRequests: AsyncStream<Void>
-    @ObservationIgnored private let refresh: AsyncStream<Void>.Continuation
+    @ObservationIgnored private var refresh: AsyncStream<Void>.Continuation?
     @ObservationIgnored private var recentlyCompleted: [(item: AgendaItem, at: Date)] = []
     @ObservationIgnored private var lastFetchedAt: Date?
     @ObservationIgnored private var refreshRequired = false
@@ -240,7 +250,7 @@ public final class AgendaModel {
         return Task { [refresh] in
             do {
                 try await Task.sleep(for: .seconds(delay), tolerance: .seconds(Self.tickTolerance))
-                refresh.yield()
+                refresh?.yield()
             } catch {
                 return
             }
