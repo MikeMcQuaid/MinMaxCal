@@ -756,6 +756,9 @@ app, and the rule exists so the first proposal is held to it.
 
 Toolchain: Xcode 27, the macOS 27 SDK and Swift 6.4. XcodeGen generates
 both app targets from `project.yml`; the `.xcodeproj` is gitignored.
+Both targets enable dead code stripping, user script sandboxing and
+generated asset and string catalogue symbols. The explicit `arm64`
+architecture keeps Mac releases limited to Apple silicon.
 SwiftLint and SwiftFormat run with every rule enabled; disagreements
 are disabled per line with a reason, and configuration excludes only
 rules that conflict with other enabled rules or tools, each with a
