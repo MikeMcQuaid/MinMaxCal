@@ -33,7 +33,9 @@ struct SystemChangesTests {
         )
         agenda.onRebuild = takeover.schedule
         source.items = [Fixtures.reminder("reminder", dueIn: 0)]
-        let loop = Task { await agenda.run() }
+        let loop = Task {
+            await agenda.run()
+        }
         defer { loop.cancel() }
         let shownDeadline = ContinuousClock.now + .seconds(5)
         while takeover.current == nil, ContinuousClock.now < shownDeadline {

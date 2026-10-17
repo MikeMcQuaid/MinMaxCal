@@ -5,6 +5,7 @@ import SwiftUI
 struct SyncReportView: View {
     // MARK: Internal
 
+    // swiftformat:disable:next privateSwiftUIDynamicProperties -- injected through the memberwise initialiser
     @Bindable var model: CalendarSyncModel
 
     let calendars: [CalendarList]
@@ -34,7 +35,11 @@ struct SyncReportView: View {
             },
         )) {
             if let removal {
-                Button("Remove Copy", role: .destructive) { Task { await model.removeLegacy(removal) } }
+                Button("Remove Copy", role: .destructive) {
+                    Task {
+                        await model.removeLegacy(removal)
+                    }
+                }
             }
         } message: {
             Text("MinMaxCal could not identify its original event. Check the calendar and time before removing it.")
@@ -74,7 +79,9 @@ struct SyncReportView: View {
             }
             if model.configuration.mode == .compare {
                 Button("Check Proposed Changes", systemImage: "checkmark.circle") {
-                    Task { await model.refresh(rehearsing: true) }
+                    Task {
+                        await model.refresh(rehearsing: true)
+                    }
                 }
                 .buttonStyle(.glass)
                 .disabled(checkDisabled)

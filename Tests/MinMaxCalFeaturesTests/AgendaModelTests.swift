@@ -100,7 +100,9 @@ struct AgendaModelTests {
 
     @Test
     func `a burst of refresh requests collapses into one rebuild`() async throws {
-        let loop = Task { await model.run() }
+        let loop = Task {
+            await model.run()
+        }
         for _ in 0 ..< 20 {
             model.requestRefresh()
         }

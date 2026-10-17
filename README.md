@@ -120,8 +120,9 @@ compact rows with larger system text sizes too.
   duration, dismissing instead when snooze is unavailable. The takeover
   closes automatically when its event ends or its reminder is completed,
   including in another app, and returns focus to the previous app.
-- MinMaxCal starts at login by default. Settings can turn this off and
-  open the system approval pane when required.
+- Direct downloads start at login by default. App Store builds leave
+  this off until enabled in Settings, which also opens the system
+  approval pane when required.
 - Calendar changes refresh immediately. Idle fallback refreshes run
   every five minutes on mains power and every fifteen minutes on
   battery or in Low Power Mode. Countdowns still update each minute
@@ -260,6 +261,10 @@ me.
 
 [Mike McQuaid](mailto:mike@mikemcquaid.com)
 
+The [privacy policy](PRIVACY.md) explains local storage, calendar
+mirroring and exported reports. Settings links to it and support on
+both platforms.
+
 ## 📄 Licence
 
-[AGPL-3.0](LICENSE).
+[AGPL-3.0](LICENSE) with an [App Store exception](LICENSE-EXCEPTION).

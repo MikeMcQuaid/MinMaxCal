@@ -77,6 +77,22 @@ struct SettingsModelTests {
     }
 
     @Test
+    func `store builds register only after opting in`() {
+        model.registerLoginItemOnFirstInstalledLaunch(automatically: false)
+        #expect(loginItem.status == .notRegistered)
+        #expect(store.hasRegisteredLoginItem == false)
+
+        model.launchAtLogin = true
+        model.registerLoginItemOnFirstInstalledLaunch(automatically: false)
+        #expect(loginItem.status == .enabled)
+        #expect(model.launchAtLogin)
+
+        model.launchAtLogin = false
+        model.registerLoginItemOnFirstInstalledLaunch(automatically: false)
+        #expect(loginItem.status == .notRegistered)
+    }
+
+    @Test
     func `development builds never register`() {
         loginItem.isInstalledCopy = false
         model.registerLoginItemOnFirstInstalledLaunch()

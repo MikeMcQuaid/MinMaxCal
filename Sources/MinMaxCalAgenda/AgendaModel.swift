@@ -13,7 +13,7 @@ public final class AgendaModel {
     public init(
         source: any CalendarSource,
         settings: SettingsStore,
-        opener: (any LinkOpener)? = nil,
+        opener: any LinkOpener? = nil,
         systemChanges: AsyncStream<Void> = AsyncStream { $0.finish() },
         powerChanges: AsyncStream<Bool> = AsyncStream { $0.finish() },
         clock: @escaping @Sendable () -> Date = { Date() },
@@ -226,7 +226,7 @@ public final class AgendaModel {
 
     @ObservationIgnored private let source: any CalendarSource
     @ObservationIgnored private let settings: SettingsStore
-    @ObservationIgnored private let opener: (any LinkOpener)?
+    @ObservationIgnored private let opener: any LinkOpener?
     @ObservationIgnored private let systemChanges: AsyncStream<Void>
     @ObservationIgnored private let powerChanges: AsyncStream<Bool>
     @ObservationIgnored private let clock: @Sendable () -> Date

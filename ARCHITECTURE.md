@@ -99,7 +99,7 @@ Boundary facts the design relies on:
 
 ## Process model and lifecycles
 
-The app process is the only process. It starts at login as a login item
+The app process is the only process. It can start at login as a login item
 (`SMAppService.mainApp`), stays resident as a menu bar item and quits
 only from the agenda's footer. There is no helper, no daemon and no
 notification spool: a takeover needs the app running, which is what
@@ -646,7 +646,7 @@ part of it is exercised without a calendar.
 
 ### Launch at login (Always there)
 
-The installed app (`/Applications/MinMaxCal.app`, the only path
+The directly distributed app (`/Applications/MinMaxCal.app`, the only path
 `SMAppService` should ever point launchd at) calls
 `SMAppService.mainApp.register()` on its first launch and records that
 it did in `UserDefaults`, so a user who turns it off stays off. The
@@ -654,6 +654,8 @@ General tab reflects `status`: `.requiresApproval` shows an explanation
 and a button calling `SMAppService.openSystemSettingsLoginItems()`.
 Development builds never register: a login item pointing at a build
 directory breaks the moment the directory changes.
+The `AppStore` configuration disables automatic registration; the user
+opts in through General. Existing login item registrations are retained.
 
 ### Icons (Always there)
 
@@ -684,7 +686,7 @@ the compiled icon.
 |---|---|---|
 | Events, reminders, attendees, responses, calendars, accounts | EventKit | read on every change, convert, never cache across launches |
 | Reminder completion, its undo and enabled calendar copies | EventKit | write through the EventKit actor |
-| Login item registration | launchd via `SMAppService` | register once, reflect status |
+| Login item registration | launchd via `SMAppService` | register on opt-in or a direct download's first launch, reflect status |
 | Selected calendars and lists, matching rules, takeover switches, sound and snooze durations, join apps, title limit | `UserDefaults` | sole owner |
 | Dismissed and snoozed takeovers | `Application Support/MinMaxCal/takeovers.json` inside the app's sandbox container | sole owner, pruned daily |
 | Sync rules and mode | `UserDefaults` | off by default |
@@ -702,6 +704,10 @@ silence is stored as `null` and kept.
 - There is no network code, no analytics and no log line containing a
   title, a note or an attendee. Enabled mirroring shares the selected
   fields through the destination calendar's existing account.
+- Both app bundles include the shared `PrivacyInfo.xcprivacy`, declaring
+  no tracking or collected data and `CA92.1` for the app's own
+  `UserDefaults`. Both declare no non-exempt encryption. The shared
+  About links expose `PRIVACY.md` and support contact details.
 - Link detection (P6) only ever emits, for Zoom, `https://<zoom
   host>/j/<id>` and `zoommtg://zoom.us/...` built from a numeric
   meeting id and a passcode limited to URL-safe characters, for Teams,
@@ -725,8 +731,8 @@ silence is stored as `null` and kept.
   its text, built by the app.
 - The app runs in the App Sandbox with the calendars entitlement
   (`com.apple.security.personal-information.calendars`, which covers
-  reminders) and nothing else, and with the hardened runtime for
-  notarisation.
+  reminders) and user-selected file access for exported reports, with
+  the hardened runtime for notarisation.
 
 Never-do list:
 
@@ -797,9 +803,10 @@ both linters so conflicting fixes cannot silently pass.
 
 Further checks include SwiftLint and SwiftFormat with every rule enabled
 at `script/style`
-(`.swiftformat` enables everything and settles per-line disagreements
-in the code; `.swiftlint.yml` names each SwiftLint rule it turns off
-and the rule or SwiftFormat behaviour it conflicts with;
+(`.swiftformat` requires SwiftFormat 0.64.0 or later, enables everything
+and settles per-line disagreements in the code; `.swiftlint.yml` names
+each SwiftLint rule it turns off and the rule or SwiftFormat behaviour
+it conflicts with;
 `Tests/.swiftlint.yml` relaxes the magic number and default parameter
 rules for fixtures); shellcheck, shfmt, actionlint and zizmor over the
 scripts and workflows in the same `script/style`; SwiftLint's analyzer
@@ -856,6 +863,33 @@ on Fridays at 08:00 UTC with a seven-day cooldown. There are currently
 no external Swift dependencies, so the Swift group has nothing to update.
 
 ### Releases
+
+#### App Store builds
+
+Both platforms use `com.mikemcquaid.MinMaxCal` for one free App Store
+Connect record. The iPhone preview's former `.iOS` identifier has a
+separate container; changing it does not migrate its settings.
+The source remains AGPL-3.0 with the additional permission in
+`LICENSE-EXCEPTION` for App Store distribution.
+
+Generate the project, select the paid Developer Program team in
+Signing & Capabilities and archive `MinMaxCal-AppStore` for Mac or
+`MinMaxCal-iOS` for iPhone. The Mac scheme uses the `AppStore` release
+configuration with automatic signing and the `APP_STORE` compilation
+condition. Set a release version and an unused, increasing build
+number before each upload. Validate and distribute through Xcode
+Organizer to App Store Connect; `script/package` remains the Developer
+ID and notarisation path for direct downloads.
+
+Before submission, publish the privacy policy at its About link and
+complete the listing's privacy answers, support URL, age rating,
+screenshots, trader status and review notes. The reviewed code supports
+declaring Data Not Collected. Test both signed apps with real calendar accounts,
+including denied permissions, reminder Undo and the Mac's takeovers,
+mirroring, join links and opt-in login item. Store acceptance still
+requires Apple's archive validation and review.
+
+#### Direct downloads
 
 Three scripts turn a checkout into the artefact a release ships, split
 so that only the last needs credentials:

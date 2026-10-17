@@ -34,7 +34,9 @@ struct CalendarSyncRefreshTests {
         await model.refresh()
         let checked = model.lastChecked
         let writes = model.report.writes.map(\.link.id)
-        let refresh = Task { await model.refresh() }
+        let refresh = Task {
+            await model.refresh()
+        }
         var iterator = started.makeAsyncIterator()
         await iterator.next()
         #expect(model.isRunning)
