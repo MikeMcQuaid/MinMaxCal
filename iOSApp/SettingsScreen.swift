@@ -8,6 +8,7 @@ struct SettingsScreen: View {
 
     let source: any CalendarSource
 
+    // swiftformat:disable:next privateSwiftUIDynamicProperties -- injected through the memberwise initialiser
     @Bindable var store: SettingsStore
 
     var body: some View {

@@ -32,8 +32,11 @@ public struct SyncPlanner {
         for policy in policies where policy.isEnabled {
             guard policy.hasAvailableCalendars(in: calendars),
                   policies
-                  .count(where: { $0.isEnabled && $0.source == policy.source && $0.destination == policy.destination })
-                  == 1
+                      .count(where: { candidate in
+                          candidate.isEnabled && candidate.source == policy.source
+                              && candidate.destination == policy.destination
+                      })
+                      == 1
             else {
                 result.issues.append("A sync pair has missing, duplicate or unsupported calendars.")
                 continue

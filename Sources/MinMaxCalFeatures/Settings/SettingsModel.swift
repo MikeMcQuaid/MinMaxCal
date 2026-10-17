@@ -125,9 +125,9 @@ public final class SettingsModel {
         )
     }
 
-    /// Registers the login item once, and only for the copy in /Applications.
-    public func registerLoginItemOnFirstInstalledLaunch() {
-        guard loginItem.isInstalledCopy, store.hasRegisteredLoginItem == false else {
+    /// Registers direct downloads once; Store builds require the Settings toggle.
+    public func registerLoginItemOnFirstInstalledLaunch(automatically: Bool = true) {
+        guard automatically, loginItem.isInstalledCopy, store.hasRegisteredLoginItem == false else {
             return
         }
 

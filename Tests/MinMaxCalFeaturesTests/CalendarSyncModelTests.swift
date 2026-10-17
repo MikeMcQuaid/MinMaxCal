@@ -142,7 +142,9 @@ struct CalendarSyncModelTests {
             ledger: SyncLedgerStore(file: Fixtures.scratchDirectory().appending(path: "sync.json")),
             clock: Fixtures.clock,
         )
-        let refresh = Task { await model.refresh() }
+        let refresh = Task {
+            await model.refresh()
+        }
         var iterator = started.makeAsyncIterator()
         await iterator.next()
         model.configuration.mode = .compare

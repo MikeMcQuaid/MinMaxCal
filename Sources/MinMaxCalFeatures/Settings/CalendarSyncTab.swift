@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarSyncTab: View {
     // MARK: Internal
 
+    // swiftformat:disable:next privateSwiftUIDynamicProperties -- injected through the memberwise initialiser
     @Bindable var model: CalendarSyncModel
 
     let calendars: [CalendarList]
@@ -19,7 +20,11 @@ struct CalendarSyncTab: View {
                         hasCopies: model.links.contains { $0.policy == policy.id && $0.isManaged },
                         canRemoveCopies: model.configuration.mode == .sync && model.isRunning == false,
                         previewRemoval: { try await model.removalPreview(for: policy.id) },
-                        removeCopies: { writes in Task { await model.removeCopies(writes, for: policy.id) } },
+                        removeCopies: { writes in
+                            Task {
+                                await model.removeCopies(writes, for: policy.id)
+                            }
+                        },
                         removeRule: { model.configuration.policies.removeAll { $0.id == policy.id } },
                     )
                 }

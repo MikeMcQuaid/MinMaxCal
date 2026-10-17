@@ -57,8 +57,16 @@ public struct AgendaEntry: View {
             item: item,
             style: .agenda,
             onJoin: onJoin,
-            onComplete: { Task { await model.complete(item) } },
-            onUncomplete: { Task { await model.uncomplete(item) } },
+            onComplete: {
+                Task {
+                    await model.complete(item)
+                }
+            },
+            onUncomplete: {
+                Task {
+                    await model.uncomplete(item)
+                }
+            },
         )
         .contentShape(AgendaRow.contentShapeKinds, RoundedRectangle(cornerRadius: Self.focusRadius))
         .background {

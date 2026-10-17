@@ -82,7 +82,9 @@ public struct TakeoverView: View {
                 .keyboardShortcut(model.snoozeMinutes.isEmpty ? nil : .cancelAction)
                 .fixedSize()
                 CompleteButton(isPrimary: completeIsPrimary) {
-                    Task { await model.complete() }
+                    Task {
+                        await model.complete()
+                    }
                 }
             }
         }

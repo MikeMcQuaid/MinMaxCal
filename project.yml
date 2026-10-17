@@ -1,7 +1,12 @@
 name: MinMaxCal
+configs:
+  Debug: debug
+  Release: release
+  AppStore: release
 options:
   bundleIdPrefix: com.mikemcquaid
   createIntermediateGroups: true
+  defaultConfig: Debug
   deploymentTarget:
     macOS: "26.0"
     iOS: "26.0"
@@ -62,6 +67,8 @@ targets:
       - path: App/Icons/AppIcon.icon
         type: file
         buildPhase: resources
+      - path: PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: MinMaxCal
         product: MinMaxCalAgenda
@@ -76,6 +83,7 @@ targets:
     configFiles:
       Debug: Version.xcconfig
       Release: Version.xcconfig
+      AppStore: Version.xcconfig
     scheme:
       preActions:
         - name: Set version from Git
@@ -85,7 +93,6 @@ targets:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: App/MinMaxCal.entitlements
-        CODE_SIGN_IDENTITY: "-"
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_HARDENED_RUNTIME: YES
         INFOPLIST_FILE: App/Info.plist
@@ -94,6 +101,14 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+        Release:
+          CODE_SIGN_IDENTITY: "-"
+        AppStore:
+          CODE_SIGN_STYLE: Automatic
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) APP_STORE
   MinMaxCal-iOS:
     type: application
     platform: iOS
@@ -103,6 +118,8 @@ targets:
           - Info.plist
       - path: App/Icons/AppIcon.icon
         type: file
+        buildPhase: resources
+      - path: PrivacyInfo.xcprivacy
         buildPhase: resources
     dependencies:
       - package: MinMaxCal
@@ -118,7 +135,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: iOSApp/Info.plist
         MARKETING_VERSION: "0.1.0"
-        PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal.iOS
+        PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal
         PRODUCT_NAME: MinMaxCal
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
@@ -128,3 +145,26 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  MinMaxCal-iOS:
+    build:
+      targets:
+        MinMaxCal-iOS: all
+    archive:
+      config: AppStore
+  MinMaxCal-AppStore:
+    build:
+      targets:
+        MinMaxCal: all
+      preActions:
+        - name: Set version from Git
+          settingsTarget: MinMaxCal
+          script: '"${PROJECT_DIR}/script/version"'
+    run:
+      config: AppStore
+    profile:
+      config: AppStore
+    analyze:
+      config: AppStore
+    archive:
+      config: AppStore

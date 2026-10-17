@@ -51,10 +51,16 @@ struct MinMaxCalApp: App, AppIntentsPackage {
             opener: opener,
         )
         settingsModel.sync = sync
+        #if APP_STORE
+        settingsModel.registerLoginItemOnFirstInstalledLaunch(automatically: false)
+        #else
         settingsModel.registerLoginItemOnFirstInstalledLaunch()
+        #endif
         // The loop lives as long as the app: nothing in a menu bar app
         // owns a view that is reliably alive to host it as a `.task`.
-        Task { await agendaModel.run() }
+        Task {
+            await agendaModel.run()
+        }
         agenda = agendaModel
         settings = settingsModel
     }

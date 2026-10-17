@@ -6,6 +6,7 @@ import SwiftUI
 struct GeneralTab: View {
     // MARK: Internal
 
+    // swiftformat:disable:next privateSwiftUIDynamicProperties -- injected through the memberwise initialiser
     @Bindable var model: SettingsModel
 
     var body: some View {
@@ -36,7 +37,7 @@ struct GeneralTab: View {
                 }
             }
         } footer: {
-            Text("A takeover needs the app running, so it starts with you and stays in the menu bar.")
+            Text("A takeover needs the app running. Enable launch at login to keep it ready in the menu bar.")
         }
     }
 

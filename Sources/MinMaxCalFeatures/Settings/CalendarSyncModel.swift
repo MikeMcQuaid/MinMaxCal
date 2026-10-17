@@ -23,7 +23,11 @@ public final class CalendarSyncModel {
         self.clock = clock
         self.calendar = calendar
         configuration = settings.sync
-        do { links = try ledger.load() } catch { errorMessage = error.localizedDescription }
+        do {
+            links = try ledger.load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     // MARK: Public
@@ -66,7 +70,9 @@ public final class CalendarSyncModel {
             refreshPending = true
             return
         }
-        Task { await self.refresh() }
+        Task {
+            await self.refresh()
+        }
     }
 
     /// Checks once, with at most one pending follow-up at a time.

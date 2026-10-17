@@ -23,7 +23,9 @@ struct AgendaRefreshLoopTests {
     @Test
     func `calendar and system changes still fetch immediately on battery`() async throws {
         powerChanges.continuation.yield(true)
-        let loop = Task { await model.run() }
+        let loop = Task {
+            await model.run()
+        }
         defer { loop.cancel() }
         try await waitForFetches(1)
 
@@ -45,7 +47,9 @@ struct AgendaRefreshLoopTests {
     @Test
     func `switching to mains fetches when its shorter fallback is already due`() async throws {
         powerChanges.continuation.yield(true)
-        let loop = Task { await model.run() }
+        let loop = Task {
+            await model.run()
+        }
         defer { loop.cancel() }
         try await waitForFetches(1)
         let deadline = ContinuousClock.now + .seconds(5)
@@ -63,7 +67,9 @@ struct AgendaRefreshLoopTests {
 
     @Test
     func `a power update cannot overwrite a pending fetch request`() async throws {
-        let loop = Task { await model.run() }
+        let loop = Task {
+            await model.run()
+        }
         defer { loop.cancel() }
         try await waitForFetches(1)
 
@@ -77,12 +83,16 @@ struct AgendaRefreshLoopTests {
 
     @Test
     func `a restarted view task still accepts refresh requests`() async throws {
-        var loop = Task { await model.run() }
+        var loop = Task {
+            await model.run()
+        }
         try await waitForFetches(1)
         loop.cancel()
         await loop.value
 
-        loop = Task { await model.run() }
+        loop = Task {
+            await model.run()
+        }
         defer { loop.cancel() }
         try await waitForFetches(2)
 

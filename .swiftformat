@@ -3,6 +3,7 @@
 # The options only pick sides where a rule could otherwise disagree with
 # SwiftLint.
 --enable all
+--min-version 0.64.0
 --swiftversion 6.4
 --exclude .build,.test-scratch,MinMaxCal.xcodeproj
 --maxwidth 120
