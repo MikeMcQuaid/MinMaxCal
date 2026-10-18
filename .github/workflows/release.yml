@@ -8,21 +8,11 @@ on:
         description: Bare MAJOR.MINOR.PATCH version, for example 0.1.0
         required: true
         type: string
-  # Dry run whenever the release process itself changes, so it cannot
+  # Dry run whenever this workflow changes, so it cannot
   # rot unnoticed between releases.
   push:
     paths:
       - .github/workflows/release.yml
-      - App/Info.plist
-      - App/MinMaxCal.entitlements
-      - Package.resolved
-      - Package.swift
-      - Version.xcconfig
-      - project.yml
-      - script/build
-      - script/package
-      - script/version
-      - script/zip
 
 defaults:
   run:

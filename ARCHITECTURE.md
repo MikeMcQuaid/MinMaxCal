@@ -850,8 +850,8 @@ touches the user's real calendars: EventKit access is only ever
 requested by the app itself.
 
 CI ("GitHub Actions CI" in `.github/workflows/tests.yml`) runs the style
-checks on every push and pull request. The build-and-test job and the
-analyze job run in parallel on GitHub's Xcode 27 public-preview image
+checks on pushes to `main` and pull requests. The build-and-test and
+analyze jobs run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
 built, the tests passed and static analysis was clean (R2). The
@@ -859,13 +859,8 @@ test job also builds the iOS app and its embedded watchOS app unsigned
 for generic devices and runs the suite under Address Sanitizer and
 Thread Sanitizer, each in its own build directory and stopping on its
 first finding. These instrument test builds only, so the shipped app
-keeps its normal Release configuration. The
-build-and-test job zips the app it built and, when the run has the
-repository secrets, signs and notarises it first; pull requests from
-forks and Dependabot have no secrets, so their signing step is skipped
-(a job-level `HAS_SIGNING_SECRETS` flag, since a step's `if` cannot
-read secrets directly) and their zip stays ad hoc signed. Either way
-the zip is uploaded as the run's `MinMaxCal` artifact.
+keeps its normal Release configuration. Packaging, signing and
+notarisation run only in the Release workflow.
 
 The test and release build jobs cache SwiftPM's download cache at
 `~/Library/Caches/org.swift.swiftpm` and dependency checkouts and
@@ -978,7 +973,7 @@ calendar access and UI interactions still need host testing. Only after
 both pass does a separate publishing job automatically tag the original
 commit and create the GitHub release with generated notes and that exact
 zip.
-A push that touches the workflow, packaging scripts or metadata uses
+A push that touches `.github/workflows/release.yml` uses
 `9999.0.0` as a reserved valid local-only version and
 repeats the build, signing, notarisation and startup checks as a dry run,
 uploading the test artefact but pushing no tag or release. It only lists
