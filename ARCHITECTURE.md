@@ -26,6 +26,17 @@ Each run creates a fresh refresh stream so a cancelled view task can
 restart without losing updates. Rebuilds recheck permissions and lists,
 including changes made while the app was away.
 
+The watchOS 26 app in `watchOSApp/`, built by `MinMaxCal-watchOS`,
+composes the same `AgendaModel` and `AgendaRow` into a read-only list.
+Rows stack full titles above times and omit actions. All locally
+available calendars and reminder lists are included, with default
+matching rules. EventKit reads run on the watch; there is no app-level
+phone synchronisation or persisted agenda. The refresh task runs only
+while the scene is active, uses the battery fallback interval and
+rechecks access on each activation. EventKit writes and the unused
+desktop and phone detail views are excluded from watchOS. The watch
+target is embedded in the iPhone app and can run independently.
+
 The architectural thesis, referenced throughout: **EventKit owns calendar
 content**. EventKit is the source of truth for every event,
 reminder, attendee and calendar; the app reads it on demand, converts it
@@ -187,6 +198,7 @@ is committed, the `.xcodeproj` is gitignored).
 flowchart TD
     App["MinMaxCalApp<br/>(composition root)"]
     iOS["MinMaxCal-iOS<br/>(single agenda screen)"]
+    watchOS["MinMaxCal-watchOS<br/>(read-only agenda)"]
     Agenda["MinMaxCalAgenda<br/>(shared model, rows and buttons)"]
     Features["MinMaxCalFeatures<br/>(MenuBar, Takeover, Settings)"]
     Intents["MinMaxCalIntents<br/>(App Intents)"]
@@ -195,6 +207,7 @@ flowchart TD
 
     App --> Features & Agenda & Data & Intents
     iOS --> Agenda & Data
+    watchOS --> Agenda & Data
     Intents --> Features & Agenda & Domain
     Features --> Agenda & Domain
     Agenda --> Data & Domain
@@ -323,6 +336,7 @@ Third-party imports: none. System frameworks are confined (P3):
 | MinMaxCalIntents | nonisolated | `Sendable` intents hopping to the main actor |
 | MinMaxCalApp | MainActor | wiring only |
 | MinMaxCal-iOS | MainActor | agenda screen and scene lifecycle |
+| MinMaxCal-watchOS | MainActor | read-only agenda and scene lifecycle |
 
 All targets build with `SWIFT_DEFAULT_ACTOR_ISOLATION` set per the table,
 `SWIFT_APPROACHABLE_CONCURRENCY=YES` and the Swift 6 language mode.
@@ -755,10 +769,11 @@ yet: EventKit, ServiceManagement, AppKit and SwiftUI cover the whole
 app, and the rule exists so the first proposal is held to it.
 
 Toolchain: Xcode 27, the macOS 27 SDK and Swift 6.4. XcodeGen generates
-both app targets from `project.yml`; the `.xcodeproj` is gitignored.
-Both targets enable dead code stripping, user script sandboxing and
-generated asset and string catalogue symbols. The explicit `arm64`
-architecture keeps Mac releases limited to Apple silicon.
+the Mac, iPhone and watch app targets from `project.yml`; the
+`.xcodeproj` is gitignored. All targets enable dead code stripping,
+user script sandboxing and generated asset and string catalogue
+symbols. The explicit `arm64` architecture keeps Mac releases limited
+to Apple silicon.
 SwiftLint and SwiftFormat run with every rule enabled; disagreements
 are disabled per line with a reason, and configuration excludes only
 rules that conflict with other enabled rules or tools, each with a
@@ -840,8 +855,8 @@ analyze job run in parallel on GitHub's Xcode 27 public-preview image
 (`runs-on: xcode-27`, arm64 only) and both assert Xcode 27 is present,
 failing rather than skipping, so a green run always means the app
 built, the tests passed and static analysis was clean (R2). The
-test job also builds the iOS app unsigned for a generic device and
-runs the suite separately under Address Sanitizer and
+test job also builds the iOS app and its embedded watchOS app unsigned
+for generic devices and runs the suite under Address Sanitizer and
 Thread Sanitizer, each in its own build directory and stopping on its
 first finding. These instrument test builds only, so the shipped app
 keeps its normal Release configuration. The
@@ -869,8 +884,9 @@ no external Swift dependencies, so the Swift group has nothing to update.
 
 #### App Store builds
 
-Both platforms use `com.mikemcquaid.MinMaxCal` for one free App Store
-Connect record. The iPhone preview's former `.iOS` identifier has a
+The Mac and iPhone apps use `com.mikemcquaid.MinMaxCal` for one free
+App Store Connect record. The embedded watch app adds `.watchkitapp`
+to that identifier. The iPhone preview's former `.iOS` identifier has a
 separate container; changing it does not migrate its settings.
 The source remains AGPL-3.0 with the additional permission in
 `LICENSE-EXCEPTION` for App Store distribution.
@@ -880,9 +896,10 @@ Signing & Capabilities and archive `MinMaxCal-AppStore` for Mac or
 `MinMaxCal-iOS` for iPhone. The Mac scheme uses the `AppStore` release
 configuration with automatic signing and the `APP_STORE` compilation
 condition. Set a release version and an unused, increasing build
-number before each upload. Validate and distribute through Xcode
-Organizer to App Store Connect; `script/package` remains the Developer
-ID and notarisation path for direct downloads.
+number before each upload, keeping the watch target's version and build
+number aligned with the iPhone target. Validate and distribute through
+Xcode Organizer to App Store Connect; `script/package` remains the
+Developer ID and notarisation path for direct downloads.
 
 Before submission, publish the privacy policy at its About link and
 complete the listing's privacy answers, support URL, age rating,

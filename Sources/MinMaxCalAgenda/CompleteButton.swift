@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 
 /// Completes a reminder: prominent with Return in a takeover, a plain glass icon in a row. Once
@@ -36,3 +37,4 @@ public struct CompleteButton: View {
     private let undo: Bool
     private let action: () -> Void
 }
+#endif

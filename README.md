@@ -86,6 +86,25 @@ compact rows with larger system text sizes too.
 [run-on-device]: https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices
 [developer-mode]: https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device
 
+## ⌚ Apple Watch preview
+
+The watchOS 26 app shows a read-only agenda for today and tomorrow,
+with full titles, times and calendar colours. It reads all calendars
+and reminder lists available on the watch, using the shared default
+merging and filtering rules. Overdue reminders stay visible; reminders
+without a due date are omitted. The agenda refreshes when opened,
+when EventKit reports changes and periodically while active.
+
+Allow Calendar and Reminders access when prompted; either permission
+can be declined independently. System accounts supply the watch's
+data. The app has no complications, editing controls or settings sync.
+
+To run it, install watchOS platform support in Xcode 27, run
+`script/bootstrap` and select **MinMaxCal-watchOS** with your paired
+Apple Watch as the destination. Choose your signing team for the
+iPhone and watch targets, enable Developer Mode on the watch and run.
+The watch app is included with the iPhone app and can run independently.
+
 ## ✨ Features
 
 - The menu bar item shows the app icon, the next item's title and a

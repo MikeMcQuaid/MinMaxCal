@@ -1,10 +1,11 @@
+#if !os(watchOS)
 import EventKit
 import Foundation
 import MinMaxCalDomain
 
-public extension EventKitCalendarSource {
+extension EventKitCalendarSource: CalendarSyncSource {
     /// Fetches the window and known copies moved outside it.
-    func syncSnapshot(
+    public func syncSnapshot(
         policies: [SyncPolicy], links: [SyncLink], interval: DateInterval,
     ) throws -> (calendars: [CalendarList], events: [SyncEvent]) {
         guard accessStatus().events == .full else {
@@ -34,7 +35,7 @@ public extension EventKitCalendarSource {
     }
 
     /// Revalidates content and ownership before each mutation.
-    func applySync(_ write: SyncWrite) throws -> SyncIdentity? {
+    public func applySync(_ write: SyncWrite) throws -> SyncIdentity? {
         let event = try validatedEvent(for: write)
         switch write {
         case let .save(_, _, _, content):
@@ -51,7 +52,7 @@ public extension EventKitCalendarSource {
     }
 
     /// Checks the live prerequisites and prepares fields without changing a stored event.
-    func rehearseSync(_ write: SyncWrite) throws {
+    public func rehearseSync(_ write: SyncWrite) throws {
         let event = try validatedEvent(for: write)
         if case let .save(_, _, _, content) = write {
             let draft = EKEvent(eventStore: store)
@@ -61,7 +62,7 @@ public extension EventKitCalendarSource {
     }
 
     /// Removes a reviewed legacy copy within the window.
-    func removeLegacyCopy(_ event: SyncEvent, interval: DateInterval) throws {
+    public func removeLegacyCopy(_ event: SyncEvent, interval: DateInterval) throws {
         guard accessStatus().events == .full else {
             throw SyncError.access
         }
@@ -148,3 +149,4 @@ public extension EventKitCalendarSource {
         }
     }
 }
+#endif

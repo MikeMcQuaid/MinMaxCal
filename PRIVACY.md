@@ -3,14 +3,15 @@
 MinMaxCal processes your calendars and reminders on your device. It
 has no developer-operated server, analytics, advertising or tracking
 and does not send your calendar or reminder data to its developer.
-This policy covers the iPhone and Mac apps.
+This policy covers the iPhone, Mac and Apple Watch apps.
 
 ## Calendar and reminder access
 
 With your permission, MinMaxCal reads events, reminders and their
 details from your system accounts to display the agenda. Full Calendar
 access is required to read events. On iPhone, events are read-only.
-Both apps can complete reminders and undo those completions.
+The iPhone and Mac apps can complete reminders and undo completions.
+The Apple Watch app only reads events and reminders.
 
 On Mac, optional calendar mirroring copies the fields you select into
 your chosen destination calendar. Your system accounts synchronise

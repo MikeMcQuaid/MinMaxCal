@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 
 struct NotesText: View {
@@ -18,3 +19,4 @@ struct NotesText: View {
 
     private let notes: String
 }
+#endif

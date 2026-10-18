@@ -36,13 +36,24 @@ public struct AgendaRow: View {
                 size: style == .agenda ? Self.agendaMarkSize : Self.takeoverMarkSize,
             )
             .padding(.trailing, style == .agenda ? 0 : Self.takeoverMarkGap)
+            #if os(watchOS)
+            VStack(alignment: .leading, spacing: Self.spacing) {
+                title
+                Text(range)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            #else
             title
                 .frame(maxWidth: .infinity, alignment: .leading)
             times
             action
                 .frame(width: style == .agenda ? GlassIconButtonStyle.side : nil)
+            #endif
         }
+        #if !os(watchOS)
         .frame(height: style == .agenda ? agendaRowHeight : Self.takeoverRowHeight)
+        #endif
         .accessibilityElement(children: .contain)
     }
 
@@ -147,7 +158,11 @@ public struct AgendaRow: View {
         HStack(spacing: Self.statusPadding) {
             Text(item.displayTitle)
                 .font(style == .agenda ? .body : .title)
+                #if os(watchOS)
+                .fixedSize(horizontal: false, vertical: true)
+                #else
                 .lineLimit(style == .agenda ? 1 : Self.takeoverTitleLines)
+                #endif
                 .truncationMode(.tail)
                 .strikethrough(item.isCompleted)
                 .foregroundStyle(item.isCompleted ? .secondary : .primary)
@@ -161,6 +176,7 @@ public struct AgendaRow: View {
         }
     }
 
+    #if !os(watchOS)
     /// The action column sits at the far right so the times stay aligned whatever a row offers.
     /// Exactly one square: a reminder's tick (or undo), else the call's join button, else air.
     @ViewBuilder private var action: some View {
@@ -176,6 +192,7 @@ public struct AgendaRow: View {
             Color.clear
         }
     }
+    #endif
 
     /// Two-digit hours keep every time the same width, so the dash sits evenly between them.
     private static func clock(_ date: Date) -> String {

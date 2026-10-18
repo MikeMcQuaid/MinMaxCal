@@ -45,6 +45,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
   the icon sources and `App/Assets.xcassets` the catalogue
 - `iOSApp/`: the iPhone agenda shell; the `MinMaxCal-iOS` scheme
   shares `MinMaxCalAgenda`, Data and Domain with the Mac
+- `watchOSApp/`: the read-only watch agenda; `MinMaxCal-watchOS`
+  shares the same model and rows and is embedded in the iPhone app
 - `script/`: development tasks
 - `Brewfile`: development dependencies
 - `.github/workflows/tests.yml`: CI; `release.yml`: the release

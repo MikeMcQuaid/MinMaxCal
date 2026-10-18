@@ -1,3 +1,4 @@
+#if !os(watchOS)
 #if os(macOS)
 import AppKit
 #else
@@ -98,3 +99,4 @@ enum LinkedText {
         return result
     }
 }
+#endif
