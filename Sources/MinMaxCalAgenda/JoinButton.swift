@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import MinMaxCalDomain
 import SwiftUI
 
@@ -52,3 +53,4 @@ public struct JoinButton: View {
         }
     }
 }
+#endif

@@ -18,7 +18,7 @@ func swiftSettings(mainActorByDefault: Bool) -> [SwiftSetting] {
 // swiftlint:disable:next prefixed_toplevel_constant - SwiftPM requires this exact name
 let package = Package(
     name: "MinMaxCal",
-    platforms: [.macOS(.v26), .iOS(.v26)],
+    platforms: [.macOS(.v26), .iOS(.v26), .watchOS(.v26)],
     products: [
         .library(name: "MinMaxCalDomain", targets: ["MinMaxCalDomain"]),
         .library(name: "MinMaxCalData", targets: ["MinMaxCalData"]),

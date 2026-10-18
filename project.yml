@@ -10,6 +10,7 @@ options:
   deploymentTarget:
     macOS: "26.0"
     iOS: "26.0"
+    watchOS: "26.0"
   xcodeVersion: "27.0"
   preGenCommand: script/version
 packages:
@@ -126,6 +127,8 @@ targets:
       - path: PrivacyInfo.xcprivacy
         buildPhase: resources
     dependencies:
+      - target: MinMaxCal-watchOS
+        embed: true
       - package: MinMaxCal
         product: MinMaxCalAgenda
       - package: MinMaxCal
@@ -149,7 +152,45 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
+  MinMaxCal-watchOS:
+    type: application
+    platform: watchOS
+    sources:
+      - path: watchOSApp
+        excludes:
+          - Info.plist
+      - path: App/Icons/AppIcon.icon
+        type: file
+        buildPhase: resources
+      - path: PrivacyInfo.xcprivacy
+        buildPhase: resources
+    dependencies:
+      - package: MinMaxCal
+        product: MinMaxCalAgenda
+      - package: MinMaxCal
+        product: MinMaxCalData
+      - package: MinMaxCal
+        product: MinMaxCalDomain
+    settings:
+      base:
+        ARCHS: $(ARCHS_STANDARD)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: watchOSApp/Info.plist
+        MARKETING_VERSION: "0.1.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.mikemcquaid.MinMaxCal.watchkitapp
+        PRODUCT_NAME: MinMaxCal
+        SKIP_INSTALL: YES
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_VERSION: "6.0"
 schemes:
+  MinMaxCal-watchOS:
+    build:
+      targets:
+        MinMaxCal-watchOS: all
   MinMaxCal-iOS:
     build:
       targets:

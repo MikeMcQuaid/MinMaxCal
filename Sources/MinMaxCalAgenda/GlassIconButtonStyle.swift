@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import SwiftUI
 
 /// A square of Liquid Glass around a symbol, the same size whatever the symbol, so icon buttons
@@ -32,3 +33,4 @@ package struct GlassIconButtonStyle: ButtonStyle {
     private static let cornerRadius: CGFloat = 6
     private static let pressedOpacity = 0.6
 }
+#endif

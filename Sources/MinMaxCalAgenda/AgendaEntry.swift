@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import MinMaxCalDomain
 import SwiftUI
 
@@ -98,3 +99,4 @@ public struct AgendaEntry: View {
         expanded = expanded == item.id ? nil : item.id
     }
 }
+#endif

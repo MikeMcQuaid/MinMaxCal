@@ -1,3 +1,4 @@
+#if !os(watchOS)
 import MinMaxCalDomain
 import SwiftUI
 
@@ -145,3 +146,4 @@ public struct ItemDetails: View {
         }
     }
 }
+#endif

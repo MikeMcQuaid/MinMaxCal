@@ -2,7 +2,7 @@ import EventKit
 import Foundation
 import MinMaxCalDomain
 
-public actor EventKitCalendarSource: CalendarSource, CalendarSyncSource {
+public actor EventKitCalendarSource: CalendarSource {
     // MARK: Lifecycle
 
     @preconcurrency
@@ -46,12 +46,16 @@ public actor EventKitCalendarSource: CalendarSource, CalendarSyncSource {
     }
 
     public func setCompleted(_ completed: Bool, reminder member: MemberIdentity) throws {
+        #if os(watchOS)
+        throw EKError(.osNotSupported)
+        #else
         guard let reminder = store.calendarItem(withIdentifier: member.calendarItemIdentifier) as? EKReminder else {
             throw CalendarSourceError.reminderNotFound
         }
 
         reminder.isCompleted = completed
         try store.save(reminder, commit: true)
+        #endif
     }
 
     // MARK: Internal

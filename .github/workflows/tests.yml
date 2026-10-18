@@ -93,7 +93,7 @@ jobs:
       - name: Build
         run: script/build
 
-      - name: Build iOS
+      - name: Build iOS and watchOS
         run: >-
           xcodebuild -project MinMaxCal.xcodeproj -scheme MinMaxCal-iOS
           -configuration Debug -destination 'generic/platform=iOS'
