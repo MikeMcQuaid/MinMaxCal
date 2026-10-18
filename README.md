@@ -261,8 +261,9 @@ seven-day cooldown.
 
 Dispatch the Release workflow from `main` with a bare
 `MAJOR.MINOR.PATCH` version to publish automatically after signing,
-notarisation and startup checks pass. Pushes affecting the release
-process run those checks as dry runs without publishing.
+notarisation and startup checks pass. Pushes changing
+`.github/workflows/release.yml` run those checks as dry runs without
+publishing.
 
 See [AGENTS.md](AGENTS.md) for the conventions and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
