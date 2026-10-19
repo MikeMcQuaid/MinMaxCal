@@ -673,11 +673,11 @@ opts in through General. Existing login item registrations are retained.
 
 ### Icons (Always there)
 
-The menu bar icon is a calendar leaf (a rounded page with two binding
-rings and a header band) whose date area holds a single filled square
-in the lower right. It lives in `App/Assets.xcassets/
-MenuBarIcon.imageset` as an SVG with `template-rendering-intent` set to
-template so it takes the menu bar's colour, at 18 points. The app icon
+The menu bar icon matches the app mark's calendar leaf and full-screen
+corners in monochrome. Its rounded page has two binding rings, a header
+band and a single filled square in the lower right. The SVG lives in
+`App/Assets.xcassets/MenuBarIcon.imageset` with `template-rendering-intent`
+set to template so it takes the menu bar's colour, at 18 points. The app icon
 is `App/Icons/AppIcon.icon`, an Icon Composer document with a white
 calendar leaf inside orange full-screen corners over a blue tinted
 glass tile. Its `icon.json` specialises two slots by appearance: the
