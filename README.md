@@ -107,8 +107,9 @@ The watch app is included with the iPhone app and can run independently.
 
 ## ✨ Features
 
-- The menu bar item shows the app icon, the next item's title and a
-  compact countdown: `Weekly planning 1h52`.
+- The menu bar item shows a monochrome version of the app's calendar
+  and full-screen corners, the next item's title and a compact
+  countdown: `Weekly planning 1h52`.
 - Clicking it opens today and tomorrow in time order, with calendar
   colours, the title, a Join or Complete button and start and end
   times.

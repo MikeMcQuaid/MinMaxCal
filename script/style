@@ -41,7 +41,7 @@ docs_style() {
     echo "CLAUDE.md must be a symlink to AGENTS.md" >&2
     return 1
   fi
-  # The app icon adds takeover corners that would be illegible in the menu bar.
+  # The menu bar uses a monochrome template of the coloured app mark.
   [[ -f App/Icons/AppIcon.icon/Assets/AppMark.svg && -f App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg ]] || {
     echo "The app and menu bar icon sources must exist" >&2
     return 1
