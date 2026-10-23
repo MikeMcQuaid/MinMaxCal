@@ -5,11 +5,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-app="$(script/build | tail -1)"
+app="$(script/build | tee /dev/stderr | tail -1)"
 destination=/Applications/MinMaxCal.app
 
-osascript -e 'quit app "MinMaxCal"' &>/dev/null || true
+pkill -x -u "${UID}" MinMaxCal || true
+SECONDS=0
+while pgrep -x -u "${UID}" MinMaxCal &>/dev/null; do
+  if ((SECONDS >= 10)); then
+    echo 'MinMaxCal did not stop; installation cancelled' >&2
+    exit 1
+  fi
+  sleep 0.1
+done
 rm -rf "${destination}"
 ditto "${app}" "${destination}"
-open "${destination}"
+open -n "${destination}"
 echo "Installed ${destination}"

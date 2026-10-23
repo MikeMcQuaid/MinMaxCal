@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 scratch="$(mktemp -d "${PWD}/.test-scratch/build.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap '/bin/rm -rf "${scratch}"' EXIT
 mkdir -p "${scratch}/script" "${scratch}/bin" "${scratch}/MinMaxCal.xcodeproj" \
   "${scratch}/.build/DerivedData/Build/Products/Release/MinMaxCal.app"
 cp script/build "${scratch}/script/build"
@@ -43,6 +43,90 @@ for log in failure success; do
   done
 done
 echo 'Build script tests passed'
+
+cp script/install "${scratch}/script/install"
+export INSTALL_TEST_LOG="${scratch}/install-commands.log"
+for command in osascript pkill pgrep sleep rm ditto open; do
+  cat >"${scratch}/bin/${command}" <<'INSTALLER'
+#!/bin/bash
+set -euo pipefail
+echo "${0##*/} $*" >>"${INSTALL_TEST_LOG}"
+case "${0##*/}" in
+  pkill | pgrep)
+    [[ "$*" == "-x -u ${UID} MinMaxCal" ]]
+    [[ -f "${INSTALL_TEST_LOG}.running" ]]
+    ;;
+  sleep)
+    if [[ "${INSTALL_TEST_STUCK:-}" == 1 ]]; then
+      /bin/sleep "$@"
+    else
+      /bin/rm -f "${INSTALL_TEST_LOG}.running"
+    fi
+    ;;
+  rm)
+    [[ "$*" == '-rf /Applications/MinMaxCal.app' ]]
+    [[ ! -f "${INSTALL_TEST_LOG}.running" ]]
+    ;;
+  ditto)
+    [[ "$*" == ".build/DerivedData/Build/Products/${XCODE_CONFIGURATION:-Release}/MinMaxCal.app /Applications/MinMaxCal.app" ]]
+    [[ ! -f "${INSTALL_TEST_LOG}.running" ]]
+    ;;
+  open)
+    [[ "$*" == '-n /Applications/MinMaxCal.app' ]]
+    exit "${INSTALL_TEST_OPEN_STATUS:-0}"
+    ;;
+esac
+INSTALLER
+  chmod +x "${scratch}/bin/${command}"
+done
+
+touch "${INSTALL_TEST_LOG}"
+export BUILD_TEST_STATUS=65
+if "${scratch}/script/install" >"${scratch}/install.log" 2>&1; then
+  echo 'Install ignored a build failure' >&2
+  exit 1
+fi
+[[ ! -s "${INSTALL_TEST_LOG}" ]]
+for stream in stdout stderr; do
+  grep -q "Build diagnostic on ${stream}" "${scratch}/install.log"
+done
+
+export BUILD_TEST_STATUS=0
+for configuration in Release Debug; do
+  : >"${INSTALL_TEST_LOG}"
+  touch "${INSTALL_TEST_LOG}.running"
+  XCODE_CONFIGURATION="${configuration}" "${scratch}/script/install" >"${scratch}/install.log" 2>&1
+  for stream in stdout stderr; do
+    grep -q "Build diagnostic on ${stream}" "${scratch}/install.log"
+  done
+  grep -q '^pkill ' "${INSTALL_TEST_LOG}"
+  grep -q '^sleep ' "${INSTALL_TEST_LOG}"
+  grep -q '^open ' "${INSTALL_TEST_LOG}"
+done
+"${scratch}/script/install" >"${scratch}/install.log" 2>&1
+
+if INSTALL_TEST_OPEN_STATUS=1 "${scratch}/script/install" >"${scratch}/install.log" 2>&1; then
+  echo 'Install ignored a launch failure' >&2
+  exit 1
+fi
+if grep -q '^Installed ' "${scratch}/install.log"; then
+  echo 'Install reported success after a launch failure' >&2
+  exit 1
+fi
+
+touch "${INSTALL_TEST_LOG}.running"
+: >"${INSTALL_TEST_LOG}"
+if INSTALL_TEST_STUCK=1 "${scratch}/script/install" >"${scratch}/install.log" 2>&1; then
+  echo 'Install replaced an app that had not stopped' >&2
+  exit 1
+fi
+if grep -Eq '^(rm|ditto|open) ' "${INSTALL_TEST_LOG}"; then
+  echo 'Install replaced an app that had not stopped' >&2
+  exit 1
+fi
+grep -q 'did not stop' "${scratch}/install.log"
+echo 'Install script tests passed'
+/bin/rm -f "${scratch}/bin/rm"
 
 cp script/style "${scratch}/script/style"
 mkdir -p "${scratch}/App/Icons/AppIcon.icon/Assets" \
