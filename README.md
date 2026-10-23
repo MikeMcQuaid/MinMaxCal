@@ -229,7 +229,8 @@ Settings opens from the agenda's footer or Cmd-, and controls:
 - `script/build`: build the app in Release by default; set
   `XCODE_CONFIGURATION=Debug` for a debug build. `MinMaxCal.app` in
   the repository root symlinks the Release output
-- `script/install`: build, then copy the app to /Applications
+- `script/install`: show build output, stop the running app, copy it
+  to /Applications and launch the new version
 - `script/zip`: zip the Release app as `MinMaxCal-<version>.zip`
 - `script/package`: sign, notarise and zip the app using credentials
   from the environment

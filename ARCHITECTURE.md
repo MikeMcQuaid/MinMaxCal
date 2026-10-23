@@ -784,7 +784,9 @@ Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
 xcodebuild, defaulting to Release with `XCODE_CONFIGURATION` as an
 override, versioned from the nearest reachable tag), `install`
-(build, then copy to /Applications), `zip` and `package` (the
+(build with visible output, stop the current user's running app,
+wait up to ten seconds for it to exit, then copy to /Applications and
+launch a new instance), `zip` and `package` (the
 distributable zip and its signing and notarisation, described under
 Releases), `test` (unit tests via `swift test`, after sweeping
 `.test-scratch`),
@@ -814,8 +816,9 @@ conversion checks enabled, ready for any C-family sources. These Clang
 checks do not analyse Swift, whose checks run in its own compiler.
 `script/build` refreshes the generated project, preserves all build
 diagnostics and propagates failure even if an older app bundle remains.
-`script/test` first checks build and style failure handling with stub
-tools, including failures in an individual linter family.
+`script/test` first checks build, install and style handling with stub
+tools, including install output, app replacement and relaunch order
+and failures in an individual linter family.
 After both Swift fixers run, `script/style --fix` checks the result with
 both linters so conflicting fixes cannot silently pass.
 
