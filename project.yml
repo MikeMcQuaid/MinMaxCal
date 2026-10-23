@@ -152,6 +152,9 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        AppStore:
+          PROVISIONING_PROFILE_SPECIFIER: $(IOS_PROFILE_UUID)
   MinMaxCal-watchOS:
     type: application
     platform: watchOS
@@ -186,6 +189,9 @@ targets:
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_VERSION: "6.0"
+      configs:
+        AppStore:
+          PROVISIONING_PROFILE_SPECIFIER: $(WATCHOS_PROFILE_UUID)
 schemes:
   MinMaxCal-watchOS:
     build:

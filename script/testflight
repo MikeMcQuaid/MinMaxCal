@@ -1,0 +1,105 @@
+#!/bin/bash
+# Archive and upload the iPhone and Watch apps, or validate a dry run.
+set +x
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+[[ $# == 0 || ($# == 1 && $1 == --dry-run) ]] || {
+  echo 'Usage: script/testflight [--dry-run]' >&2
+  exit 1
+}
+destination=upload
+[[ "${1:-}" == --dry-run ]] && destination="export"
+profiles=(IOS WATCHOS)
+
+: "${RELEASE_VERSION:?}" "${BUILD_NUMBER:?}"
+: "${APP_STORE_KEY:?}" "${APP_STORE_KEY_ID:?}" "${APP_STORE_ISSUER_ID:?}"
+: "${APP_STORE_CERTIFICATES:?}" "${APP_STORE_CERTIFICATES_PASSWORD:?}"
+for platform in "${profiles[@]}"; do
+  variable="APP_STORE_${platform}_PROFILE"
+  [[ -n "${!variable:-}" ]] || {
+    echo "Missing ${variable}" >&2
+    exit 1
+  }
+done
+
+umask 077
+scratch="$(mktemp -d -t minmaxcal-testflight)"
+keychain="${scratch}/signing.keychain-db"
+keychains=()
+installed_profiles=()
+while read -r existing_keychain; do
+  existing_keychain="${existing_keychain#\"}"
+  keychains+=("${existing_keychain%\"}")
+done < <(security list-keychains -d user)
+cleanup() {
+  security list-keychains -d user -s "${keychains[@]}" &>/dev/null || true
+  security delete-keychain "${keychain}" &>/dev/null || true
+  if [[ ${#installed_profiles[@]} -gt 0 ]]; then
+    rm -f "${installed_profiles[@]}"
+  fi
+  rm -rf "${scratch}"
+}
+trap cleanup EXIT
+
+keychain_password="$(uuidgen)"
+security create-keychain -p "${keychain_password}" "${keychain}"
+security set-keychain-settings -lut 3600 "${keychain}"
+security unlock-keychain -p "${keychain_password}" "${keychain}"
+base64 --decode <<<"${APP_STORE_CERTIFICATES}" >"${scratch}/certificates.p12"
+security import "${scratch}/certificates.p12" -k "${keychain}" \
+  -P "${APP_STORE_CERTIFICATES_PASSWORD}" -T /usr/bin/codesign
+security set-key-partition-list -S apple-tool:,apple: -s \
+  -k "${keychain_password}" "${keychain}" &>/dev/null
+security list-keychains -d user -s "${keychain}" "${keychains[@]}"
+printf '%s\n' "${APP_STORE_KEY}" >"${scratch}/key.p8"
+
+plutil -create xml1 "${scratch}/export.plist"
+/usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' \
+  -c "Add :destination string ${destination}" -c 'Add :signingStyle string manual' \
+  -c 'Add :signingCertificate string Apple Distribution' \
+  -c 'Add :manageAppVersionAndBuildNumber bool false' \
+  -c 'Add :provisioningProfiles dict' "${scratch}/export.plist"
+
+profile_directory="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
+mkdir -p "${profile_directory}"
+args=()
+for platform in "${profiles[@]}"; do
+  variable="APP_STORE_${platform}_PROFILE"
+  base64 --decode <<<"${!variable}" >"${scratch}/profile"
+  security cms -D -i "${scratch}/profile" >"${scratch}/profile.plist"
+  uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/profile.plist")"
+  if [[ "${platform}" == IOS ]]; then
+    team_id="$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "${scratch}/profile.plist")"
+    /usr/libexec/PlistBuddy -c "Add :teamID string ${team_id}" "${scratch}/export.plist"
+  fi
+  profile="${profile_directory}/${uuid}.mobileprovision"
+  if [[ ! -e "${profile}" ]]; then
+    installed_profiles+=("${profile}")
+    cp "${scratch}/profile" "${profile}"
+  fi
+  args+=("${platform}_PROFILE_UUID=${uuid}")
+  bundle_id=com.mikemcquaid.MinMaxCal
+  [[ "${platform}" == WATCHOS ]] && bundle_id+=.watchkitapp
+  /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:${bundle_id} string ${uuid}" \
+    "${scratch}/export.plist"
+done
+
+xcodebuild -project MinMaxCal.xcodeproj -scheme MinMaxCal-iOS \
+  -configuration AppStore -destination 'generic/platform=iOS' \
+  -derivedDataPath .build/DerivedData -archivePath "${scratch}/MinMaxCal.xcarchive" \
+  "DEVELOPMENT_TEAM=${team_id}" CODE_SIGN_STYLE=Manual \
+  'CODE_SIGN_IDENTITY=Apple Distribution' "MARKETING_VERSION=${RELEASE_VERSION}" \
+  "CURRENT_PROJECT_VERSION=${BUILD_NUMBER}" "${args[@]}" archive
+
+xcodebuild -exportArchive -archivePath "${scratch}/MinMaxCal.xcarchive" \
+  -exportOptionsPlist "${scratch}/export.plist" -exportPath "${scratch}/export" \
+  -authenticationKeyPath "${scratch}/key.p8" -authenticationKeyID "${APP_STORE_KEY_ID}" \
+  -authenticationKeyIssuerID "${APP_STORE_ISSUER_ID}" -allowProvisioningUpdates
+
+if [[ "${destination}" == export ]]; then
+  xcrun altool --validate-app "${scratch}/export/MinMaxCal.ipa" \
+    --api-key "${APP_STORE_KEY_ID}" --api-issuer "${APP_STORE_ISSUER_ID}" \
+    --p8-file-path "${scratch}/key.p8"
+fi

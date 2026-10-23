@@ -249,3 +249,5 @@ for option in '' --fix; do
   grep -q 'README.md:.*longer than 72 characters' "${scratch}/style.log"
 done
 echo 'Style script tests passed'
+
+bash Tests/TestFlightTests.sh

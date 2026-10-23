@@ -908,13 +908,132 @@ number aligned with the iPhone target. Validate and distribute through
 Xcode Organizer to App Store Connect; `script/package` remains the
 Developer ID and notarisation path for direct downloads.
 
-Before submission, publish the privacy policy at its About link and
-complete the listing's privacy answers, support URL, age rating,
-screenshots, trader status and review notes. The reviewed code supports
+The Release workflow uploads the iPhone and bundled Watch app to
+TestFlight before pushing the GitHub tag or publishing release binaries.
+Uploads run only for a dispatched release. Human push dry runs archive
+and export a signed IPA while publishing is skipped. They
+then run `altool --validate-app` with the same API key, without
+uploading a TestFlight build. Missing credentials or validation failures
+fail the dry run; Dependabot skips the job because it cannot read
+secrets. Keeping it in the same workflow avoids relying on release
+events created by `GITHUB_TOKEN`, which do not trigger another workflow.
+The job checks out the release commit and uses `script/testflight` to
+archive and upload through `xcodebuild -exportArchive` with the
+`app-store-connect` method.
+
+TestFlight signing uses one imported Apple Distribution certificate
+and explicit distribution profiles for the iPhone and Watch apps.
+The iPhone profile supplies the Team ID. Optional per-target profile
+build settings keep the embedded Watch app's profile separate from
+the iPhone's. The script restores the keychain search list and removes
+its temporary keychain, API key and newly installed profiles on exit.
+Signing assets are GitHub secrets and are never cached. Upload
+authentication reuses the existing notarisation API key through
+`APP_STORE_KEY`,
+`APP_STORE_KEY_ID` and `APP_STORE_ISSUER_ID` environment variables,
+without an interactive Apple Account login or additional API secrets.
+The profiles come from `MINMAXCAL_APP_STORE_IOS_PROFILE` and
+`MINMAXCAL_APP_STORE_WATCHOS_PROFILE`; the certificate and its password
+can be shared with other apps on the same developer team.
+
+The iPhone and Watch apps take the release version and a
+`run_number.run_attempt` build number. Retries use a new build number.
+Upload failures fail the workflow and prevent the GitHub tag and release
+from being published. Apple's processing, tester groups and beta review
+remain in App Store Connect; the workflow does not publish an App Store
+release. The
+[setup guide](#set-up-testflight-releases) records the
+account, signing and secret setup.
+
+Mac TestFlight and public App Store submission are deferred. The Mac
+App Store scheme and shared bundle IDs remain available for later use.
+Uploads remain eligible for external TestFlight and future App Store
+submission; they are not restricted to internal testing.
+
+Before a future public App Store submission, publish the privacy policy
+at its About link and complete the listing's privacy answers, support
+URL, age rating, screenshots, trader status and review notes. The reviewed code supports
 declaring Data Not Collected. Test both signed apps with real calendar accounts,
 including denied permissions, reminder Undo and the Mac's takeovers,
 mirroring, join links and opt-in login item. Store acceptance still
 requires Apple's archive validation and review.
+
+##### Set up TestFlight releases
+
+This adds **four secrets** to the existing Mac release setup. It reuses
+your paid Apple Developer membership and the existing
+`NOTARIZATION_KEY`, `NOTARIZATION_KEY_ID` and `NOTARIZATION_ISSUER_ID`
+secrets. That team API key needs Developer, App Manager or Admin access
+to upload builds. If these are not set up yet, [enrol][apple-enrol] and
+follow Apple's [API key instructions][apple-api-key], storing the key
+under those existing secret names. The Team ID is read from the iPhone
+profile.
+
+TestFlight requires an App Store Connect app record and distribution
+signing, but no public App Store release. Mac TestFlight and public
+App Store distribution can be added later using the same bundle IDs.
+
+1. In [Certificates, Identifiers & Profiles][apple-identifiers],
+   register explicit App IDs for `com.mikemcquaid.MinMaxCal` and
+   `com.mikemcquaid.MinMaxCal.watchkitapp`, or reuse those already
+   registered to your team. In [App Store Connect][app-store-connect],
+   choose **Apps → + → New App**, select **iOS**, enter MinMaxCal,
+   English (UK), the main bundle ID and a unique SKU such as
+   `MinMaxCal`. Reuse an existing record if present. The Watch app uses
+   the iOS record; public store listing details can wait.
+2. In Xcode's **Settings → Apple Accounts**, select your team, open
+   **Manage Certificates** and use **+ → Apple Distribution**, or reuse
+   one whose private key you have. In Keychain Access's **My
+   Certificates**, export that certificate with its private key as a
+   password-protected `Apple-Distribution.p12`. See Apple's
+   [certificate guide][apple-certificates].
+3. In **Profiles → +**, create two [distribution profiles][apple-profiles]
+   of type **App Store Connect**, one for each bundle ID, using that
+   Apple Distribution certificate. Download both. Development and
+   Ad Hoc profiles cannot be used for TestFlight.
+4. In GitHub's **Settings → Secrets and variables → Actions**, add
+   these four repository secrets. For each binary file, copy its
+   encoded contents with `base64 -i /path/to/file | pbcopy`.
+
+   | Secret | Value |
+   |---|---|
+   | `APP_STORE_CERTIFICATES` | Base64 of `Apple-Distribution.p12`, including its private key |
+   | `APP_STORE_CERTIFICATES_PASSWORD` | Password used to export that `.p12` |
+   | `MINMAXCAL_APP_STORE_IOS_PROFILE` | Base64 of the iPhone distribution profile |
+   | `MINMAXCAL_APP_STORE_WATCHOS_PROFILE` | Base64 of the Watch distribution profile |
+
+   Keep the existing Mac release secrets: the direct download still
+   needs signing and notarisation. Renew the certificate and profiles
+   before they expire, updating these secrets with their replacements.
+5. Push the workflow changes and wait for the Release dry run to pass.
+   It tests the signed archive, IPA export and Apple validation without
+   uploading to TestFlight. After merging to `main`, open **Actions →
+   Release → Run workflow**, choose `main` and enter a new bare version
+   such as `0.2.0`. It uploads the iPhone and Watch apps before
+   publishing the GitHub tag and release. Both apps use the release
+   version and the workflow run number and attempt as their build
+   number, for example `42.1`. No local archive or upload is needed.
+6. Wait for Apple's processing, then open **MinMaxCal → TestFlight**
+   in App Store Connect. Create an internal testing group, add yourself
+   and enable automatic distribution to receive future builds. Install
+   TestFlight on your devices and accept the invitation. For external
+   testers, complete the beta information and submit the first build
+   for Apple's beta review. Uploading does not publish an App Store
+   release. See Apple's [TestFlight guide][apple-testflight].
+
+If an upload fails, no GitHub tag or release is published. Fix the
+reported signing or validation issue, then choose **Re-run failed
+jobs** on that workflow run. The next attempt gets a new build number;
+do not dispatch the same release version again. A successful upload
+still needs Apple's processing and any required beta review.
+
+[apple-enrol]: https://developer.apple.com/programs/enroll/
+[apple-identifiers]: https://developer.apple.com/account/resources/identifiers/list
+[app-store-connect]: https://appstoreconnect.apple.com/
+[apple-certificates]: https://developer.apple.com/help/account/certificates/certificates-overview/
+[apple-profiles]: https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/
+[apple-api-key]: https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/
+[apple-testflight]: https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/
 
 #### Direct downloads
 
@@ -982,16 +1101,17 @@ launched on the ARM64 `macos-26` and `xcode-27` runners. Each checks its
 actual OS and architecture and fails if the app exits within ten
 seconds. These startup checks catch crashes and linking failures;
 calendar access and UI interactions still need host testing. Only after
-both pass does a separate publishing job automatically tag the original
-commit and create the GitHub release with generated notes and that exact
-zip.
-A push that touches `.github/workflows/release.yml` uses
-`9999.0.0` as a reserved valid local-only version and
-repeats the build, signing, notarisation and startup checks as a dry run,
-uploading the test artefact but pushing no tag or release. It only lists
-existing releases, so the process cannot rot unnoticed between
-releases. Dependabot cannot read Actions secrets, so its dry runs
-explicitly skip signing and notarisation.
+both pass and the TestFlight upload succeeds does a separate publishing
+job automatically tag the original commit and create the GitHub release
+with generated notes and that exact zip.
+A push that touches `.github/workflows/release.yml`,
+`script/testflight`, `project.yml`, `Package.swift`, `iOSApp/Info.plist`
+or `watchOSApp/Info.plist` uses `9999.0.0` as a reserved valid
+local-only version and repeats the build, signing, notarisation and
+startup checks as a dry run, uploading the test artefact but pushing no
+tag or release. It only lists existing releases, so the process cannot
+rot unnoticed between releases. Dependabot cannot read Actions secrets,
+so its dry runs explicitly skip signing and notarisation.
 
 Releases ship as a Homebrew cask, so `brew upgrade` updates the app;
 there is no updater in the app and no Mac App Store listing. The cask
