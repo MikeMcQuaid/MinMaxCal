@@ -37,6 +37,45 @@ github_actions_style() {
 docs_style() {
   awk 'length > 72 { print FILENAME ":" FNR ": longer than 72 characters"; failed = 1 } END { exit failed }' \
     AGENTS.md || return 1
+  awk '
+    length > 72 && !/^ {0,3}\[[^]]+\]:/ {
+      print FILENAME ":" FNR ": longer than 72 characters"
+      failed = 1
+    }
+    match($0, /^ {0,3}(`{3,}|~{3,})/) {
+      marker = substr($0, 1, RLENGTH)
+      sub(/^ +/, "", marker)
+      if (fence) {
+        if (substr(marker, 1, 1) == substr(fence, 1, 1) &&
+            length(marker) >= length(fence) &&
+            substr($0, RLENGTH + 1) ~ /^[[:space:]]*$/) fence = ""
+      } else if (substr(marker, 1, 1) == "~" || substr($0, RLENGTH + 1) !~ /`/) {
+        fence = marker
+      }
+      next
+    }
+    fence { next }
+    /^##?[[:space:]]/ {
+      features = /^##[[:space:]]+(✨[[:space:]]+)?Features[[:space:]]*$/
+      if (features) found = 1
+    }
+    features && /^[[:space:]]*[-*+][[:space:]]/ { bullets++ }
+    END {
+      if (NR > 200) {
+        print FILENAME ": must contain at most 200 lines (found " NR ")"
+        exit 1
+      }
+      if (!found) {
+        print FILENAME ": Features section is missing"
+        exit 1
+      }
+      if (bullets > 5) {
+        print FILENAME ": Features must contain at most 5 bullets (found " bullets ")"
+        exit 1
+      }
+      exit failed
+    }
+  ' README.md || return 1
   if [[ "$(readlink CLAUDE.md)" != "AGENTS.md" ]]; then
     echo "CLAUDE.md must be a symlink to AGENTS.md" >&2
     return 1
