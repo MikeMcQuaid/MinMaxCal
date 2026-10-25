@@ -780,6 +780,11 @@ rules that conflict with other enabled rules or tools, each with a
 recorded reason. SwiftLint requires the full Xcode toolchain selected
 via xcode-select; CommandLineTools alone cannot load SourceKit.
 
+If Xcode's Run on iPhone leaves a white screen but opening the app from
+its icon works, compare a run with **Product → Scheme → Edit Scheme →
+Run → Info → Debug executable** turned off. This isolates debugger
+attachment from normal launch. Turn it back on for breakpoints.
+
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
 dependencies, then XcodeGen project generation), `build` (the app via
 xcodebuild, defaulting to Release with `XCODE_CONFIGURATION` as an
@@ -821,6 +826,10 @@ tools, including install output, app replacement and relaunch order
 and failures in an individual linter family.
 After both Swift fixers run, `script/style --fix` checks the result with
 both linters so conflicting fixes cannot silently pass.
+The documentation checks cap the README at 200 source lines, including
+blank lines, and require a Features section with at most five bullets.
+Lines wrap at 72 columns except Markdown link definitions, keeping its
+overview concise locally and in CI.
 
 Further checks include SwiftLint and SwiftFormat with every rule enabled
 at `script/style`

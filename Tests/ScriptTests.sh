@@ -132,6 +132,19 @@ cp script/style "${scratch}/script/style"
 mkdir -p "${scratch}/App/Icons/AppIcon.icon/Assets" \
   "${scratch}/App/Assets.xcassets/MenuBarIcon.imageset" "${scratch}/.github/workflows"
 touch "${scratch}/AGENTS.md"
+cat >"${scratch}/README.md" <<'README'
+## Before
+- Another section
+## ✨ Features
+- First feature
+  wrapped description
+* Second feature
++ Third feature
+- Fourth feature
+- Fifth feature
+## After
+- Another section
+README
 ln -s AGENTS.md "${scratch}/CLAUDE.md"
 echo app >"${scratch}/App/Icons/AppIcon.icon/Assets/AppMark.svg"
 echo menu >"${scratch}/App/Assets.xcassets/MenuBarIcon.imageset/Leaf.svg"
@@ -155,4 +168,84 @@ for command in shellcheck shfmt actionlint zizmor swiftformat swiftlint swiftfor
 done
 export STYLE_TEST_FAILURE=''
 "${scratch}/script/style" --fix
+cp "${scratch}/README.md" "${scratch}/README.five.md"
+for marker in - '*' +; do
+  sed "/^## After/i\\
+${marker} Sixth feature
+" "${scratch}/README.five.md" >"${scratch}/README.md"
+  for option in '' --fix; do
+    if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+      echo 'Style accepted more than five README features' >&2
+      exit 1
+    fi
+    grep -q 'README.md: Features must contain at most 5 bullets' "${scratch}/style.log"
+  done
+done
+sed '/^- Fifth feature/d; s/## ✨ Features/## Features/' "${scratch}/README.five.md" >"${scratch}/README.md"
+"${scratch}/script/style"
+for heading in '## Renamed' '## Upcoming Features'; do
+  echo "${heading}" >"${scratch}/README.md"
+  for option in '' --fix; do
+    if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+      echo "Style accepted a missing README Features section: ${heading}" >&2
+      exit 1
+    fi
+    grep -q 'README.md: Features section is missing' "${scratch}/style.log"
+  done
+done
+for fence in '```' '~~~' '   ````'; do
+  printf '%smarkdown\n## Features\n%s\n' "${fence}" "${fence}" >"${scratch}/README.md"
+  for option in '' --fix; do
+    if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+      echo 'Style accepted a fenced README Features heading' >&2
+      exit 1
+    fi
+    grep -q 'README.md: Features section is missing' "${scratch}/style.log"
+  done
+  awk -v fence="${fence}" '
+    /^## After/ { print "\nExample:\n\n" fence "markdown\n## Example\n- Example bullet\n" fence "\n- Sixth feature" }
+    { print }
+  ' "${scratch}/README.five.md" >"${scratch}/README.fenced.md"
+  cp "${scratch}/README.fenced.md" "${scratch}/README.md"
+  for option in '' --fix; do
+    if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+      echo 'Style let a fenced heading hide a sixth README feature' >&2
+      exit 1
+    fi
+    grep -q 'README.md: Features must contain at most 5 bullets (found 6)' "${scratch}/style.log"
+  done
+  sed '/^- Sixth feature/d' "${scratch}/README.fenced.md" >"${scratch}/README.md"
+  for option in '' --fix; do
+    "${scratch}/script/style" "${option}"
+  done
+done
+awk '{ print } END { for (line = NR; line < 200; line++) print "" }' \
+  "${scratch}/README.five.md" >"${scratch}/README.md"
+"${scratch}/script/style"
+echo '' >>"${scratch}/README.md"
+for option in '' --fix; do
+  if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+    echo 'Style accepted more than 200 README lines' >&2
+    exit 1
+  fi
+  grep -q 'README.md: must contain at most 200 lines' "${scratch}/style.log"
+done
+cp "${scratch}/README.five.md" "${scratch}/README.md"
+printf '%072d\n\n' 0 >>"${scratch}/README.md"
+for indentation in '' ' ' '  ' '   '; do
+  for spacing in '' ' '; do
+    printf '%s[link]:%shttps://example.com/%080d\n' "${indentation}" "${spacing}" 0 >>"${scratch}/README.md"
+  done
+done
+for option in '' --fix; do
+  "${scratch}/script/style" "${option}"
+done
+printf '%073d\n' 0 >>"${scratch}/README.md"
+for option in '' --fix; do
+  if "${scratch}/script/style" "${option}" >"${scratch}/style.log" 2>&1; then
+    echo 'Style accepted an unwrapped README line' >&2
+    exit 1
+  fi
+  grep -q 'README.md:.*longer than 72 characters' "${scratch}/style.log"
+done
 echo 'Style script tests passed'
