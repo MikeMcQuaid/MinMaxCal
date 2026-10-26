@@ -116,6 +116,21 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 [toolchain and CI](ARCHITECTURE.md#dependencies-and-toolchain) and
 [releases](ARCHITECTURE.md#releases).
 
+### TestFlight releases
+
+Releases upload the iPhone and bundled Watch app to TestFlight before
+pushing the GitHub tag and publishing the Mac download.
+Follow the [signing setup][testflight-setup], adding the shared
+`APP_STORE_CERTIFICATES` and `APP_STORE_CERTIFICATES_PASSWORD` secrets,
+plus `MINMAXCAL_APP_STORE_IOS_PROFILE` and
+`MINMAXCAL_APP_STORE_WATCHOS_PROFILE`.
+Release dry runs archive, sign, export and validate with Apple without
+uploading a beta. After a successful dry run, dispatch **Release** from
+`main` with a new bare version, then invite yourself in
+App Store Connect.
+
+[testflight-setup]: ARCHITECTURE.md#set-up-testflight-releases
+
 ## 📱 iPhone preview
 
 The iOS 26 companion shows today and tomorrow from the phone's system
