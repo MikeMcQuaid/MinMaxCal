@@ -26,8 +26,20 @@ struct AcceptanceTests {
     }
 
     @Test
-    func `someone elses acceptance does not count`() {
-        #expect(Acceptance.isAccepted(organiser: nil, attendees: [other]) == false)
+    func `shared calendar events without my own RSVP are accepted`() {
+        #expect(Acceptance.isAccepted(organiser: nil, attendees: [other]))
+        #expect(Acceptance.isAccepted(
+            organiser: nil,
+            attendees: [.init(name: "meetings@example.org", response: .unknown)],
+        ))
+    }
+
+    @Test(arguments: [AttendeeResponse.pending, .tentative, .declined, .unknown])
+    func `an explicit response still requires acceptance`(response: AttendeeResponse) {
+        #expect(Acceptance.isAccepted(
+            organiser: nil,
+            attendees: [.init(name: "Me", response: response, isCurrentUser: true), other],
+        ) == false)
     }
 
     // MARK: Private

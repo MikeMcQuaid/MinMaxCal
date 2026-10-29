@@ -25,6 +25,11 @@ let package = Package(
         .library(name: "MinMaxCalAgenda", targets: ["MinMaxCalAgenda"]),
         .library(name: "MinMaxCalFeatures", targets: ["MinMaxCalFeatures"]),
         .library(name: "MinMaxCalIntents", targets: ["MinMaxCalIntents"]),
+        .library(name: "MinMaxCalCoachingData", targets: ["MinMaxCalCoachingData"]),
+        .library(name: "MinMaxCalCoachingFeatures", targets: ["MinMaxCalCoachingFeatures"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/FluidInference/FluidAudio", exact: "0.17.7", traits: [])
     ],
     targets: [
         .target(name: "MinMaxCalDomain", swiftSettings: swiftSettings(mainActorByDefault: false)),
@@ -40,7 +45,10 @@ let package = Package(
         ),
         .target(
             name: "MinMaxCalFeatures",
-            dependencies: ["MinMaxCalDomain", "MinMaxCalData", "MinMaxCalAgenda"],
+            dependencies: [
+                "MinMaxCalDomain", "MinMaxCalData", "MinMaxCalAgenda",
+                .target(name: "MinMaxCalCoachingFeatures", condition: .when(platforms: [.macOS])),
+            ],
             swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
         .target(
@@ -50,6 +58,35 @@ let package = Package(
             // Weak so AppIntents symbols absent from the running OS resolve
             // to null instead of preventing the test bundle from loading.
             linkerSettings: [.unsafeFlags(["-Xlinker", "-weak_framework", "-Xlinker", "AppIntents"])],
+        ),
+        .target(name: "MinMaxCalCoachingDomain", swiftSettings: swiftSettings(mainActorByDefault: false)),
+        .target(
+            name: "MinMaxCalCoachingData",
+            dependencies: [
+                "MinMaxCalCoachingDomain",
+                .product(name: "FluidAudio", package: "FluidAudio", condition: .when(platforms: [.macOS])),
+            ],
+            swiftSettings: swiftSettings(mainActorByDefault: false),
+        ),
+        .target(
+            name: "MinMaxCalCoachingFeatures",
+            dependencies: ["MinMaxCalCoachingDomain", "MinMaxCalDomain", "MinMaxCalAgenda"],
+            swiftSettings: swiftSettings(mainActorByDefault: true),
+        ),
+        .testTarget(
+            name: "MinMaxCalCoachingDomainTests",
+            dependencies: ["MinMaxCalCoachingDomain"],
+            swiftSettings: swiftSettings(mainActorByDefault: false),
+        ),
+        .testTarget(
+            name: "MinMaxCalCoachingDataTests",
+            dependencies: ["MinMaxCalCoachingData"],
+            swiftSettings: swiftSettings(mainActorByDefault: false),
+        ),
+        .testTarget(
+            name: "MinMaxCalCoachingFeaturesTests",
+            dependencies: ["MinMaxCalCoachingFeatures"],
+            swiftSettings: swiftSettings(mainActorByDefault: true),
         ),
         .testTarget(
             name: "MinMaxCalDomainTests",

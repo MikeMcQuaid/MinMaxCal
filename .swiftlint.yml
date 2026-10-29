@@ -35,6 +35,8 @@ disabled_rules:
 
 excluded:
   - .build
+  - .DerivedData
+  - DerivedData
   - .test-scratch
   - MinMaxCal.xcodeproj
 

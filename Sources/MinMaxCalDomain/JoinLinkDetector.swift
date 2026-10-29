@@ -10,7 +10,9 @@ public enum JoinLinkDetector {
         let candidates = [url].compactMap(\.self) + links(in: location ?? "").map(\.url) + links(in: notes ?? "")
             .map(\.url)
         let recognised = candidates.compactMap(classify)
-        return recognised.first { $0.service != .other } ?? url.flatMap(classify)
+        return recognised.first(where: \.isConference)
+            ?? recognised.first { $0.service != .other }
+            ?? url.flatMap(classify)
     }
 
     /// Every web and `zoommtg://` link in the text with its range, for rendering notes.

@@ -36,6 +36,15 @@ sent automatically. You control whether to share them and when to
 delete them. Device backups and any syncing of exported files follow
 your system and storage provider settings.
 
+Optional Mac meeting coaching captures microphone and system audio only
+after an explicit recording choice. Audio is processed locally and is
+never saved or uploaded. Saved transcripts, summaries, statistics and
+speaker names expire 48 hours after recording ends by default. Change the
+retention period to 48 hours, 7 days or 30 days in Coaching settings, or
+delete individual meetings.
+Expired meetings are removed while coaching runs or when next enabled.
+Copied transcripts and backups must be removed separately.
+
 ## Links and other apps
 
 Opening a meeting, location, notes link or support link passes it to

@@ -85,6 +85,10 @@ targets:
         product: MinMaxCalDomain
       - package: MinMaxCal
         product: MinMaxCalIntents
+      - package: MinMaxCal
+        product: MinMaxCalCoachingData
+      - package: MinMaxCal
+        product: MinMaxCalCoachingFeatures
     configFiles:
       Debug: Version.xcconfig
       Release: Version.xcconfig

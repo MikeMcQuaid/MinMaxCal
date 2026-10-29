@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import MinMaxCalAgenda
 import MinMaxCalData
@@ -64,6 +65,28 @@ struct SnapshotTests {
 
         #expect(image.width == 520)
         #expect(image.height > 0)
+    }
+
+    @Test(arguments: [false, true])
+    func `renders recording actions in live and preview takeovers`(preview: Bool) throws {
+        let model = try TakeoverModel(
+            source: FakeCalendarSource(),
+            opener: FakeLinkOpener(),
+            ledger: Fixtures.ledgerStore(),
+            settings: Fixtures.settingsStore(),
+            presenter: FakePresenter(),
+            clock: Fixtures.clock,
+        )
+        model.recordingEnabled = { true }
+        model.recordingReady = { true }
+        let item = AgendaItem.Sample.zoomEvent.item(now: Fixtures.now)
+        model.present(Takeover(entries: [.init(item: item, trigger: .start)], moment: item.start, isPreview: preview))
+        #expect(model.offersRecording(for: item))
+        let image = try #require(render(TakeoverView(model: model).frame(width: 1_200, height: 900)))
+        let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
+        try png
+            .write(to: Fixtures.scratchDirectory()
+                .appending(path: preview ? "recording-preview.png" : "recording-takeover.png"))
     }
 
     // MARK: Private

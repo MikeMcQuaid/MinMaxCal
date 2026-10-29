@@ -1,46 +1,70 @@
 import AppKit
 import MinMaxCalAgenda
+import MinMaxCalCoachingFeatures
 import MinMaxCalDomain
 import SwiftUI
 
 public struct AgendaView: View {
     // MARK: Lifecycle
 
-    public init(model: AgendaModel) {
+    public init(model: AgendaModel, coaching: CoachingController? = nil) {
         self.model = model
+        self.coaching = coaching
     }
 
     // MARK: Public
 
     public var body: some View {
+        // swiftlint:disable:next closure_body_length - One compact panel.
         VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Self.sectionSpacing) {
-                    if let message = model.errorMessage {
-                        Text(message)
-                            .foregroundStyle(.red)
-                    }
-                    if model.agenda.items.isEmpty {
-                        emptyState
-                    } else {
-                        section(
-                            "Today",
-                            date: nil,
-                            items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) == false },
-                        )
-                        section(
-                            "Tomorrow",
-                            date: calendar.date(byAdding: .day, value: 1, to: model.now),
-                            items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) },
-                        )
-                    }
-                }
-                .padding(Self.padding)
+            if let coaching, coaching.enabled {
+                CoachingHeader(controller: coaching)
+                    .padding(Self.padding)
             }
-            .frame(maxHeight: Self.maximumHeight)
-            // The menu bar window proposes no height, so the list must
-            // size itself to its rows rather than collapse to nothing.
-            .fixedSize(horizontal: false, vertical: true)
+            if let coaching, coaching.enabled, coaching.showingMeeting, let meeting = coaching.model {
+                let item = model.agenda.items.first { AgendaMeetingCalendar.id(for: $0) == meeting.calendarMeetingID }
+                MeetingView(
+                    model: meeting,
+                    targetShare: meeting.targetShare,
+                    turnLimit: meeting.turnLimit,
+                    joinLink: item?.joinLink,
+                    recordsMeeting: coaching.recordsJoins,
+                    joinEnabled: coaching.canJoin,
+                    onJoin: { _ in
+                        if let item {
+                            join(item)
+                        }
+                    },
+                )
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Self.sectionSpacing) {
+                        if let message = model.errorMessage {
+                            Text(message)
+                                .foregroundStyle(.red)
+                        }
+                        if model.agenda.items.isEmpty {
+                            emptyState
+                        } else {
+                            section(
+                                "Today",
+                                date: nil,
+                                items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) == false },
+                            )
+                            section(
+                                "Tomorrow",
+                                date: calendar.date(byAdding: .day, value: 1, to: model.now),
+                                items: model.agenda.items.filter { calendar.isDateInTomorrow($0.start) },
+                            )
+                        }
+                    }
+                    .padding(Self.padding)
+                }
+                .frame(maxHeight: Self.maximumHeight)
+                // The menu bar window proposes no height, so the list must
+                // size itself to its rows rather than collapse to nothing.
+                .fixedSize(horizontal: false, vertical: true)
+            }
             Divider()
             footer
         }
@@ -64,6 +88,7 @@ public struct AgendaView: View {
     @State private var expanded: AgendaItem.ID?
 
     private let model: AgendaModel
+    private let coaching: CoachingController?
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Self.padding) {
@@ -93,6 +118,10 @@ public struct AgendaView: View {
             .labelStyle(.iconOnly)
             .help("Quit MinMaxCal")
             .keyboardShortcut("q")
+            if let coaching, coaching.enabled {
+                CoachingControls(controller: coaching)
+                    .disabled(coaching.isChanging)
+            }
         }
         .buttonStyle(.glass)
         .padding(Self.padding)
@@ -117,7 +146,9 @@ public struct AgendaView: View {
                         item: item,
                         model: model,
                         expanded: $expanded,
-                        onJoin: model.join,
+                        recordsMeeting: coaching?.recordsJoins == true,
+                        joinEnabled: coaching?.canJoin ?? true,
+                        onJoin: { _ in join(item) },
                         onPreview: { model.preview(item) },
                     )
                 }
@@ -128,5 +159,19 @@ public struct AgendaView: View {
     private func showSettings() {
         NSApplication.shared.activate()
         openSettings()
+    }
+
+    private func join(_ item: AgendaItem) {
+        guard let link = item.joinLink else {
+            return
+        }
+
+        if let coaching, coaching.enabled {
+            Task {
+                await coaching.join(item, using: model.join, refresh: model.rebuild)
+            }
+        } else {
+            model.join(link)
+        }
     }
 }

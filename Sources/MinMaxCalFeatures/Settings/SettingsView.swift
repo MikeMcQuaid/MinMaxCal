@@ -1,10 +1,12 @@
+import MinMaxCalCoachingFeatures
 import SwiftUI
 
 public struct SettingsView: View {
     // MARK: Lifecycle
 
-    public init(model: SettingsModel) {
+    public init(model: SettingsModel, coaching: CoachingController? = nil) {
         self.model = model
+        self.coaching = coaching
     }
 
     // MARK: Public
@@ -28,6 +30,11 @@ public struct SettingsView: View {
             Tab("Matching", systemImage: "arrow.triangle.merge") {
                 MatchingTab(model: model)
             }
+            if let coaching {
+                Tab("Coaching", systemImage: "waveform") {
+                    CoachingTab(controller: coaching)
+                }
+            }
             Tab("General", systemImage: "gearshape") {
                 GeneralTab(model: model)
             }
@@ -45,4 +52,5 @@ public struct SettingsView: View {
     private static let height: CGFloat = 460
 
     private let model: SettingsModel
+    private let coaching: CoachingController?
 }

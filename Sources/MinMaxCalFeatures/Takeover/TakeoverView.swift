@@ -44,6 +44,9 @@ public struct TakeoverView: View {
                     joinIsPrimary: joinIsPrimary && index == 0,
                     rules: model.rules,
                     onJoin: model.join,
+                    onJoinAndRecord: model.offersRecording(for: entry.item) ? { model.joinAndRecord(entry.item) } : nil,
+                    recordingReady: model.recordingReady(),
+                    recordsJoinsByDefault: model.recordsJoinsByDefault(),
                 )
             }
             if let message = model.errorMessage {

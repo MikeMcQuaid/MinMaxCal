@@ -92,6 +92,7 @@ public enum EventKitDecoder {
             ),
             response: response(participant.participantStatus),
             isCurrentUser: participant.isCurrentUser,
+            isPerson: participant.participantType != .room && participant.participantType != .resource,
         )
     }
 
