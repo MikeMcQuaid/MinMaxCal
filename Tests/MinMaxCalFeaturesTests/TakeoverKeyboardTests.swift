@@ -32,6 +32,16 @@ struct TakeoverKeyboardTests {
         try await pressKey(sample: sample, escape: true)
     }
 
+    @Test(arguments: [false, true])
+    func `return joins with recording only when enabled`(recording: Bool) async throws {
+        try await pressKey(sample: .zoomEvent, escape: false, recording: recording)
+    }
+
+    @Test(arguments: [false, true])
+    func `return follows the record when joining setting`(recordsJoins: Bool) async throws {
+        try await pressKey(sample: .zoomEvent, escape: false, recording: true, recordsJoins: recordsJoins)
+    }
+
     // MARK: Private
 
     private let presenter: TakeoverWindowController = .init { AnyView(EmptyView()) }
@@ -41,8 +51,18 @@ struct TakeoverKeyboardTests {
     private let settings: SettingsStore
     private let model: TakeoverModel
 
-    private func pressKey(sample: AgendaItem.Sample, escape: Bool) async throws {
+    private func pressKey(
+        sample: AgendaItem.Sample,
+        escape: Bool,
+        recording: Bool = false,
+        recordsJoins: Bool = true,
+    ) async throws {
         let item = sample.item(now: Fixtures.now)
+        var recordings = 0
+        model.recordingEnabled = { recording }
+        model.recordingReady = { true }
+        model.recordsJoinsByDefault = { recordsJoins }
+        model.onRecord = { _ in recordings += 1 }
         let existing = NSApplication.shared.windows
         model.present(Takeover(
             entries: [Takeover.Entry(item: item, trigger: item.kind == .reminder ? .due : .start)],
@@ -75,6 +95,7 @@ struct TakeoverKeyboardTests {
         }
 
         #expect(model.current == nil)
+        #expect(recordings == (recording && recordsJoins && escape == false ? 1 : 0))
         if escape {
             #expect(ledger.load().snoozeTime(for: item) == (
                 item.kind == .reminder && settings.takeover.snoozeMinutes.isEmpty == false

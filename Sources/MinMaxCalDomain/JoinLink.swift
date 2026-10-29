@@ -68,4 +68,38 @@ public struct JoinLink: Hashable, Sendable {
     public var url: URL
     /// The `zoommtg://` or `msteams://` deep link that takes the service's own app straight into the call.
     public var appURL: URL?
+
+    /// Whether this detector-vetted URL identifies a conference rather than a generic web page.
+    public var isConference: Bool {
+        guard url.user() == nil, let host = url.host()?.lowercased() else {
+            return false
+        }
+
+        let parts = url.pathComponents.dropFirst()
+        switch service {
+        case .facetime,
+             .teams,
+             .zoom:
+            return true
+
+        case .meet:
+            return parts.first?.wholeMatch(of: /[a-z]{3}-[a-z]{4}-[a-z]{3}/) != nil
+                // swiftlint:disable:next no_magic_numbers - Conference path components.
+                || (parts.first == "lookup" && parts.count >= 2)
+
+        case .jitsi:
+            return parts.isEmpty == false
+
+        case .other:
+            if ["zoom.us", "zoomgov.com"].contains(where: { host == $0 || host.hasSuffix(".\($0)") }) {
+                // swiftlint:disable:next no_magic_numbers - Conference path components.
+                return parts.count >= 2 && ["j", "my", "s"].contains(parts.first)
+            }
+            if host == "whereby.com" {
+                return parts.isEmpty == false
+            }
+            return host.hasSuffix(".webex.com") && (url.path().hasPrefix("/meet/")
+                || url.path().hasPrefix("/join/") || url.path().hasSuffix("/j.php"))
+        }
+    }
 }

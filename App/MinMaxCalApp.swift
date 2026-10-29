@@ -1,5 +1,6 @@
 import AppIntents
 import MinMaxCalAgenda
+import MinMaxCalCoachingFeatures
 import MinMaxCalData
 import MinMaxCalDomain
 import MinMaxCalFeatures
@@ -33,12 +34,7 @@ struct MinMaxCalApp: App, AppIntentsPackage {
         )
         let sync = CalendarSyncModel(source: source, settings: store)
         agendaModel.syncLinks = { sync.links }
-        agendaModel.onRebuild = { agenda, now in
-            takeover.schedule(agenda: agenda, now: now)
-            sync.requestRefresh()
-        }
         sync.onMappingChange = agendaModel.requestRefresh
-        agendaModel.onTick = takeover.updateCurrent
         agendaModel.preview = takeover.preview
         takeover.onAction = agendaModel.requestRefresh
         // Register dependencies on the main actor before any intent can run.
@@ -56,34 +52,39 @@ struct MinMaxCalApp: App, AppIntentsPackage {
         #else
         settingsModel.registerLoginItemOnFirstInstalledLaunch()
         #endif
+        agenda = agendaModel
+        settings = settingsModel
+        coaching = makeCoaching(agenda: agendaModel, takeover: takeover, sync: sync)
         // The loop lives as long as the app: nothing in a menu bar app
         // owns a view that is reliably alive to host it as a `.task`.
         Task {
             await agendaModel.run()
         }
-        agenda = agendaModel
-        settings = settingsModel
     }
 
     // MARK: Internal
 
     static let includedPackages: [any AppIntentsPackage.Type] = [MinMaxCalIntents.self]
 
+    @NSApplicationDelegateAdaptor(CoachingAppDelegate.self)
+    var delegate
+
     var body: some Scene {
         MenuBarExtra {
-            AgendaView(model: agenda)
+            AgendaView(model: agenda, coaching: coaching)
         } label: {
-            MenuBarLabel(model: agenda)
+            MenuBarLabel(model: agenda, recordingSymbol: coaching?.symbol)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView(model: settings)
+            SettingsView(model: settings, coaching: coaching)
         }
     }
 
     // MARK: Private
 
+    private var coaching: CoachingController?
     private let agenda: AgendaModel
     private let settings: SettingsModel
 }

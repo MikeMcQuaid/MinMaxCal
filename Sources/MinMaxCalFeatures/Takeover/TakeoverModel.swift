@@ -36,6 +36,14 @@ public final class TakeoverModel {
     public private(set) var errorMessage: String?
     /// Called after every action so the agenda can rebuild and re-plan.
     public var onAction: () -> Void = {}
+    /// Whether an idle recording feature is enabled, without starting it.
+    public var recordingEnabled: () -> Bool = { false }
+    /// Whether local model setup is ready for an explicit recording choice.
+    public var recordingReady: () -> Bool = { false }
+    /// Starts recording after the explicit combined join action.
+    public var onRecord: (AgendaItem) -> Void = { _ in }
+    /// The preferred Join action while recording choices are available.
+    public var recordsJoinsByDefault: () -> Bool = { true }
 
     /// The matching rules, for the views that tidy what they show.
     public var rules: MatchingRules {
@@ -88,6 +96,18 @@ public final class TakeoverModel {
 
             present(planned)
         }
+    }
+
+    /// Checks the current takeover on the existing local minute tick.
+    public func tick(agenda: Agenda, now: Date) {
+        updateCurrent(agenda: agenda, now: now)
+        guard current == nil || current?.isPreview == true,
+              let planned, planned.moment <= now
+        else {
+            return
+        }
+
+        schedule(agenda: agenda, now: now)
     }
 
     /// Removes finished items from the live takeover without fetching or restarting its alarm.

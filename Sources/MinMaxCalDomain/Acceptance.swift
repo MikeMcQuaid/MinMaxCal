@@ -1,10 +1,10 @@
 /// The rule for whether the user is going to an event.
 public enum Acceptance {
-    /// True for the user's own events, events the user organises and invitations the user accepted.
+    /// Accepts the user's RSVP, own events and shared events without a current-user RSVP.
     public static func isAccepted(organiser: Attendee?, attendees: [Attendee]) -> Bool {
-        if attendees.isEmpty || organiser?.isCurrentUser == true {
+        if organiser?.isCurrentUser == true {
             return true
         }
-        return attendees.contains { $0.isCurrentUser && $0.response == .accepted }
+        return attendees.first(where: \.isCurrentUser).map { $0.response == .accepted } ?? true
     }
 }

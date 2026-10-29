@@ -21,14 +21,16 @@ calendar mirroring writes through those same macOS accounts.
 
 - See the next item and countdown in the menu bar. Browse today and
   tomorrow with merged meetings, calendar colours and expandable rows.
-- Take over every display when an accepted event starts or a reminder
-  is due. Join calls, complete reminders with five-minute Undo, dismiss
-  or snooze by mouse or keyboard.
+  Optional [meeting coaching](COACHING.md) reuses events on Mac with
+  inline history, recording recovery and 48-hour meeting retention.
+- Take over every display at an event's start or a reminder's due time.
+  Events need an accepted RSVP or none for you. Join with recording,
+  complete reminders with five-minute Undo, dismiss or snooze.
 - Mirror calendars for the coming month, copying titles, locations and
   links or using Busy or Travel titles. Preview with **Compare** before
   enabling **Sync**; originals are never changed.
-- [iPhone preview](#-iphone-preview): browse your agenda and complete
-  reminders with Undo.
+- [iPhone preview](#-iphone-preview): browse your agenda, join calls
+  and complete reminders with Undo.
 - [Apple Watch preview](#-apple-watch-preview): read-only agenda on
   your wrist.
 
@@ -95,8 +97,9 @@ Settings opens from the agenda's footer or Cmd-, and controls:
   and other links.
 - **Matching**: generic titles to merge and home terms to omit from
   locations.
-- **General**: launch at login, the menu bar title length and
-  permissions.
+- **Coaching**: optional Mac-only recording, model downloads, speaking
+  targets, transcripts and the Record when joining preference.
+- **General**: launch at login, title length and permissions.
 
 Direct downloads start at login by default; App Store builds require
 opting in. Calendar mirroring is off until enabled in **Sync**.
@@ -135,9 +138,9 @@ App Store Connect.
 
 The iOS 26 companion shows today and tomorrow from the phone's system
 calendars and reminder lists, with the Mac's merging and filtering.
-Tap a row for details or complete a reminder with five-minute Undo.
-Events are read-only; undated reminders are omitted. Join buttons,
-takeovers and calendar mirroring are Mac-only.
+Tap a row for details, join calls or complete reminders with Undo.
+Events are read-only; undated reminders are omitted. Join uses the
+system URL opener; takeovers and mirroring remain Mac-only.
 
 Calendar and Reminders permissions are independent. All available
 lists are included by default; choose individual lists and edit

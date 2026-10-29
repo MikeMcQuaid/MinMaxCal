@@ -10,6 +10,8 @@ public struct AgendaEntry: View {
         item: AgendaItem,
         model: AgendaModel,
         expanded: Binding<AgendaItem.ID?>,
+        recordsMeeting: Bool = false,
+        joinEnabled: Bool = true,
         onJoin: ((JoinLink) -> Void)? = nil,
         onPreview: (() -> Void)? = nil,
     ) {
@@ -18,6 +20,8 @@ public struct AgendaEntry: View {
         _expanded = expanded
         self.onJoin = onJoin
         self.onPreview = onPreview
+        self.recordsMeeting = recordsMeeting
+        self.joinEnabled = joinEnabled
     }
 
     // MARK: Public
@@ -52,6 +56,8 @@ public struct AgendaEntry: View {
     private let model: AgendaModel
     private let onJoin: ((JoinLink) -> Void)?
     private let onPreview: (() -> Void)?
+    private let recordsMeeting: Bool
+    private let joinEnabled: Bool
 
     private var row: some View {
         AgendaRow(
@@ -68,6 +74,8 @@ public struct AgendaEntry: View {
                     await model.uncomplete(item)
                 }
             },
+            recordsMeeting: recordsMeeting,
+            joinEnabled: joinEnabled,
         )
         .contentShape(AgendaRow.contentShapeKinds, RoundedRectangle(cornerRadius: Self.focusRadius))
         .background {

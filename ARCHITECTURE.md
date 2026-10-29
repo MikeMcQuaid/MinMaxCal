@@ -25,6 +25,9 @@ scene becomes active or the system reports a significant time change.
 Each run creates a fresh refresh stream so a cancelled view task can
 restart without losing updates. Rebuilds recheck permissions and lists,
 including changes made while the app was away.
+Event rows reuse the shared Join button. The iPhone screen passes
+`JoinLink.url` directly to SwiftUI's `openURL`, leaving the app or browser
+choice to iOS without consulting Mac app preferences or using deep links.
 
 The watchOS 26 app in `watchOSApp/`, built by `MinMaxCal-watchOS`,
 composes the same `AgendaModel` and `AgendaRow` into a read-only list.
@@ -82,7 +85,8 @@ Boundary facts the design relies on:
   the Dock or the Cmd-Tab switcher and its only standing UI is the menu
   bar item. Settings and the takeover are windows the app activates
   itself to show.
-- The app has no network code; join links are handed to other apps.
+- Network access is limited to explicit coaching model downloads;
+  join links are handed to other apps.
   Enabled mirroring writes to EventKit and macOS synchronises those
   changes through the destination account.
 
@@ -312,16 +316,20 @@ flowchart TD
   App Shortcuts phrases (which must sit in the app bundle) and owns
   the single refresh loop. No logic.
 
-Third-party imports: none. System frameworks are confined (P3):
+Coaching alone imports FluidAudio 0.17.7, with optional package traits
+disabled. Its macOS-only targets are absent from the iPhone and Watch
+dependency graphs. System frameworks are confined (P3):
 
 | Framework | Only importable in |
 |---|---|
 | EventKit, ServiceManagement | MinMaxCalData |
 | IOKit (power-source notifications) | MinMaxCalData |
 | CoreGraphics (calendar colours) | MinMaxCalData |
-| AppKit | MinMaxCalData (`NSWorkspace`), MinMaxCalAgenda (notes) and MinMaxCalFeatures (windows) |
+| AppKit | MinMaxCalData (`NSWorkspace`), MinMaxCalAgenda (notes), Features and CoachingFeatures (UI) |
 | AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
-| SwiftUI | MinMaxCalAgenda, MinMaxCalFeatures and both app shells |
+| Core Audio, AVFoundation, CoreML, FluidAudio | MinMaxCalCoachingData (macOS only) |
+| UserNotifications | MinMaxCalCoachingData (the shared notification delegate) |
+| SwiftUI | MinMaxCalAgenda, MinMaxCalFeatures, MinMaxCalCoachingFeatures and the app shells |
 | UIKit | the iOS app shell and shared notes importer on iOS |
 | AppIntents | MinMaxCalIntents and MinMaxCalApp (App Shortcuts) |
 
@@ -341,8 +349,9 @@ Third-party imports: none. System frameworks are confined (P3):
 All targets build with `SWIFT_DEFAULT_ACTOR_ISOLATION` set per the table,
 `SWIFT_APPROACHABLE_CONCURRENCY=YES` and the Swift 6 language mode.
 
-Exactly one actor is sanctioned: `EventKitCalendarSource`. `EKEventStore`
-may be used from any thread but `EKEvent`, `EKReminder` and `EKCalendar`
+The calendar port has one actor: `EventKitCalendarSource`. Optional
+coaching actors and their isolation are justified in its section below.
+`EKEventStore` may be used from any thread but `EKEvent`, `EKReminder` and `EKCalendar`
 objects must not cross threads, so the actor owns the store, performs
 every fetch and write, and converts to Domain values before returning;
 no EventKit object ever leaves it. Any further actor needs a written
@@ -414,8 +423,8 @@ Complete action from SwiftUI button callbacks.
    `calendarItemIdentifier` plus `occurrenceDate` (recurring events
    share the former), the invite identity is
    `calendarItemExternalIdentifier`, acceptance follows `Acceptance`
-   (the attendee with `isCurrentUser` is `.accepted`, or the organiser
-   is the current user, or there are no attendees), and
+   (the attendee with `isCurrentUser` is `.accepted`, the organiser
+   is the current user or no attendee represents the current user), and
    `JoinLinkDetector` runs over `url`, `location` and `notes`.
 3. `AgendaFilter` drops cancelled events (`status == .canceled`), events
    the current user declined, events whose end has passed and completed
@@ -588,6 +597,9 @@ error restores the row and shows the message inline.
    carries one item; items due together come one after another, since
    dismissing one makes the next the earliest on the rebuild that
    follows.
+   Events with no current-user RSVP are eligible too, including shared
+   calendar events addressed to a general meeting alias. Explicit
+   pending, tentative, declined and unknown RSVPs remain ineligible.
 2. `TakeoverModel` sleeps until that moment in a child task restarted
    on every rebuild. The sleep has two legs: an ordinary one until
    five minutes before the moment, then, holding a
@@ -694,6 +706,142 @@ not render the Icon Composer document or its appearance variants;
 build the app and switch the icon style in System Settings to inspect
 the compiled icon.
 
+## Optional meeting coaching (macOS only)
+
+[COACHING.md](COACHING.md) documents model downloads and recording.
+`MinMaxCalCoachingDomain`, `MinMaxCalCoachingData` and
+`MinMaxCalCoachingFeatures` provide local speech inference, transcripts
+and inline coaching UI. Features depends on ports in CoachingDomain; Data
+implements them. The Mac shell composes these alongside the existing
+agenda. The iPhone and Watch use no coaching target or permission.
+
+The enabled preference defaults to false. The composition root creates
+no recorder, model store, history store or coaching tasks until enabled.
+Disabling cancels setup, stops and saves any recording, clears coaching
+notifications and releases the feature. Enabling alone never records or
+requests audio permission. Enabling checks saved models locally; missing
+models need the explicit Download Speech Models action before Start
+becomes available. Starting loads local models, never downloads them.
+Model construction runs on the model-store actor so it cannot block the
+agenda’s UI actor.
+
+`AgendaMeetingCalendar` projects the existing merged agenda and detector
+results into coaching values. There is no second EventKit store, access
+request, polling loop or calendar subscription. Agenda rebuilds reconcile
+future silent notification prompts; local ticks only update in-memory
+upcoming meetings. Record lists every event with a Join button from the
+same today-and-tomorrow agenda, without a separate 24-hour limit or link
+filter. All-day events and generic links remain selectable. Automatic
+prompts still require a timed event with a recognised conference URL.
+Invitees provide optional name suggestions, never meeting eligibility.
+Prompt identities include the member’s occurrence date and current start,
+so moved recurring occurrences remain distinct. Prompts exclude past
+starts when first seen and are cleared during recording. Notification
+actions refresh the agenda and revalidate the occurrence; the body asks
+for confirmation.
+Recording always follows an explicit Start or Record choice. A manual
+record button is available in the main agenda UI.
+
+The shared notification delegate preserves registered categories and
+requests alert permission only after an explicit notification or record
+action. Coaching reminders are silent, crossing-based and at least two
+minutes apart. Uncertain microphone attribution suppresses coaching.
+The calendar menu bar title remains unchanged; its icon shows recording
+or a target cue. When coaching is enabled, the panel has a recording
+indicator on the left only during recording and an Events/Record
+segmented selector at the top right. Selecting Record opens the recording
+view without starting capture. The selected calendar event offers the
+shared Join button with the existing service and app preferences.
+Record when joining defaults on after opting into coaching. Its toggle
+lives in Coaching settings and changes the default Join action in both
+agenda panels and the takeover. Turning it off keeps explicit Join and
+Record available on the takeover and leaves any current recording
+running. Agenda joins create no capture or explicit calendar refresh
+when coaching is disabled or the join preference is off. Recording joins
+refresh and revalidate the event, allowing explicit recording before its
+scheduled start.
+The inline clear button switches to a group call and preserves the empty
+name override when calendar suggestions refresh.
+Start/End controls remain in the footer. Echo reduction is enabled by
+default without a visible setting. The panel omits audio and storage
+details.
+
+Core Audio process taps capture system audio and AVAudioEngine captures
+the microphone, with no screen or video capture. Capture always uses all
+system audio; no app enumeration or audio-source selection is needed.
+macOS 27 uses the read-only audio tap; a macOS 26-only wrapper suppresses
+old tap API deprecation while keeping compiler checks elsewhere. The
+existing bounded sample buffers, LocalVQE echo reduction, Silero VAD,
+LS-EEND diarisation and Parakeet English transcription pipeline is
+retained. Separate actors for speech inference, echo reduction,
+transcription, model setup and history serialise mutable model/file state
+outside the UI actor. These
+are the additional actors justified by the audio pipeline. C callbacks
+copy samples before returning. Unsafe Core Audio operations are confined
+to Data. Capture errors preserve partial summaries; Quit drains capture
+and saves. The remote diarizer finalises and resets its state at hourly
+boundaries, retaining the loaded model. Frames spanning a boundary are
+split without losing samples. Microphone VAD, echo reduction and ASR
+continue uninterrupted. Remote speaker IDs include a session suffix,
+so saved names never carry to a different model session accidentally.
+The recording header counts down to the next speaker reset using audio
+updates, with no extra timer. A saved stop notice suppresses an
+identical global error so the warning appears once in the selected view.
+An interrupted recording offers Restart Recording as the primary footer
+action. It requires an explicit click, preserves the partial meeting in
+history and starts fresh audio/model state with the same title, own name
+and one-to-one hint. Remote speaker identities are fresh. A successful
+End never offers restart. Delete Summary uses an inline confirmation in
+the panel, avoiding a separate popover presentation. Deleting a failed
+meeting also clears its matching capture warning.
+
+Models live in MinMaxCal's sandbox Application Support/FluidAudio/Models,
+never in a checkout or bundle. Coaching history is atomically written per
+meeting in Application Support/MinMaxCal/Meetings, including 15-second
+checkpoints, transcript words and meeting-local speaker names. This is
+user-created recording history, not a persisted agenda cache.
+Saved meetings expire 48 hours after recording ends by default; Settings
+offers 48 hours, seven days or 30 days, with no indefinite retention.
+Removed retention preferences fall back to 48 hours. Expiry deletes the
+whole meeting file, including transcripts, summaries, statistics and
+speaker names, even when no transcript was captured. The history actor
+prunes expired reads and writes and caches its files during a launch.
+While coaching is enabled, one cancellable sleep targets the next expiry;
+there is no minute scan. Disabled coaching does no retention work, so
+overdue meetings are removed before history is exposed on the next
+enable. Expired selections are cleared from memory too. Other apps'
+containers are never modified. Copy Transcript is a labelled button near
+the top of the meeting view, visible with the transcript collapsed.
+Meeting JSON export is not offered.
+
+History rows expand their details inline, with one row open at a time.
+Opening history never replaces the current recording panel or scrolls to
+the top. Each row offers Copy Transcript and Delete without opening its
+details; deletion asks for confirmation inline beneath that row and
+scrolls the confirmation into view. The current recording stays above
+history and is excluded from saved rows until capture ends. Unsaved
+stopped recordings remain available to copy.
+Live and saved meetings share their title, transcript, statistics and
+speaker editing views. A shared Copy Transcript button handles both the
+row shortcut and the transcript heading. No history filter is shown.
+
+Event takeovers offer Join and Record as the primary Return action when
+coaching is enabled and idle and Record when joining is on, with a
+smaller secondary Join beside it. The primary Join action is blue. Model
+setup must be ready for the recording action. Both actions reuse
+JoinButton and the existing join handling.
+The recording choice starts a revalidated calendar recording after
+joining; failures appear inline on Record. Previews render identical
+controls but never start audio capture or write the takeover ledger.
+Disabled coaching and an existing recording retain the normal Join
+action. App composition supplies recording callbacks, keeping
+TakeoverModel independent of the audio implementation.
+
+The existing minute tick checks an overdue planned takeover after
+retiring finished entries. It can present a due event if an alarm was
+delayed or a previous takeover expired, without rearming future alarms
+or fetching EventKit on an idle tick.
+
 ## State and persistence
 
 | Fact | Source of truth | The app's role |
@@ -715,8 +863,9 @@ silence is stored as `null` and kept.
 
 ## Security and privacy model
 
-- There is no network code, no analytics and no log line containing a
-  title, a note or an attendee. Enabled mirroring shares the selected
+- There is no analytics or log line containing a title, note or attendee.
+  Optional coaching downloads models only after explicit setup; meeting
+  audio never leaves the Mac. Enabled mirroring shares the selected
   fields through the destination calendar's existing account.
 - Both app bundles include the shared `PrivacyInfo.xcprivacy`, declaring
   no tracking or collected data and `CA92.1` for the app's own
@@ -764,9 +913,9 @@ Never-do list:
 
 Dependency admission rule: more than 1,000 GitHub stars and a stable
 release in 2026, or an explicitly recorded exception for packages owned
-by an official language or project organisation. Nothing is admitted
-yet: EventKit, ServiceManagement, AppKit and SwiftUI cover the whole
-app, and the rule exists so the first proposal is held to it.
+by an official language or project organisation. FluidAudio 0.17.7 is
+admitted for local meeting coaching and its speech-model formats. This is an
+explicit exception to avoid replacing the established speech pipeline.
 
 Toolchain: Xcode 27, the macOS 27 SDK and Swift 6.4. XcodeGen generates
 the Mac, iPhone and watch app targets from `project.yml`; the

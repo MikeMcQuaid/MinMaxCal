@@ -48,6 +48,8 @@ struct AgendaScreen: View {
 
     @Environment(\.calendar)
     private var calendar
+    @Environment(\.openURL)
+    private var openURL
     @State private var showsSettings = false
     // periphery:ignore - Read and written through the projected SwiftUI binding.
     @State private var expanded: AgendaItem.ID?
@@ -107,7 +109,12 @@ struct AgendaScreen: View {
         if items.isEmpty == false {
             Section(title) {
                 ForEach(items) { item in
-                    AgendaEntry(item: item, model: model, expanded: $expanded)
+                    AgendaEntry(
+                        item: item,
+                        model: model,
+                        expanded: $expanded,
+                        onJoin: { openURL($0.url) },
+                    )
                 }
                 .listRowInsets(Self.rowInsets)
             }
