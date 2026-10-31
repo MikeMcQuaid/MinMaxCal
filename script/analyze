@@ -1,11 +1,9 @@
 #!/bin/bash
 # Static analysis: unused declarations and imports via SwiftLint's
-# analyzer, plus dead-code detection via periphery outside the sandbox.
+# analyzer, plus dead-code detection via Periphery.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-
-[[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
 
 flags=(--build-tests --scratch-path .build/analyze -v)
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
@@ -28,32 +26,40 @@ if ! swift build "${flags[@]}" >"${log}" 2>&1; then
 fi
 swiftlint analyze --compiler-log-path "${log}" --strict --quiet
 
-# periphery scans through the app scheme, since its SPM mode finds no
-# index store under the current build system. On the host it drives
-# xcodebuild itself; that build's package resolution cannot nest inside
-# a sandvault session, so there the index store is built first with the
-# same sandbox flags as `script/build` and periphery reads it.
-periphery=(periphery scan --project MinMaxCal.xcodeproj --schemes MinMaxCal --strict --disable-update-check)
+# Periphery's project parser requires .pbxproj, so scan the native
+# JSON project's index store through its generic configuration.
+index=.build/analyze-index
+args=(
+  -project MinMaxCal.xcodeproj
+  -scheme MinMaxCal
+  -configuration Debug
+  -destination "${XCODE_DESTINATION:-platform=macOS,arch=arm64}"
+  -derivedDataPath "${index}"
+  COMPILER_INDEX_STORE_ENABLE=YES
+)
 if [[ -n "${SV_SESSION_ID:-}" ]]; then
-  index=.build/analyze-index
   # The literal $(inherited) is for xcodebuild, not the shell.
   # shellcheck disable=SC2016
-  xcodebuild build \
-    -project MinMaxCal.xcodeproj \
-    -scheme MinMaxCal \
-    -configuration Debug \
-    -destination "${XCODE_DESTINATION:-platform=macOS,arch=arm64}" \
-    -derivedDataPath "${index}" \
-    -jobs 6 \
-    -IDEPackageSupportDisableManifestSandbox=1 \
-    -IDEPackageSupportDisablePackageSandbox=1 \
-    'OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox' \
-    COMPILER_INDEX_STORE_ENABLE=YES \
-    >"${index}.log" 2>&1 || {
-    echo "analyze aborted: the index build failed, so periphery has nothing trustworthy to scan" >&2
-    grep -E "error:" "${index}.log" | head -20 >&2
-    exit 1
-  }
-  periphery+=(--skip-build --index-store-path "${index}/Index.noindex/DataStore")
+  args+=(
+    -jobs 6
+    -IDEPackageSupportDisableManifestSandbox=1
+    -IDEPackageSupportDisablePackageSandbox=1
+    'OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox'
+  )
 fi
-"${periphery[@]}"
+xcodebuild build "${args[@]}" >"${index}.log" 2>&1 || {
+  echo "analyze aborted: the index build failed, so periphery has nothing trustworthy to scan" >&2
+  grep -E "error:" "${index}.log" | head -20 >&2
+  exit 1
+}
+cat >.build/analyze-project.json <<EOF
+{
+  "indexstores": ["${index}/Index.noindex/DataStore"],
+  "plists": ["App/Info.plist"],
+  "test_targets": [],
+  "xibs": [],
+  "xcdatamodels": [],
+  "xcmappingmodels": []
+}
+EOF
+periphery scan --generic-project-config .build/analyze-project.json --strict --disable-update-check

@@ -14,7 +14,7 @@ on:
     paths:
       - .github/workflows/release.yml
       - script/testflight
-      - project.yml
+      - MinMaxCal.xcodeproj/**
       - Package.swift
       - iOSApp/Info.plist
       - watchOSApp/Info.plist
@@ -106,7 +106,7 @@ jobs:
             ~/Library/Caches/org.swift.swiftpm
             .build/DerivedData/SourcePackages/checkouts
             .build/DerivedData/SourcePackages/repositories
-          key: ${{ runner.os }}-swiftpm-release-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}
+          key: ${{ runner.os }}-swiftpm-release-${{ hashFiles('Package.swift', 'Package.resolved', 'MinMaxCal.xcodeproj/project.xcproj') }}
           restore-keys: ${{ runner.os }}-swiftpm-release-
 
       - name: Bootstrap

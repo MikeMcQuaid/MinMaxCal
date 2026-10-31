@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install Brewfile dependencies and generate MinMaxCal.xcodeproj.
+# Install Brewfile dependencies and prepare Git-derived version settings.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -8,4 +8,4 @@ if ! brew bundle check &>/dev/null; then
   brew bundle
 fi
 
-xcodegen generate --quiet
+script/version

@@ -1,7 +1,8 @@
 .build/
 .swiftpm/
 .test-scratch/
-*.xcodeproj/
+xcuserdata/
+*.xcuserstate
 DerivedData/
 .DerivedData/
 .DS_Store

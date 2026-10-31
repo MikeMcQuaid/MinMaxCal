@@ -5,8 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 script/version
-[[ -d MinMaxCal.xcodeproj ]] || script/bootstrap
-xcodegen generate --use-cache --quiet
 
 # Capped parallelism inside the sandbox: full-width builds have
 # triggered resource kills that tore down the whole sandbox user.

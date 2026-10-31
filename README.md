@@ -106,9 +106,9 @@ opting in. Calendar mirroring is off until enabled in **Sync**.
 
 ## 🛠️ Development
 
-- `script/bootstrap`: install dependencies and generate the project
+- `script/bootstrap`: install dependencies and prepare version settings
 - `script/build`: build in Release; set `XCODE_CONFIGURATION=Debug`
-  for a debug build
+  for a debug build. Synchronised app folders discover new files.
 - `script/install`: build, replace the /Applications copy and launch it
 - `script/test`: unit tests
 - `script/style [--fix]`: all linters, including README length limits
@@ -148,12 +148,12 @@ matching rules in Settings. Preferences stay on the phone. The agenda
 refreshes on launch, foregrounding, local changes and periodically;
 system accounts handle cloud syncing.
 
-1. Install Xcode 27 with iOS support, run `script/bootstrap` and open
+1. Install Xcode 27.2 with iOS support, run `script/bootstrap` and open
    `MinMaxCal.xcodeproj`. Choose **MinMaxCal-iOS** and your connected
    iPhone as the destination.
 2. Choose your team under **Signing & Capabilities** with automatic
    signing enabled. A Personal Team works; use a unique bundle
-   identifier if needed. XcodeGen may reset these local changes.
+   identifier if needed. The native JSON project is tracked in Git.
 3. Enable **Developer Mode** on the phone, then press **Run** in Xcode.
    Add accounts in system settings and allow full Calendar and
    Reminders access when prompted.
@@ -172,7 +172,7 @@ Overdue reminders stay visible; undated reminders are omitted.
 It is read-only, with no complications or settings sync. Calendar and
 Reminders permissions are independent; system accounts supply its data.
 
-To run it, install watchOS platform support in Xcode 27, run
+To run it, install watchOS platform support in Xcode 27.2, run
 `script/bootstrap` and select **MinMaxCal-watchOS** with your paired
 Apple Watch as the destination. Choose your signing team for the
 iPhone and watch targets, enable Developer Mode on the watch and run.
