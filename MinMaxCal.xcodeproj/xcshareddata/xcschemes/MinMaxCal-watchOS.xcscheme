@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2700"
-   version = "1.7">
+   LastUpgradeVersion = "2720"
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      runPostActionsOnFailure = "NO">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -27,8 +26,7 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      shouldUseLaunchSchemeArgsEnv = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
@@ -57,7 +55,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "6B21336B55392401F51F173A"
             BuildableName = "MinMaxCal.app"
-            BlueprintName = "MinMaxCal-watchOS"
             ReferencedContainer = "container:MinMaxCal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,7 +71,6 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "6B21336B55392401F51F173A"
             BuildableName = "MinMaxCal.app"
-            BlueprintName = "MinMaxCal-watchOS"
             ReferencedContainer = "container:MinMaxCal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
