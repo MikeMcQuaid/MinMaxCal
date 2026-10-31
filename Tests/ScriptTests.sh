@@ -9,10 +9,7 @@ mkdir -p "${scratch}/script" "${scratch}/bin" "${scratch}/MinMaxCal.xcodeproj" \
   "${scratch}/.build/DerivedData/Build/Products/Release/MinMaxCal.app"
 cp script/build "${scratch}/script/build"
 ln -s .build/DerivedData/Build/Products/Release/MinMaxCal.app "${scratch}/MinMaxCal.app"
-for command in version xcodegen; do
-  printf '#!/bin/bash\nexit 0\n' >"${scratch}/bin/${command}"
-done
-cp "${scratch}/bin/version" "${scratch}/script/version"
+printf '#!/bin/bash\nexit 0\n' >"${scratch}/script/version"
 cat >"${scratch}/bin/xcodebuild" <<'BUILDER'
 #!/bin/bash
 echo 'Build diagnostic on stdout'

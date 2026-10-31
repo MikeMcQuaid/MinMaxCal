@@ -78,7 +78,7 @@ jobs:
             .build/repositories
             .build/DerivedData/SourcePackages/checkouts
             .build/DerivedData/SourcePackages/repositories
-          key: ${{ runner.os }}-swiftpm-tests-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}
+          key: ${{ runner.os }}-swiftpm-tests-${{ hashFiles('Package.swift', 'Package.resolved', 'MinMaxCal.xcodeproj/project.xcproj') }}
           restore-keys: ${{ runner.os }}-swiftpm-tests-
 
       - name: Bootstrap
@@ -141,7 +141,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-swiftpm-analyze-${{ hashFiles('Package.swift', 'Package.resolved', 'project.yml') }}
+          key: ${{ runner.os }}-swiftpm-analyze-${{ hashFiles('Package.swift', 'Package.resolved', 'MinMaxCal.xcodeproj/project.xcproj') }}
           restore-keys: ${{ runner.os }}-swiftpm-analyze-
 
       - name: Bootstrap

@@ -194,9 +194,9 @@ always fetches and re-plans the timers immediately.
 
 ## Package architecture
 
-One root `Package.swift` defines every library target; a thin app shell
-in `App/` is generated into an Xcode project by XcodeGen (`project.yml`
-is committed, the `.xcodeproj` is gitignored).
+One root `Package.swift` defines every library target. The app shells
+use the committed `MinMaxCal.xcodeproj/project.xcproj` in Xcode 27.2's
+native JSON format, with shared schemes tracked alongside it.
 
 ```mermaid
 flowchart TD
@@ -917,12 +917,18 @@ by an official language or project organisation. FluidAudio 0.17.7 is
 admitted for local meeting coaching and its speech-model formats. This is an
 explicit exception to avoid replacing the established speech pipeline.
 
-Toolchain: Xcode 27, the macOS 27 SDK and Swift 6.4. XcodeGen generates
-the Mac, iPhone and watch app targets from `project.yml`; the
-`.xcodeproj` is gitignored. All targets enable dead code stripping,
-user script sandboxing and generated asset and string catalogue
-symbols. The explicit `arm64` architecture keeps Mac releases limited
-to Apple silicon.
+Toolchain: Xcode 27.2, the macOS 27 SDK and Swift 6.4. The native JSON
+project defines the Mac, iPhone and watch app targets and is readable
+by Xcode 27 and later. Edit the project directly in Xcode or its
+`project.xcproj`. Synchronised `App`, `iOSApp` and `watchOSApp` folders
+discover source files and resources automatically for their own targets.
+Property lists, entitlements and `App/Icons` are excluded from that
+membership; the shared app icon and privacy manifest remain explicit
+resources of all three targets. Keep scratch files outside app folders.
+User-specific Xcode state remains gitignored. All targets enable dead
+code stripping, user script sandboxing and generated asset and string
+catalogue symbols. The explicit `arm64` architecture keeps Mac releases
+limited to Apple silicon.
 SwiftLint and SwiftFormat run with every rule enabled; disagreements
 are disabled per line with a reason, and configuration excludes only
 rules that conflict with other enabled rules or tools, each with a
@@ -935,7 +941,7 @@ Run → Info → Debug executable** turned off. This isolates debugger
 attachment from normal launch. Turn it back on for breakpoints.
 
 Scripts follow the `script/` convention: `bootstrap` (Homebrew
-dependencies, then XcodeGen project generation), `build` (the app via
+dependencies, then Git-derived version settings), `build` (the app via
 xcodebuild, defaulting to Release with `XCODE_CONFIGURATION` as an
 override, versioned from the nearest reachable tag), `install`
 (build with visible output, stop the current user's running app,
@@ -946,10 +952,9 @@ Releases), `test` (unit tests via `swift test`, after sweeping
 `.test-scratch`),
 `analyze` (a from-scratch verbose build into `.build/analyze` so the
 SwiftLint analyzer sees every compiler invocation, then periphery,
-which drives xcodebuild itself on the host and inside a sandbox reads
-an index store built into `.build/analyze-index` with
-`COMPILER_INDEX_STORE_ENABLE=YES`, since the build it would drive
-cannot resolve packages there), `style [--fix]` (all linters) and
+which reads an index store built into `.build/analyze-index` with
+`COMPILER_INDEX_STORE_ENABLE=YES`. Its generic project configuration
+avoids its legacy `.pbxproj` parser), `style [--fix]` (all linters) and
 `icons` (PNG previews of the icon sources, rendered by AppKit so no
 extra dependency is needed). Agent-driven builds inside a sandbox cannot nest
 macOS sandboxes, so build scripts gate on `SV_SESSION_ID` and pass
@@ -968,7 +973,7 @@ protocol overrides; linker warnings also fail builds. Xcode runs deep
 Clang static analysis with its additional security, localisation and
 conversion checks enabled, ready for any C-family sources. These Clang
 checks do not analyse Swift, whose checks run in its own compiler.
-`script/build` refreshes the generated project, preserves all build
+`script/build` uses the committed project, preserves all build
 diagnostics and propagates failure even if an older app bundle remains.
 `script/test` first checks build, install and style handling with stub
 tools, including install output, app replacement and relaunch order
@@ -1030,7 +1035,8 @@ also caches `.build/checkouts` and `.build/repositories`. Analysis
 restores only the shared download cache, since its scratch build is
 deleted before every run; the sanitizer builds also reuse downloads
 from that cache. Keys include the runner OS, job and hashes of
-`Package.swift`, `Package.resolved` when present and `project.yml`.
+`Package.swift`, `Package.resolved` when present and
+`MinMaxCal.xcodeproj/project.xcproj`.
 No compiled app, build product or signing credential is cached.
 Dependabot groups GitHub Actions and Swift updates separately, checking
 on Fridays at 08:00 UTC with a seven-day cooldown. There are currently
@@ -1047,7 +1053,7 @@ separate container; changing it does not migrate its settings.
 The source remains AGPL-3.0 with the additional permission in
 `LICENSE-EXCEPTION` for App Store distribution.
 
-Generate the project, select the paid Developer Program team in
+Open the project, select the paid Developer Program team in
 Signing & Capabilities and archive `MinMaxCal-AppStore` for Mac or
 `MinMaxCal-iOS` for iPhone. The Mac scheme uses the `AppStore` release
 configuration with automatic signing and the `APP_STORE` compilation
@@ -1199,8 +1205,8 @@ so that only the last needs credentials:
   core. It writes that tag as `MARKETING_VERSION` in
   `.build/Version.xcconfig`, which `Info.plist` exposes to Finder and
   the About tab; a build with no reachable tag uses `0.0.0`.
-  XcodeGen runs the script before generating the project, and the
-  shared scheme runs it before every build, so direct Xcode builds
+  Bootstrap and the shared Mac schemes run the script, with the
+  schemes running it before every build, so direct Xcode builds
   also refresh the version from Git. Both Debug and Release use the
   tracked `Version.xcconfig`, which defaults to `0.0.0` and optionally
   includes the generated file. Xcode can load the project after
@@ -1254,9 +1260,9 @@ both pass and the TestFlight upload succeeds does a separate publishing
 job automatically tag the original commit and create the GitHub release
 with generated notes and that exact zip.
 A push that touches `.github/workflows/release.yml`,
-`script/testflight`, `project.yml`, `Package.swift`, `iOSApp/Info.plist`
-or `watchOSApp/Info.plist` uses `9999.0.0` as a reserved valid
-local-only version and repeats the build, signing, notarisation and
+`script/testflight`, `MinMaxCal.xcodeproj/**`, `Package.swift`,
+`iOSApp/Info.plist` or `watchOSApp/Info.plist` uses `9999.0.0` as a reserved
+valid local-only version and repeats the build, signing, notarisation and
 startup checks as a dry run, uploading the test artefact but pushing no
 tag or release. It only lists existing releases, so the process cannot
 rot unnoticed between releases. Dependabot cannot read Actions secrets,

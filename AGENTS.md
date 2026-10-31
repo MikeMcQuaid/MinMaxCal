@@ -15,8 +15,8 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 
 ## Commands
 
-- `script/bootstrap`: install `Brewfile` dependencies and generate
-  `MinMaxCal.xcodeproj` with XcodeGen
+- `script/bootstrap`: install `Brewfile` dependencies and prepare
+  Git-derived version settings
 - `script/build`: build the app with xcodebuild, defaulting to Release
   (`XCODE_CONFIGURATION` overrides it), versioned from the nearest
   reachable tag and numbered by `main`'s commits; `MinMaxCal.app` in
@@ -40,9 +40,10 @@ conventional-commit prefixes such as `feat:`, `fix:` or `chore:`.
 - `ARCHITECTURE.md`: system design, packages and data flows
 - `AGENTS.md`: this file; `CLAUDE.md` is a symlink to it
 - `Package.swift`, `Sources/`, `Tests/`: the Swift package targets
-- `App/`: the app shell; `project.yml` defines the XcodeGen target
-  (the generated `.xcodeproj` stays gitignored); `App/Icons` holds
-  the icon sources and `App/Assets.xcassets` the catalogue
+- `App/`: the app shell; `App/Icons` holds the icon sources and
+  `App/Assets.xcassets` the catalogue
+- `MinMaxCal.xcodeproj/`: the tracked native JSON project and shared
+  schemes; synchronised app folders discover new files automatically
 - `iOSApp/`: the iPhone agenda shell; the `MinMaxCal-iOS` scheme
   shares `MinMaxCalAgenda`, Data and Domain with the Mac
 - `watchOSApp/`: the read-only watch agenda; `MinMaxCal-watchOS`
@@ -228,9 +229,11 @@ Hard-won on macOS 27 beta; check before assuming they expired.
   `script/build` passes `OTHER_SWIFT_FLAGS=$(inherited)
   -disable-sandbox`. The `$(inherited)` matters: overriding the flags
   outright drops the package's default isolation settings.
-- XcodeGen's `info.path` and `entitlements.path` generate those files;
-  hand-written ones are referenced through `INFOPLIST_FILE` and
-  `CODE_SIGN_ENTITLEMENTS` and excluded from the sources.
+- Hand-written property lists and entitlements are referenced through
+  `INFOPLIST_FILE` and `CODE_SIGN_ENTITLEMENTS`, without source or
+  resource target membership. Synchronised folders exclude them and
+  `App/Icons`; mark `Icons` opaque so its exclusion covers its contents.
+  The shared app icon has explicit resource membership.
 - SwiftFormat's `propertyTypes` rule guesses a type from a static
   member's name, so a factory such as `Fixtures.ledgerStore()` needs
   an explicit type annotation or it becomes `: Fixtures`.
