@@ -2,37 +2,33 @@
 
 ![MinMaxCal agenda and full-screen takeover](minmaxcal-screenshot.png)
 
-MinMaxCal is a simple calendar and reminder app that lives in the menu
-bar, not the Dock. Most of the time it shows only your next event or
-reminder and a compact countdown. When that item is due, MinMaxCal takes
-over every display with everything you need and one click to get where
-you are going.
+MinMaxCal is a minimal calendar and reminder app (Min) that pulls you
+out of flow and into meetings with a full-screen takeover and one-click
+join (Max). Most of the time it shows only your next event or reminder
+and a countdown in the menu bar, without a Dock icon.
 
 ## 💡 Motivation
 
-Calendar apps either hide in a window you forgot to look at or nag with
-notifications you learnt to swipe away. MinMaxCal works at both
-extremes: it is effortless to glance at and difficult to ignore when
-something is due. It reads the calendars and reminder lists macOS
-already has through EventKit, so it needs no separate account. Optional
-calendar mirroring writes through those same macOS accounts.
+I built MinMaxCal to replace a meeting reminder app and fix a few
+annoying edge cases, such as combining identical events. It reads the
+calendars and reminder lists already in macOS, so there's no separate
+account. Optional calendar mirroring writes through those same accounts.
 
 ## ✨ Features
 
 - See the next item and countdown in the menu bar. Browse today and
   tomorrow with merged meetings, calendar colours and expandable rows.
-  Optional [meeting coaching](COACHING.md) reuses events on Mac with
-  inline history, recording recovery and 48-hour meeting retention.
 - Take over every display at an event's start or a reminder's due time.
   Events need an accepted RSVP or none for you. Join with recording,
   complete reminders with five-minute Undo, dismiss or snooze.
 - Mirror calendars for the coming month, copying titles, locations and
   links or using Busy or Travel titles. Preview with **Compare** before
   enabling **Sync**; originals are never changed.
-- [iPhone preview](#-iphone-preview): browse your agenda, join calls
-  and complete reminders with Undo.
-- [Apple Watch preview](#-apple-watch-preview): read-only agenda on
-  your wrist.
+- Optional [meeting coaching](COACHING.md): transcribe meetings and
+  measure your speaking time with local speech models on Mac.
+- Use the [iPhone preview](#-iphone-preview) to browse your agenda, join
+  calls and complete reminders with Undo, or the
+  [Apple Watch preview](#-apple-watch-preview) for a read-only agenda.
 
 ## 🚫 Out of Scope
 
@@ -63,13 +59,11 @@ documented rule or left out; private APIs are never used:
 
 ## 📦 Installation
 
-Install with Homebrew:
+Install and upgrade with Homebrew.
 
 ```bash
-brew install --cask minmaxcal
+brew install minmaxcal
 ```
-
-`brew upgrade` updates the app.
 
 Alternatively, download `MinMaxCal-<version>.zip` from the
 [releases page](https://github.com/MikeMcQuaid/MinMaxCal/releases),
