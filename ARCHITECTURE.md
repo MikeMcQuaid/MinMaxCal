@@ -428,14 +428,24 @@ Complete action from SwiftUI button callbacks.
    `JoinLinkDetector` runs over `url`, `location` and `notes`.
 3. `AgendaFilter` drops cancelled events (`status == .canceled`), events
    the current user declined, events whose end has passed and completed
-   reminders; all-day events and reminders without a due time stay in
-   the agenda but are excluded from the title and from takeovers.
+   reminders. Events titled `Out of office`, ignoring case and
+   surrounding whitespace, are hidden before merging, covering Google
+   Calendar's default title without needing a private event type. Other
+   all-day events and reminders without a due time stay in the agenda but
+   are excluded from the title and from takeovers.
 4. `AgendaMerger` first folds locally linked sync copies into their
    originals, retaining members and calendar colours while taking all
    content and acceptance from the original. It then groups by invite
    identifier and original recurrence date, then by exact
    start and end where titles are equal after trimming and case folding
-   or one side is in `MatchingRules.genericTitles`. A group with two
+   or one side is in `MatchingRules.genericTitles`. Events with
+   matching specific titles also merge when either start or end matches
+   exactly and the other differs by no more than half the shorter
+   duration. Comparisons use the first member's times to avoid chaining
+   matches. The merged times are the uniquely most common start/end pair
+   among specific members. When tied, including two differing copies,
+   they span the earliest start to the latest end. Generic titles still
+   require exact timing. A group with two
    distinct specific titles splits into one item per specific title,
    generic members attaching to the first by calendar order. The merged
    item's title is the longest specific title and its calendars are

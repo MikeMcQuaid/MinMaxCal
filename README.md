@@ -18,6 +18,9 @@ account. Optional calendar mirroring writes through those same accounts.
 
 - See the next item and countdown in the menu bar. Browse today and
   tomorrow with merged meetings, calendar colours and expandable rows.
+  Hide “Out of office” events. Matching titles merge if one time
+  matches and the other differs by up to half the shorter duration.
+  Use the most common times, or the full time range when tied.
 - Take over every display at an event's start or a reminder's due time.
   Events need an accepted RSVP or none for you. Join with recording,
   complete reminders with five-minute Undo, dismiss or snooze.

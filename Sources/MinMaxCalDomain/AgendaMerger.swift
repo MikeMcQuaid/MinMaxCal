@@ -4,7 +4,7 @@ import Foundation
 public enum AgendaMerger {
     // MARK: Public
 
-    /// Groups by invitation identifier, then by identical timing with matching or generic titles.
+    /// Groups by invitation identifier, then by matching titles and exact or similar timing.
     public static func merge(_ items: [AgendaItem], rules: MatchingRules, syncLinks: [SyncLink] = []) -> [AgendaItem] {
         let units = groupedByInvite(foldSyncCopies(items, links: syncLinks))
             .flatMap { splitBySpecificTitle($0, rules: rules) }
@@ -14,11 +14,11 @@ public enum AgendaMerger {
     // MARK: Private
 
     private struct Timing: Hashable {
-        // periphery:ignore - read only by the synthesised Hashable conformance, as a grouping key
         var start: Date
-        // periphery:ignore - read only by the synthesised Hashable conformance, as a grouping key
         var end: Date?
     }
+
+    private static let durationTolerance = 0.5
 
     private static func groupedByInvite(_ items: [AgendaItem]) -> [[AgendaItem]] {
         var groups = [[AgendaItem]]()
@@ -71,8 +71,22 @@ public enum AgendaMerger {
             let target = indexesByTiming[timing, default: []].first { index in
                 let existing = specificTitle(of: merged[index], rules: rules)
                 return title == nil || existing == nil || existing == title
+            } ?? merged.firstIndex { group in
+                guard let other = group.first, other.kind == .event,
+                      let end = first.end, let otherEnd = other.end,
+                      first.start == other.start || end == otherEnd,
+                      let title, title == specificTitle(of: group, rules: rules)
+                else {
+                    return false
+                }
+
+                let tolerance = min(end.timeIntervalSince(first.start), otherEnd.timeIntervalSince(other.start))
+                    * durationTolerance
+                return abs(first.start.timeIntervalSince(other.start)) <= tolerance
+                    && abs(end.timeIntervalSince(otherEnd)) <= tolerance
             }
             if let target {
+                indexesByTiming[timing, default: []].append(target)
                 merged[target] += unit
             } else {
                 indexesByTiming[timing, default: []].append(merged.count)
@@ -91,6 +105,16 @@ public enum AgendaMerger {
         let trusted = specific.isEmpty ? group : specific
         guard var item = trusted.first, group.count > 1 else {
             return group[0]
+        }
+
+        let timings = Dictionary(grouping: trusted) { Timing(start: $0.start, end: $0.end) }
+            .sorted { $0.value.count > $1.value.count }
+        if let preferred = timings.first, preferred.value.count > (timings.dropFirst().first?.value.count ?? 0) {
+            item.start = preferred.key.start
+            item.end = preferred.key.end
+        } else {
+            item.start = trusted.map(\.start).min() ?? item.start
+            item.end = trusted.compactMap(\.end).max()
         }
 
         item.title = longest(trusted.map(\.title)) ?? item.title
