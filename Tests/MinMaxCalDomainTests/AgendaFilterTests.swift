@@ -3,6 +3,16 @@ import MinMaxCalDomain
 import Testing
 
 struct AgendaFilterTests {
+    @Test(arguments: ["Out of office", " OUT OF OFFICE \n"])
+    func `hides default out of office events before merging`(title: String) {
+        let timed = Fixtures.event("timed", title: title)
+        let allDay = Fixtures.event("all-day", title: title, isAllDay: true)
+        let reminder = Fixtures.reminder("reminder", title: title)
+        let meeting = Fixtures.event("meeting", title: "Out of office planning")
+
+        #expect(AgendaFilter.upcoming([timed, allDay, reminder, meeting], now: Fixtures.now) == [reminder, meeting])
+    }
+
     @Test
     func `drops past cancelled declined and completed items`() {
         var cancelled = Fixtures.event("cancelled")
