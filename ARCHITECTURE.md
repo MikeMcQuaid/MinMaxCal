@@ -316,8 +316,8 @@ flowchart TD
   App Shortcuts phrases (which must sit in the app bundle) and owns
   the single refresh loop. No logic.
 
-Coaching alone imports FluidAudio 0.17.7, with optional package traits
-disabled. Its macOS-only targets are absent from the iPhone and Watch
+Coaching alone imports FluidAudio 0.18.0, with only the `Diarizer` trait
+enabled. Its macOS-only targets are absent from the iPhone and Watch
 dependency graphs. System frameworks are confined (P3):
 
 | Framework | Only importable in |
@@ -923,7 +923,7 @@ Never-do list:
 
 Dependency admission rule: more than 1,000 GitHub stars and a stable
 release in 2026, or an explicitly recorded exception for packages owned
-by an official language or project organisation. FluidAudio 0.17.7 is
+by an official language or project organisation. FluidAudio 0.18.0 is
 admitted for local meeting coaching and its speech-model formats. This is an
 explicit exception to avoid replacing the established speech pipeline.
 
@@ -1049,8 +1049,8 @@ from that cache. Keys include the runner OS, job and hashes of
 `MinMaxCal.xcodeproj/project.xcproj`.
 No compiled app, build product or signing credential is cached.
 Dependabot groups GitHub Actions and Swift updates separately, checking
-on Fridays at 08:00 UTC with a seven-day cooldown. There are currently
-no external Swift dependencies, so the Swift group has nothing to update.
+on Fridays at 08:00 UTC with a seven-day cooldown. The Swift group
+contains one external dependency, FluidAudio.
 
 ### Releases
 
