@@ -29,7 +29,7 @@ let package = Package(
         .library(name: "MinMaxCalCoachingFeatures", targets: ["MinMaxCalCoachingFeatures"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio", exact: "0.18.0", traits: [])
+        .package(url: "https://github.com/FluidInference/FluidAudio", exact: "0.18.0", traits: ["Diarizer"])
     ],
     targets: [
         .target(name: "MinMaxCalDomain", swiftSettings: swiftSettings(mainActorByDefault: false)),
