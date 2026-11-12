@@ -888,11 +888,16 @@ silence is stored as `null` and kept.
   `https://<teams host>/meet/<id>` and their `msteams://` twins built
   from a thread id, meeting id and passcode of URL-safe characters and
   a `context` that parses as JSON, `https://meet.google.com/...`,
-  `https://meet.jit.si/...`, `https://facetime.apple.com/join...`, or
-  the event's own URL when it has an `http` or `https` scheme. Any other
-  scheme in an
-  invitation is ignored, so an event cannot make the app open a
-  `file:` or custom-scheme URL.
+  `https://meet.jit.si/...`, `https://facetime.apple.com/join...`, other
+  recognised conference URLs or the event's own URL when it has an
+  `http` or `https` scheme. Any other scheme in an invitation is ignored,
+  so an event cannot make the app open a `file:` or custom-scheme URL.
+- Luma's `luma.com/join/g-<token>` and Linux Foundation's
+  `zoom-lfx.platform.linuxfoundation.org/meeting/<numeric id>` are
+  recognised conference links in the URL, location or notes. They use
+  the Other links app preference and retain their original web URL,
+  including query parameters. The browser handles redirects and access
+  checks; the app neither fetches them nor invents a Zoom deep link.
 - Notes render as text with `http(s)` links only. Plain notes get their
   bare URLs detected; notes that look like HTML are first stripped of
   every element that would load a resource (`img`, `link`, `script`,

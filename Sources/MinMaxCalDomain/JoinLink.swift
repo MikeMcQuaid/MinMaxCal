@@ -91,6 +91,12 @@ public struct JoinLink: Hashable, Sendable {
             return parts.isEmpty == false
 
         case .other:
+            if host == "luma.com" {
+                return url.path().wholeMatch(of: /\/join\/g-[A-Za-z0-9]+\/?/) != nil
+            }
+            if host == "zoom-lfx.platform.linuxfoundation.org" {
+                return url.path().wholeMatch(of: /\/meeting\/[0-9]+\/?/) != nil
+            }
             if ["zoom.us", "zoomgov.com"].contains(where: { host == $0 || host.hasSuffix(".\($0)") }) {
                 // swiftlint:disable:next no_magic_numbers - Conference path components.
                 return parts.count >= 2 && ["j", "my", "s"].contains(parts.first)

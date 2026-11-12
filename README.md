@@ -91,7 +91,7 @@ Settings opens from the agenda's footer or Cmd-, and controls:
 - **Takeover**: event and reminder triggers, the alert sound, snooze
   durations.
 - **Join**: the preferred app for Zoom, Teams, Meet, Jitsi, FaceTime
-  and other links.
+  and other links, including Luma and Linux Foundation meeting links.
 - **Matching**: generic titles to merge and home terms to omit from
   locations.
 - **Coaching**: optional Mac-only recording, model downloads, speaking
