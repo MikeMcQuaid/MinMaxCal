@@ -3,3 +3,8 @@ self-hosted-runner:
   # image label.
   labels:
     - xcode-27
+paths:
+  .github/workflows/release.yml:
+    ignore:
+      # GitHub supports queued concurrency; actionlint 1.7.12 does not.
+      - '^unexpected key "queue" for "concurrency" section\.'

@@ -5,12 +5,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-[[ $# == 0 || ($# == 1 && $1 == --dry-run) ]] || {
-  echo 'Usage: script/testflight [--dry-run]' >&2
+[[ $# == 0 || ($# == 1 && ($1 == --dry-run || $1 == --internal)) ]] || {
+  echo 'Usage: script/testflight [--dry-run|--internal]' >&2
   exit 1
 }
 destination=upload
 [[ "${1:-}" == --dry-run ]] && destination="export"
+internal=false
+[[ "${1:-}" == --internal ]] && internal=true
 profiles=(IOS WATCHOS)
 
 : "${RELEASE_VERSION:?}" "${BUILD_NUMBER:?}"
@@ -29,13 +31,11 @@ scratch="$(mktemp -d -t minmaxcal-testflight)"
 keychain="${scratch}/signing.keychain-db"
 keychains=()
 installed_profiles=()
-while read -r existing_keychain; do
-  existing_keychain="${existing_keychain#\"}"
-  keychains+=("${existing_keychain%\"}")
-done < <(security list-keychains -d user)
+signing_started=false
 cleanup() {
-  security list-keychains -d user -s "${keychains[@]}" &>/dev/null || true
-  security delete-keychain "${keychain}" &>/dev/null || true
+  if [[ "${signing_started}" == true ]]; then
+    security delete-keychain "${keychain}" &>/dev/null || true
+  fi
   if [[ ${#installed_profiles[@]} -gt 0 ]]; then
     rm -f "${installed_profiles[@]}"
   fi
@@ -43,23 +43,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-keychain_password="$(uuidgen)"
-security create-keychain -p "${keychain_password}" "${keychain}"
-security set-keychain-settings -lut 3600 "${keychain}"
-security unlock-keychain -p "${keychain_password}" "${keychain}"
-base64 --decode <<<"${APP_STORE_CERTIFICATES}" >"${scratch}/certificates.p12"
-security import "${scratch}/certificates.p12" -k "${keychain}" \
-  -P "${APP_STORE_CERTIFICATES_PASSWORD}" -T /usr/bin/codesign
-security set-key-partition-list -S apple-tool:,apple: -s \
-  -k "${keychain_password}" "${keychain}" &>/dev/null
-security list-keychains -d user -s "${keychain}" "${keychains[@]}"
-printf '%s\n' "${APP_STORE_KEY}" >"${scratch}/key.p8"
-
 plutil -create xml1 "${scratch}/export.plist"
 /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' \
   -c "Add :destination string ${destination}" -c 'Add :signingStyle string manual' \
   -c 'Add :signingCertificate string Apple Distribution' \
   -c 'Add :manageAppVersionAndBuildNumber bool false' \
+  -c "Add :testFlightInternalTestingOnly bool ${internal}" \
   -c 'Add :provisioningProfiles dict' "${scratch}/export.plist"
 
 profile_directory="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
@@ -69,6 +58,13 @@ for platform in "${profiles[@]}"; do
   variable="APP_STORE_${platform}_PROFILE"
   base64 --decode <<<"${!variable}" >"${scratch}/profile"
   security cms -D -i "${scratch}/profile" >"${scratch}/profile.plist"
+  bundle_id=com.mikemcquaid.MinMaxCal
+  [[ "${platform}" == WATCHOS ]] && bundle_id+=.watchkitapp
+  application_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "${scratch}/profile.plist")"
+  if [[ "${application_id#*.}" != "${bundle_id}" ]]; then
+    echo "Error: Provisioning profile targets ${application_id}; replace MINMAXCAL_${variable} with a profile for ${bundle_id}." >&2
+    exit 1
+  fi
   uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/profile.plist")"
   if [[ "${platform}" == IOS ]]; then
     team_id="$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "${scratch}/profile.plist")"
@@ -80,11 +76,30 @@ for platform in "${profiles[@]}"; do
     cp "${scratch}/profile" "${profile}"
   fi
   args+=("${platform}_PROFILE_UUID=${uuid}")
-  bundle_id=com.mikemcquaid.MinMaxCal
-  [[ "${platform}" == WATCHOS ]] && bundle_id+=.watchkitapp
   /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:${bundle_id} string ${uuid}" \
     "${scratch}/export.plist"
 done
+
+keychain_password="$(uuidgen)"
+signing_started=true
+security create-keychain -p "${keychain_password}" "${keychain}"
+security set-keychain-settings -lut 3600 "${keychain}"
+security unlock-keychain -p "${keychain_password}" "${keychain}"
+base64 --decode <<<"${APP_STORE_CERTIFICATES}" >"${scratch}/certificates.p12"
+security import "${scratch}/certificates.p12" -k "${keychain}" \
+  -P "${APP_STORE_CERTIFICATES_PASSWORD}" -T /usr/bin/codesign
+security set-key-partition-list -S apple-tool:,apple: -s \
+  -k "${keychain_password}" "${keychain}" &>/dev/null
+# Xcode export needs the signing identity in the live search list.
+security list-keychains -d user >"${scratch}/keychains"
+while read -r existing_keychain; do
+  existing_keychain="${existing_keychain#\"}"
+  keychains+=("${existing_keychain%\"}")
+done <"${scratch}/keychains"
+security list-keychains -d user -s "${keychain}" "${keychains[@]}"
+printf '%s\n' "${APP_STORE_KEY}" >"${scratch}/key.p8"
+
+script/version
 
 xcodebuild -project MinMaxCal.xcodeproj -scheme MinMaxCal-iOS \
   -configuration AppStore -destination 'generic/platform=iOS' \
