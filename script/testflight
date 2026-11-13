@@ -5,12 +5,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-[[ $# == 0 || ($# == 1 && $1 == --dry-run) ]] || {
-  echo 'Usage: script/testflight [--dry-run]' >&2
+[[ $# == 0 || ($# == 1 && ($1 == --dry-run || $1 == --internal)) ]] || {
+  echo 'Usage: script/testflight [--dry-run|--internal]' >&2
   exit 1
 }
 destination=upload
 [[ "${1:-}" == --dry-run ]] && destination="export"
+internal=false
+[[ "${1:-}" == --internal ]] && internal=true
 profiles=(IOS WATCHOS)
 
 : "${RELEASE_VERSION:?}" "${BUILD_NUMBER:?}"
@@ -60,6 +62,7 @@ plutil -create xml1 "${scratch}/export.plist"
   -c "Add :destination string ${destination}" -c 'Add :signingStyle string manual' \
   -c 'Add :signingCertificate string Apple Distribution' \
   -c 'Add :manageAppVersionAndBuildNumber bool false' \
+  -c "Add :testFlightInternalTestingOnly bool ${internal}" \
   -c 'Add :provisioningProfiles dict' "${scratch}/export.plist"
 
 profile_directory="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
