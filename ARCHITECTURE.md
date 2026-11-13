@@ -1080,16 +1080,22 @@ Developer ID and notarisation path for direct downloads.
 
 The Release workflow uploads the iPhone and bundled Watch app to
 TestFlight before pushing the GitHub tag or publishing release binaries.
-Uploads run only for a dispatched release. Human push dry runs archive
-and export a signed IPA while publishing is skipped. They
-then run `altool --validate-app` with the same API key, without
-uploading a TestFlight build. Missing credentials or validation failures
-fail the dry run; Dependabot skips the job because it cannot read
-secrets. Keeping it in the same workflow avoids relying on release
-events created by `GITHUB_TOKEN`, which do not trigger another workflow.
-The job checks out the release commit and uses `script/testflight` to
-archive and upload through `xcodebuild -exportArchive` with the
-`app-store-connect` method.
+After successful push CI on `main`, the same workflow checks out that
+exact tested commit and uploads an internal-only build. Pull requests,
+failed CI and workflows from other repositories cannot trigger uploads.
+CI preserves every push run; Release queues up to 100 runs in one shared
+concurrency group, serialising uploads and publication across branches.
+New uploads allocate a build number inside that queue, immediately
+before archiving. It exceeds all iOS build and upload numbers Apple
+reports, including legacy dotted numbers and uploads still processing.
+Rerunning an older workflow therefore cannot reuse its old run number.
+
+Human push dry runs archive and export a signed IPA, then run
+`altool --validate-app` with the same API key without uploading a build.
+Missing credentials or validation failures fail the dry run; Dependabot
+skips signing because it cannot read secrets. `script/testflight` uses
+`xcodebuild -exportArchive` with the `app-store-connect` method; private
+uploads also set `testFlightInternalTestingOnly`.
 
 TestFlight signing uses one imported Apple Distribution certificate
 and explicit distribution profiles for the iPhone and Watch apps.
@@ -1106,19 +1112,60 @@ The profiles come from `MINMAXCAL_APP_STORE_IOS_PROFILE` and
 `MINMAXCAL_APP_STORE_WATCHOS_PROFILE`; the certificate and its password
 can be shared with other apps on the same developer team.
 
-The iPhone and Watch apps take the release version and a
-`run_number.run_attempt` build number. Retries use a new build number.
-Upload failures fail the workflow and prevent the GitHub tag and release
-from being published. Apple's processing, tester groups and beta review
-remain in App Store Connect; the workflow does not publish an App Store
-release. The
-[setup guide](#set-up-testflight-releases) records the
-account, signing and secret setup.
+Official releases use the dispatched version; private builds use the
+nearest reachable version tag. Private retries allocate a new number.
+`.github/testflight.rb` authenticates to Apple's API with the same key,
+waits up to 20 minutes for processing and fails on invalid builds or a
+timeout. Private uploads rely on the internal group's automatic
+distribution. After processing succeeds, it expires all but the newest
+20 unexpired `INTERNAL_ONLY` iOS builds, across versions. Public builds
+are never retired by this cleanup. Expired builds can no longer be used
+by testers; Apple's usual 90-day expiry also applies to retained builds.
+
+Official releases find the external group named `Public Beta` (override
+with the `TESTFLIGHT_PUBLIC_GROUP` Actions variable), set What to Test,
+enable automatic notification, add the build and submit for beta review
+when required. Upload, processing, group assignment or submission errors
+prevent the GitHub tag and release. Apple's later beta review remains
+asynchronous: publication does not wait for approval and does not create
+an App Store release. Internal-only builds cannot be promoted to public
+beta; an official release uploads a separate eligible build.
+
+Before uploading publicly, the workflow saves the allocated build
+number, version, commit and run ID in a GitHub artefact retained for 90
+days. Saving this intent must succeed before an upload can start.
+Retries validate the identity and query both Apple's builds and upload
+history. An accepted upload resumes processing and distribution without
+another upload or review submission, even if the original upload command
+failed. Only an identity absent from both Apple endpoints can be
+uploaded again. A rejected upload needs a new release version. Private
+retries allocate a fresh number above Apple's history and all saved
+public intents.
+
+Public intent artefacts identify the audience of otherwise unclassified
+Apple upload records. Each actual upload command also needs a durable
+reservation before starting. The quota counts these reservations, public
+builds and matching Apple uploads, including failed or processing ones,
+without counting the same attempt twice. Unconfirmed reservations last
+25 hours to cover the job's one-hour timeout and the rolling 24-hour
+window. An archive failure can consume a slot without reaching Apple.
+Apple's later upload timestamps also count. Private uploads and dry runs
+create no public reservations. Missing API access fails closed.
+
+The workflow refuses a fourth GitHub release in a rolling 24 hours,
+checking published timestamps before building and immediately before
+pushing the tag. The shared workflow queue prevents concurrent releases
+from bypassing the check. Before a public upload, it also refuses a
+fourth App Store-eligible iOS upload in 24 hours, including failed
+release attempts that reached Apple. This also limits retries that could
+consume Apple's beta-review quota. Private uploads and dry runs do not
+consume these slots. API failures fail closed. Manual uploads and
+releases outside this workflow must respect the same limits.
 
 Mac TestFlight and public App Store submission are deferred. The Mac
 App Store scheme and shared bundle IDs remain available for later use.
-Uploads remain eligible for external TestFlight and future App Store
-submission; they are not restricted to internal testing.
+See the [setup guide](#set-up-testflight-releases)
+for the initial setup.
 
 Before a future public App Store submission, publish the privacy policy
 at its About link and complete the listing's privacy answers, support
@@ -1133,11 +1180,11 @@ requires Apple's archive validation and review.
 This adds **four secrets** to the existing Mac release setup. It reuses
 your paid Apple Developer membership and the existing
 `NOTARIZATION_KEY`, `NOTARIZATION_KEY_ID` and `NOTARIZATION_ISSUER_ID`
-secrets. That team API key needs Developer, App Manager or Admin access
-to upload builds. If these are not set up yet, [enrol][apple-enrol] and
-follow Apple's [API key instructions][apple-api-key], storing the key
-under those existing secret names. The Team ID is read from the iPhone
-profile.
+secrets. That team API key needs App Manager or Admin access to manage
+external testing as well as upload builds. If these are not set up yet,
+[enrol][apple-enrol] and follow Apple's
+[API key instructions][apple-api-key], storing the key under those
+existing secret names. The Team ID is read from the iPhone profile.
 
 TestFlight requires an App Store Connect app record and distribution
 signing, but no public App Store release. Mac TestFlight and public
@@ -1175,27 +1222,44 @@ App Store distribution can be added later using the same bundle IDs.
    Keep the existing Mac release secrets: the direct download still
    needs signing and notarisation. Renew the certificate and profiles
    before they expire, updating these secrets with their replacements.
-5. Push the workflow changes and wait for the Release dry run to pass.
-   It tests the signed archive, IPA export and Apple validation without
-   uploading to TestFlight. After merging to `main`, open **Actions →
-   Release → Run workflow**, choose `main` and enter a new bare version
-   such as `0.2.0`. It uploads the iPhone and Watch apps before
-   publishing the GitHub tag and release. Both apps use the release
-   version and the workflow run number and attempt as their build
-   number, for example `42.1`. No local archive or upload is needed.
-6. Wait for Apple's processing, then open **MinMaxCal → TestFlight**
-   in App Store Connect. Create an internal testing group, add yourself
-   and enable automatic distribution to receive future builds. Install
-   TestFlight on your devices and accept the invitation. For external
-   testers, complete the beta information and submit the first build
-   for Apple's beta review. Uploading does not publish an App Store
-   release. See Apple's [TestFlight guide][apple-testflight].
+5. In **MinMaxCal → TestFlight → Internal Testing**, open your existing
+   personal group and enable **Enable automatic distribution**. If that
+   option is unavailable for the existing group, create a new internal
+   group with it enabled and add yourself. Keep your accepted invitation
+   and installed TestFlight apps; do not repeat signing or invitations.
+   Each successful push CI on `main` now uploads a private build.
+6. In **TestFlight → Additional → Test Information**, complete the beta
+   description, feedback email and beta review contact details. Say no
+   sign-in is required if applicable. Ensure any required agreements and
+   export-compliance questions are complete. The app uses only Apple's
+   operating-system encryption; both plists declare no non-exempt use.
+7. Under **External Testing**, create a group named **Public Beta**.
+   External testers do not need App Store Connect organisation access.
+   A different name requires the `TESTFLIGHT_PUBLIC_GROUP` repository
+   Actions variable. A missing external group fails the workflow.
+8. Push the workflow changes and wait for the Release dry run to pass.
+   Then dispatch **Actions → Release → Run workflow** from `main` with
+   a new bare version such as `0.2.0`. The workflow uploads the iPhone
+   and Watch apps, adds the build to Public Beta and submits it for beta
+   review before publishing the GitHub tag and Mac download. It sets
+   **Automatically notify testers** for every release build.
+9. Once Apple's first beta review is approved, open **Public Beta →
+   Testers → Create Public Link**, choose **Open to Anyone**, enable a
+   tester limit of **10,000** and confirm. Share the TestFlight link.
+   Future official releases join the same group automatically and become
+   available after any required review. No further group assignment or
+   individual invitation is needed.
 
-If an upload fails, no GitHub tag or release is published. Fix the
-reported signing or validation issue, then choose **Re-run failed
-jobs** on that workflow run. The next attempt gets a new build number;
-do not dispatch the same release version again. A successful upload
-still needs Apple's processing and any required beta review.
+Only dispatching Release is repeated for official releases. Private
+builds follow successful `main` CI automatically. If a job fails, fix
+the reported issue and choose **Re-run failed jobs**; do not dispatch
+the same release version again. After Apple accepts a public upload,
+retries reuse that build and consume no new upload slot. At the limit,
+wait for a build or reservation to leave its quota window. API
+processing can time out even if Apple later finishes; inspect the
+existing build before retrying.
+See Apple's [TestFlight guide][apple-testflight] and
+[external testing instructions][apple-external-testing].
 
 [apple-enrol]: https://developer.apple.com/programs/enroll/
 [apple-identifiers]: https://developer.apple.com/account/resources/identifiers/list
@@ -1204,6 +1268,7 @@ still needs Apple's processing and any required beta review.
 [apple-profiles]: https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/
 [apple-api-key]: https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/
 [apple-testflight]: https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/
+[apple-external-testing]: https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/
 
 #### Direct downloads
 
@@ -1271,11 +1336,12 @@ launched on the ARM64 `macos-26` and `xcode-27` runners. Each checks its
 actual OS and architecture and fails if the app exits within ten
 seconds. These startup checks catch crashes and linking failures;
 calendar access and UI interactions still need host testing. Only after
-both pass and the TestFlight upload succeeds does a separate publishing
-job automatically tag the original commit and create the GitHub release
+both pass and TestFlight distribution succeeds does a publishing job
+automatically tag the original commit and create the GitHub release
 with generated notes and that exact zip.
 A push that touches `.github/workflows/release.yml`,
-`script/testflight`, `MinMaxCal.xcodeproj/**`, `Package.swift`,
+`script/testflight`, `.github/testflight.rb`, `MinMaxCal.xcodeproj/**`,
+`Package.swift`,
 `iOSApp/Info.plist` or `watchOSApp/Info.plist` uses `9999.0.0` as a reserved
 valid local-only version and repeats the build, signing, notarisation and
 startup checks as a dry run, uploading the test artefact but pushing no

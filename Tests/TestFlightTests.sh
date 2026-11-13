@@ -4,7 +4,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ruby -ryaml <<'WORKFLOW'
-jobs = YAML.load_file('.github/workflows/release.yml').fetch('jobs')
+workflow = YAML.load_file('.github/workflows/release.yml')
+jobs = workflow.fetch('jobs')
 release = jobs.fetch('release')
 unless Array(release['needs']).include?('testflight')
   abort 'GitHub publication can run before TestFlight succeeds'
@@ -19,6 +20,35 @@ end
 if testflight['continue-on-error'] || testflight.fetch('steps').any? { |step| step['continue-on-error'] }
   abort 'TestFlight failures can be ignored'
 end
+unless workflow.dig('concurrency', 'queue') == 'max' && !workflow.dig('concurrency', 'group').include?('github.ref')
+  abort 'Releases and private uploads must share a serial queue'
+end
+%w[head_repository.full_name head_branch conclusion workflow_run.event needs.build.result needs.smoke-test.result].each do |guard|
+  abort "Missing TestFlight trigger guard: #{guard}" unless testflight.fetch('if').include?(guard)
+end
+unless jobs.fetch('build').fetch('steps').any? { |step| step.fetch('run', '').include?('check-release-limit') }
+  abort 'Release limit is not checked before building'
+end
+publish = release.fetch('steps').last.fetch('run')
+unless publish.index('check-release-limit') && publish.index('check-release-limit') < publish.index('git push')
+  abort 'Release limit is not checked before pushing the tag'
+end
+steps = testflight.fetch('steps')
+upload = steps.find { |step| step['id'] == 'upload' }
+abort 'Upload step needs outputs for distribution recovery' unless upload
+prepare = steps.find { |step| step['id'] == 'prepare' }
+abort 'Allocate an upload identity before archiving' unless prepare
+restore = steps.index { |step| step.dig('with', 'pattern') == 'testflight-upload*' }
+record = steps.index { |step| step.dig('with', 'name').to_s.start_with?('testflight-upload-') }
+reservation = steps.index { |step| step.dig('with', 'name').to_s.start_with?('testflight-attempt-') }
+unless restore && record && reservation && restore < steps.index(prepare) && steps.index(prepare) < record && record < reservation && reservation < steps.index(upload)
+  abort 'Save the identity and quota reservation before uploading to Apple'
+end
+unless steps[record]['if'].include?("steps.prepare.outputs.fresh == 'true'")
+  abort 'A retry must preserve the saved upload intent'
+end
+abort 'Quota history needs Actions read permission' unless testflight.dig('permissions', 'actions') == 'read'
+abort 'Build numbers still depend on workflow run order' if prepare.fetch('run').include?('run_number')
 puts 'TestFlight release gating tests passed'
 WORKFLOW
 mkdir -p "${PWD}/.test-scratch"
@@ -96,14 +126,19 @@ fi
 grep -q 'Missing APP_STORE_WATCHOS_PROFILE' "${scratch}/missing.log"
 [[ ! -e "${scratch}/security.log" ]]
 
-for mode in upload export; do
-  dry_run=
-  [[ "${mode}" == export ]] && dry_run=1
+for audience in public private dry-run; do
+  mode=upload
+  args=()
+  [[ "${audience}" == private ]] && args=(--internal)
+  if [[ "${audience}" == dry-run ]]; then
+    mode="export"
+    args=(--dry-run)
+  fi
   for failure in none import archive export validate; do
     [[ "${mode}" == upload && "${failure}" == validate ]] && continue
     export TESTFLIGHT_TEST_FAILURE="${failure}"
     rm -f "${scratch}/calls" "${scratch}/security.log"
-    if script/testflight ${dry_run:+--dry-run} >"${scratch}/run.log" 2>&1; then
+    if script/testflight ${args[@]+"${args[@]}"} >"${scratch}/run.log" 2>&1; then
       [[ "${failure}" == none ]]
     else
       [[ "${failure}" != none ]] || {
@@ -134,6 +169,9 @@ for mode in upload export; do
       fi
       [[ "$(/usr/libexec/PlistBuddy -c 'Print :method' "${scratch}/export.plist")" == app-store-connect ]]
       [[ "$(/usr/libexec/PlistBuddy -c 'Print :destination' "${scratch}/export.plist")" == "${mode}" ]]
+      internal=false
+      [[ "${audience}" == private ]] && internal=true
+      [[ "$(/usr/libexec/PlistBuddy -c 'Print :testFlightInternalTestingOnly' "${scratch}/export.plist")" == "${internal}" ]]
       [[ "$(/usr/libexec/PlistBuddy -c 'Print :teamID' "${scratch}/export.plist")" == ABCDEFGHIJ ]]
       [[ "$(/usr/libexec/PlistBuddy -c 'Print :manageAppVersionAndBuildNumber' "${scratch}/export.plist")" == false ]]
     fi
@@ -150,3 +188,5 @@ for mode in upload export; do
   done
 done
 echo 'TestFlight script tests passed'
+
+ruby Tests/TestFlightAutomationTests.rb
