@@ -73,7 +73,7 @@ Alternatively, download `MinMaxCal-<version>.zip` from the
 unzip it and move `MinMaxCal.app` to /Applications. Releases are signed
 with a Developer ID certificate and notarised by Apple.
 
-To run the current source instead:
+To run from source, clone this repo and run from its root:
 
 ```bash
 script/bootstrap
@@ -118,16 +118,17 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 
 ### TestFlight releases
 
-Releases upload the iPhone and bundled Watch app to TestFlight before
-pushing the GitHub tag and publishing the Mac download.
-Follow the [signing setup][testflight-setup], adding the shared
-`APP_STORE_CERTIFICATES` and `APP_STORE_CERTIFICATES_PASSWORD` secrets,
-plus `MINMAXCAL_APP_STORE_IOS_PROFILE` and
-`MINMAXCAL_APP_STORE_WATCHOS_PROFILE`.
-Release dry runs archive, sign, export and validate with Apple without
-uploading a beta. After a successful dry run, dispatch **Release** from
-`main` with a new bare version, then invite yourself in
-App Store Connect.
+Successful CI on `main` uploads an internal-only iPhone and Watch beta,
+keeping the newest 20 private builds. Official releases add a build to
+the configured external group (**Public Beta** by default), submit it
+for beta review, then publish the GitHub tag and Mac download. Releases
+are limited to three per rolling 24 hours; approval is asynchronous.
+Install TestFlight on your iPhone, open the invitation link shared by
+the maintainers and accept the beta. No App Store Connect account is
+needed. Maintainers use the [setup guide][testflight-setup] and
+[submission copy](TESTFLIGHT.md); future releases reach testers after
+approval. TestFlight jobs need no Homebrew. Dry runs never upload.
+To release, dispatch **Release** from `main` with a new bare version.
 
 [testflight-setup]: ARCHITECTURE.md#set-up-testflight-releases
 
@@ -144,6 +145,8 @@ lists are included by default; choose individual lists and edit
 matching rules in Settings. Preferences stay on the phone. The agenda
 refreshes on launch, foregrounding, local changes and periodically;
 system accounts handle cloud syncing.
+
+To build from source instead, clone this repo and work from its root:
 
 1. Install Xcode 27.2 with iOS support, run `script/bootstrap` and open
    `MinMaxCal.xcodeproj`. Choose **MinMaxCal-iOS** and your connected
