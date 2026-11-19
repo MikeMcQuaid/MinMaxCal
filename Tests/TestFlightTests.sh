@@ -14,6 +14,15 @@ if release.fetch('if', '').match?(/\b(always|failure|cancelled)\s*\(/)
   abort 'GitHub publication bypasses successful dependencies'
 end
 testflight = jobs.fetch('testflight')
+matrix = testflight.dig('strategy', 'matrix', 'include')
+unless matrix&.map { |item| item['platform'] } == %w[IOS MAC_OS] &&
+       testflight.dig('strategy', 'max-parallel') == 1 && testflight.dig('strategy', 'fail-fast') == false
+  abort 'Upload both platforms serially without cancelling the other platform on failure'
+end
+unless matrix.map { |item| item['artifact_prefix'] } == %w[testflight testflight-macos] &&
+       testflight.dig('env', 'TESTFLIGHT_PLATFORM') == '${{ matrix.platform }}'
+  abort 'Platform uploads must have distinct recovery artefacts and API scopes'
+end
 if Array(testflight['needs']).include?('release') || testflight.fetch('if', '').include?('needs.release')
   abort 'TestFlight depends on GitHub publication'
 end
@@ -59,11 +68,25 @@ end
 steps = testflight.fetch('steps')
 upload = steps.find { |step| step['id'] == 'upload' }
 abort 'Upload step needs outputs for distribution recovery' unless upload
+%w[IOS MAC_OS].product([false, 'mac-bundle'], [false, 'mac-password']).each do |platform, bundle, password|
+  values = {
+    'matrix.platform' => platform, 'secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES' => bundle,
+    'secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES_PASSWORD' => password,
+    'secrets.APP_STORE_CERTIFICATES' => 'shared-bundle', 'secrets.APP_STORE_CERTIFICATES_PASSWORD' => 'shared-password'
+  }
+  expected = platform == 'MAC_OS' && bundle ? [bundle, password] : ['shared-bundle', 'shared-password']
+  actual = %w[APP_STORE_CERTIFICATES APP_STORE_CERTIFICATES_PASSWORD].map do |key|
+    expression = upload.fetch('env').fetch(key).delete_prefix('${{').delete_suffix('}}')
+    expression = expression.gsub(/matrix\.platform|secrets\.[A-Z_]+/) { |name| values.fetch(name).inspect }
+    eval(expression)
+  end
+  abort 'Mac certificate overrides must use their own password without changing iOS signing' unless actual == expected
+end
 prepare = steps.find { |step| step['id'] == 'prepare' }
 abort 'Allocate an upload identity before archiving' unless prepare
-restore = steps.index { |step| step.dig('with', 'pattern') == 'testflight-upload*' }
-record = steps.index { |step| step.dig('with', 'name').to_s.start_with?('testflight-upload-') }
-reservation = steps.index { |step| step.dig('with', 'name').to_s.start_with?('testflight-attempt-') }
+restore = steps.index { |step| step.dig('with', 'pattern') == '${{ matrix.artifact_prefix }}-upload*' }
+record = steps.index { |step| step.dig('with', 'name').to_s.start_with?('${{ matrix.artifact_prefix }}-upload-') }
+reservation = steps.index { |step| step.dig('with', 'name').to_s.start_with?('${{ matrix.artifact_prefix }}-attempt-') }
 unless restore && record && reservation && restore < steps.index(prepare) && steps.index(prepare) < record && record < reservation && reservation < steps.index(upload)
   abort 'Save the identity and quota reservation before uploading to Apple'
 end
@@ -114,12 +137,43 @@ case "$1" in
     cat "$4"
     ;;
   import) [[ "${TESTFLIGHT_TEST_FAILURE}" != import ]] ;;
+  find-identity)
+    [[ $# == 5 && "$2" == -v && "$3" == -p && "$4" == basic ]]
+    [[ "$5" == "$(cat "${TESTFLIGHT_TEST_DIRECTORY}/credentials")/signing.keychain-db" ]]
+    [[ "${TESTFLIGHT_TEST_FAILURE}" != installer ]] || exit 0
+    echo '1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Apple Distribution: Test (ABCDEFGHIJ)"'
+    echo '2) BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB "3rd Party Mac Developer Installer: Other (OTHERTEAM1)"'
+    [[ "${TESTFLIGHT_TEST_FAILURE}" != installer-team ]] || exit 0
+    echo '3) 1234567890ABCDEF1234567890ABCDEF12345678 "3rd Party Mac Developer Installer: Test (ABCDEFGHIJ)"'
+    ;;
 esac
 SECURITY
 cat >"${scratch}/bin/xcodebuild" <<'XCODEBUILD'
 #!/bin/bash
 set -euo pipefail
 echo /archive-concurrent.keychain-db >>"${TESTFLIGHT_TEST_DIRECTORY}/keychains"
+credentials="$(cat "${TESTFLIGHT_TEST_DIRECTORY}/credentials")"
+[[ "$(stat -f '%Lp' "${credentials}")" == 700 ]]
+for secret in certificates.p12 key.p8; do
+  [[ "$(stat -f '%Lp' "${credentials}/${secret}")" == 600 ]] || {
+    echo 'Signing credentials must remain private during archive and export' >&2
+    exit 1
+  }
+done
+if [[ "${TESTFLIGHT_PLATFORM}" == MAC_OS ]]; then
+  app="$(mktemp -d "${TESTFLIGHT_TEST_DIRECTORY}/signature.XXXXXX")/Test.app"
+  mkdir -p "${app}/Contents/MacOS"
+  cp /usr/bin/true "${app}/Contents/MacOS/Test"
+  /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string Test' \
+    -c 'Add :CFBundleIdentifier string com.example.PermissionTest' \
+    -c 'Add :CFBundlePackageType string APPL' "${app}/Contents/Info.plist" >/dev/null
+  chmod -R a+rX "${app}"
+  /usr/bin/codesign --force --sign - "${app}"
+  [[ "$(stat -f '%Lp' "${app}/Contents/_CodeSignature/CodeResources")" == 644 ]] || {
+    echo 'Mac code signatures must be readable by all users after archive and export' >&2
+    exit 1
+  }
+fi
 if [[ "$1" == -exportArchive ]]; then
   while [[ "$1" != -exportOptionsPlist ]]; do shift; done
   cp "$2" "${TESTFLIGHT_TEST_DIRECTORY}/export.plist"
@@ -136,7 +190,9 @@ cat >"${scratch}/bin/xcrun" <<'VALIDATOR'
 #!/bin/bash
 set -euo pipefail
 [[ "$1" == altool && "$2" == --validate-app ]]
-[[ "$3" == */export/MinMaxCal.ipa ]]
+extension=ipa
+[[ "${TESTFLIGHT_PLATFORM:-IOS}" == MAC_OS ]] && extension=pkg
+[[ "$3" == */export/MinMaxCal."${extension}" ]]
 [[ "$4" == --api-key && "$5" == KEY1234567 ]]
 [[ "$6" == --api-issuer && "$7" == issuer ]]
 [[ "$8" == --p8-file-path && "$(cat "$9")" == 'test API key' ]]
@@ -146,17 +202,19 @@ VALIDATOR
 chmod +x "${scratch}/bin/"*
 
 export RELEASE_VERSION=1.2.3 BUILD_NUMBER=42.2
-unset APP_STORE_TEAM_ID APP_STORE_MACOS_PROFILE
+unset APP_STORE_TEAM_ID APP_STORE_MACOS_PROFILE TESTFLIGHT_PLATFORM
 export APP_STORE_KEY='test API key' APP_STORE_KEY_ID=KEY1234567 APP_STORE_ISSUER_ID=issuer
 export APP_STORE_CERTIFICATES=dGVzdA== APP_STORE_CERTIFICATES_PASSWORD=password
-for platform in IOS WATCHOS; do
+for platform in IOS WATCHOS MACOS; do
   bundle_id=com.mikemcquaid.MinMaxCal
   [[ "${platform}" == WATCHOS ]] && bundle_id+=.watchkitapp
+  identifier=application-identifier
+  [[ "${platform}" == MACOS ]] && identifier=com.apple.application-identifier
   plutil -create xml1 "${scratch}/${platform}.plist"
   /usr/libexec/PlistBuddy -c "Add :UUID string $(uuidgen)" \
     -c 'Add :TeamIdentifier array' -c 'Add :TeamIdentifier:0 string ABCDEFGHIJ' \
     -c 'Add :Entitlements dict' \
-    -c "Add :Entitlements:application-identifier string OLDPREFIX1.${bundle_id}" \
+    -c "Add :Entitlements:${identifier} string OLDPREFIX1.${bundle_id}" \
     "${scratch}/${platform}.plist"
   export "APP_STORE_${platform}_PROFILE=$(base64 -i "${scratch}/${platform}.plist")"
 done
@@ -172,9 +230,21 @@ fi
 grep -q 'Missing APP_STORE_WATCHOS_PROFILE' "${scratch}/missing.log"
 [[ ! -e "${scratch}/security.log" ]]
 
-for platform in IOS WATCHOS; do
+if env -u APP_STORE_MACOS_PROFILE TESTFLIGHT_PLATFORM=MAC_OS script/testflight --internal >"${scratch}/missing-mac.log" 2>&1; then
+  echo 'Missing Mac profile did not prevent an upload' >&2
+  exit 1
+fi
+grep -q 'Missing APP_STORE_MACOS_PROFILE' "${scratch}/missing-mac.log"
+
+for platform in IOS WATCHOS MACOS; do
+  export TESTFLIGHT_PLATFORM=IOS
+  identifier=application-identifier
+  if [[ "${platform}" == MACOS ]]; then
+    export TESTFLIGHT_PLATFORM=MAC_OS
+    identifier=com.apple.application-identifier
+  fi
   cp "${scratch}/${platform}.plist" "${scratch}/wrong-profile.plist"
-  /usr/libexec/PlistBuddy -c 'Set :Entitlements:application-identifier OLDPREFIX1.com.example.OtherApp' \
+  /usr/libexec/PlistBuddy -c "Set :Entitlements:${identifier} OLDPREFIX1.com.example.OtherApp" \
     "${scratch}/wrong-profile.plist"
   if env "APP_STORE_${platform}_PROFILE=$(base64 -i "${scratch}/wrong-profile.plist")" TESTFLIGHT_TEST_FAILURE=none \
     script/testflight --dry-run >"${scratch}/wrong-profile.log" 2>&1; then
@@ -191,88 +261,113 @@ for platform in IOS WATCHOS; do
     echo 'An invalid profile changed the signing keychain' >&2
     exit 1
   fi
-  for profile in IOS WATCHOS; do
+  for profile in IOS WATCHOS MACOS; do
     uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/${profile}.plist")"
-    [[ ! -e "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.mobileprovision" ]]
+    extension=mobileprovision
+    [[ "${profile}" == MACOS ]] && extension=provisionprofile
+    [[ ! -e "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.${extension}" ]]
   done
   rm -f "${scratch}/security.log"
 done
 
-for audience in public private dry-run; do
-  mode=upload
-  args=()
-  [[ "${audience}" == private ]] && args=(--internal)
-  if [[ "${audience}" == dry-run ]]; then
-    mode="export"
-    args=(--dry-run)
-  fi
-  for failure in list none create import archive export validate; do
-    [[ "${mode}" == upload && "${failure}" == validate ]] && continue
-    export TESTFLIGHT_TEST_FAILURE="${failure}"
-    rm -f "${scratch}/calls" "${scratch}/security.log"
-    if script/testflight ${args[@]+"${args[@]}"} >"${scratch}/run.log" 2>&1; then
-      [[ "${failure}" == none ]] || {
-        echo "Signing ignored ${failure} failure" >&2
-        exit 1
-      }
-    else
-      [[ "${failure}" != none ]] || {
-        cat "${scratch}/run.log"
-        exit 1
-      }
+for TESTFLIGHT_PLATFORM in IOS MAC_OS; do
+  export TESTFLIGHT_PLATFORM
+  profiles=(IOS WATCHOS)
+  [[ "${TESTFLIGHT_PLATFORM}" == MAC_OS ]] && profiles=(MACOS)
+  for audience in public private dry-run; do
+    mode=upload
+    args=()
+    [[ "${audience}" == private ]] && args=(--internal)
+    if [[ "${audience}" == dry-run ]]; then
+      mode="export"
+      args=(--dry-run)
     fi
-    [[ ! -d "$(cat "${scratch}/credentials")" ]]
-    grep -qx delete-keychain "${scratch}/security.log"
-    grep -qx /concurrent.keychain-db "${scratch}/keychains"
-    grep -qx /created-concurrently.keychain-db "${scratch}/keychains"
-    if [[ -e "${scratch}/calls" ]]; then
-      grep -qx /archive-concurrent.keychain-db "${scratch}/keychains"
-    fi
-    if grep -q signing.keychain-db "${scratch}/keychains"; then
-      echo 'Temporary keychain remained in the search list' >&2
-      exit 1
-    fi
-    for profile in IOS WATCHOS; do
-      uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/${profile}.plist")"
-      [[ ! -e "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.mobileprovision" ]]
-    done
-    if [[ "${failure}" == create || "${failure}" == import || "${failure}" == list ]]; then
-      [[ ! -e "${scratch}/calls" ]]
-      continue
-    fi
-    grep -qx MinMaxCal-iOS "${scratch}/archive.args"
-    grep -qx generic/platform=iOS "${scratch}/archive.args"
-    grep -qx DEVELOPMENT_TEAM=ABCDEFGHIJ "${scratch}/archive.args"
-    grep -qx MARKETING_VERSION=1.2.3 "${scratch}/archive.args"
-    grep -qx CURRENT_PROJECT_VERSION=42.2 "${scratch}/archive.args"
-    if [[ "${failure}" == archive ]]; then
-      [[ "$(cat "${scratch}/calls")" == archive ]]
-    else
-      grep -qx "${mode}" "${scratch}/calls"
-      if [[ "${mode}" == export && "${failure}" != export ]]; then
-        [[ "$(cat "${scratch}/calls")" == $'archive\nexport\nvalidate' ]]
+    for failure in list none create import installer installer-team archive export validate; do
+      [[ "${TESTFLIGHT_PLATFORM}" == IOS && "${failure}" == installer* ]] && continue
+      [[ "${mode}" == upload && "${failure}" == validate ]] && continue
+      export TESTFLIGHT_TEST_FAILURE="${failure}"
+      rm -f "${scratch}/calls" "${scratch}/security.log"
+      if script/testflight ${args[@]+"${args[@]}"} >"${scratch}/run.log" 2>&1; then
+        [[ "${failure}" == none ]] || {
+          echo "Signing ignored ${failure} failure" >&2
+          exit 1
+        }
       else
-        [[ "$(cat "${scratch}/calls")" == "$(printf 'archive\n%s' "${mode}")" ]]
+        [[ "${failure}" != none ]] || {
+          cat "${scratch}/run.log"
+          exit 1
+        }
       fi
-      [[ "$(/usr/libexec/PlistBuddy -c 'Print :method' "${scratch}/export.plist")" == app-store-connect ]]
-      [[ "$(/usr/libexec/PlistBuddy -c 'Print :destination' "${scratch}/export.plist")" == "${mode}" ]]
-      internal=false
-      [[ "${audience}" == private ]] && internal=true
-      [[ "$(/usr/libexec/PlistBuddy -c 'Print :testFlightInternalTestingOnly' "${scratch}/export.plist")" == "${internal}" ]]
-      [[ "$(/usr/libexec/PlistBuddy -c 'Print :teamID' "${scratch}/export.plist")" == ABCDEFGHIJ ]]
-      [[ "$(/usr/libexec/PlistBuddy -c 'Print :manageAppVersionAndBuildNumber' "${scratch}/export.plist")" == false ]]
-    fi
-    for profile in IOS WATCHOS; do
-      uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/${profile}.plist")"
-      grep -qx "${profile}_PROFILE_UUID=${uuid}" "${scratch}/archive.args"
-      if [[ "${failure}" != archive ]]; then
-        bundle_id=com.mikemcquaid.MinMaxCal
-        [[ "${profile}" == WATCHOS ]] && bundle_id+=.watchkitapp
-        [[ "$(/usr/libexec/PlistBuddy -c "Print :provisioningProfiles:${bundle_id}" "${scratch}/export.plist")" == "${uuid}" ]]
+      [[ ! -d "$(cat "${scratch}/credentials")" ]]
+      grep -qx delete-keychain "${scratch}/security.log"
+      grep -qx /concurrent.keychain-db "${scratch}/keychains"
+      grep -qx /created-concurrently.keychain-db "${scratch}/keychains"
+      if [[ -e "${scratch}/calls" ]]; then
+        grep -qx /archive-concurrent.keychain-db "${scratch}/keychains"
       fi
+      if grep -q signing.keychain-db "${scratch}/keychains"; then
+        echo 'Temporary keychain remained in the search list' >&2
+        exit 1
+      fi
+      for profile in "${profiles[@]}"; do
+        uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/${profile}.plist")"
+        extension=mobileprovision
+        [[ "${profile}" == MACOS ]] && extension=provisionprofile
+        [[ ! -e "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles/${uuid}.${extension}" ]]
+      done
+      if [[ "${failure}" == installer* ]]; then
+        grep -q 'Mac Installer Distribution.*ABCDEFGHIJ' "${scratch}/run.log"
+      fi
+      if [[ "${failure}" == create || "${failure}" == import || "${failure}" == list || "${failure}" == installer* ]]; then
+        [[ ! -e "${scratch}/calls" ]]
+        continue
+      fi
+      if [[ "${TESTFLIGHT_PLATFORM}" == MAC_OS ]]; then
+        grep -qx MinMaxCal-AppStore "${scratch}/archive.args"
+        grep -qx generic/platform=macOS "${scratch}/archive.args"
+      else
+        grep -qx MinMaxCal-iOS "${scratch}/archive.args"
+        grep -qx generic/platform=iOS "${scratch}/archive.args"
+      fi
+      grep -qx DEVELOPMENT_TEAM=ABCDEFGHIJ "${scratch}/archive.args"
+      grep -qx MARKETING_VERSION=1.2.3 "${scratch}/archive.args"
+      grep -qx CURRENT_PROJECT_VERSION=42.2 "${scratch}/archive.args"
+      if [[ "${failure}" == archive ]]; then
+        [[ "$(cat "${scratch}/calls")" == archive ]]
+      else
+        grep -qx "${mode}" "${scratch}/calls"
+        if [[ "${mode}" == export && "${failure}" != export ]]; then
+          [[ "$(cat "${scratch}/calls")" == $'archive\nexport\nvalidate' ]]
+        else
+          [[ "$(cat "${scratch}/calls")" == "$(printf 'archive\n%s' "${mode}")" ]]
+        fi
+        if [[ "${TESTFLIGHT_PLATFORM}" == MAC_OS ]]; then
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :installerSigningCertificate' "${scratch}/export.plist")" == 1234567890ABCDEF1234567890ABCDEF12345678 ]] || {
+            echo 'Mac export must select the imported installer identity for the provisioning team' >&2
+            exit 1
+          }
+        fi
+        [[ "$(/usr/libexec/PlistBuddy -c 'Print :method' "${scratch}/export.plist")" == app-store-connect ]]
+        [[ "$(/usr/libexec/PlistBuddy -c 'Print :destination' "${scratch}/export.plist")" == "${mode}" ]]
+        internal=false
+        [[ "${audience}" == private ]] && internal=true
+        [[ "$(/usr/libexec/PlistBuddy -c 'Print :testFlightInternalTestingOnly' "${scratch}/export.plist")" == "${internal}" ]]
+        [[ "$(/usr/libexec/PlistBuddy -c 'Print :teamID' "${scratch}/export.plist")" == ABCDEFGHIJ ]]
+        [[ "$(/usr/libexec/PlistBuddy -c 'Print :manageAppVersionAndBuildNumber' "${scratch}/export.plist")" == false ]]
+      fi
+      for profile in "${profiles[@]}"; do
+        uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/${profile}.plist")"
+        grep -qx "${profile}_PROFILE_UUID=${uuid}" "${scratch}/archive.args"
+        if [[ "${failure}" != archive ]]; then
+          bundle_id=com.mikemcquaid.MinMaxCal
+          [[ "${profile}" == WATCHOS ]] && bundle_id+=.watchkitapp
+          [[ "$(/usr/libexec/PlistBuddy -c "Print :provisioningProfiles:${bundle_id}" "${scratch}/export.plist")" == "${uuid}" ]]
+        fi
+      done
     done
   done
 done
+unset TESTFLIGHT_PLATFORM
 echo 'TestFlight script tests passed'
 
 ruby Tests/TestFlightAutomationTests.rb

@@ -242,7 +242,7 @@ jobs:
             ".build/MinMaxCal-${VERSION}.zip"
 
   testflight:
-    name: TestFlight (iPhone and Watch)
+    name: TestFlight (${{ matrix.name }})
     # Only successful push CI from this repository's main may supply code
     # to the privileged workflow_run job. PR workflows never upload.
     if: >-
@@ -255,6 +255,19 @@ jobs:
         (github.event_name != 'workflow_run' && github.actor != 'dependabot[bot]' &&
          needs.build.result == 'success' && needs.smoke-test.result == 'success'))
     needs: [build, smoke-test]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: IOS
+            name: iPhone and Watch
+            artifact_prefix: testflight
+          - platform: MAC_OS
+            name: Mac
+            artifact_prefix: testflight-macos
+    env:
+      TESTFLIGHT_PLATFORM: ${{ matrix.platform }}
     permissions:
       contents: read
       actions: read # to read public upload intents and quota reservations
@@ -286,7 +299,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: testflight-upload*
+          pattern: ${{ matrix.artifact_prefix }}-upload*
           path: .test-scratch
           merge-multiple: true
 
@@ -322,7 +335,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && steps.prepare.outputs.fresh == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: testflight-upload-${{ steps.prepare.outputs.build_number }}-v${{ steps.prepare.outputs.release_version }}
+          name: ${{ matrix.artifact_prefix }}-upload-${{ steps.prepare.outputs.build_number }}-v${{ steps.prepare.outputs.release_version }}
           path: .test-scratch/testflight-upload.json
           include-hidden-files: true
           if-no-files-found: error
@@ -344,7 +357,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && steps.plan.outputs.needed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: testflight-attempt-${{ steps.prepare.outputs.build_number }}-v${{ steps.prepare.outputs.release_version }}-${{ github.run_attempt }}
+          name: ${{ matrix.artifact_prefix }}-attempt-${{ steps.prepare.outputs.build_number }}-v${{ steps.prepare.outputs.release_version }}-${{ github.run_attempt }}
           path: .test-scratch/testflight-upload.json
           include-hidden-files: true
           if-no-files-found: error
@@ -359,10 +372,11 @@ jobs:
           APP_STORE_KEY: ${{ secrets.NOTARIZATION_KEY }}
           APP_STORE_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
-          APP_STORE_CERTIFICATES: ${{ secrets.APP_STORE_CERTIFICATES }}
-          APP_STORE_CERTIFICATES_PASSWORD: ${{ secrets.APP_STORE_CERTIFICATES_PASSWORD }}
+          APP_STORE_CERTIFICATES: ${{ matrix.platform == 'MAC_OS' && secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES || secrets.APP_STORE_CERTIFICATES }}
+          APP_STORE_CERTIFICATES_PASSWORD: ${{ matrix.platform == 'MAC_OS' && secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES && secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES_PASSWORD || (matrix.platform != 'MAC_OS' || !secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES) && secrets.APP_STORE_CERTIFICATES_PASSWORD }}
           APP_STORE_IOS_PROFILE: ${{ secrets.MINMAXCAL_APP_STORE_IOS_PROFILE }}
           APP_STORE_WATCHOS_PROFILE: ${{ secrets.MINMAXCAL_APP_STORE_WATCHOS_PROFILE }}
+          APP_STORE_MACOS_PROFILE: ${{ secrets.MINMAXCAL_APP_STORE_MACOS_PROFILE }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == push ]]; then
             script/testflight --dry-run

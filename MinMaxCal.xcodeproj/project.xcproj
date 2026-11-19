@@ -168,6 +168,7 @@
           "@executable_path/../Frameworks",
         ],
         "PRODUCT_BUNDLE_IDENTIFIER": "com.mikemcquaid.MinMaxCal",
+        "PROVISIONING_PROFILE_SPECIFIER[config=AppStore]": "$(MACOS_PROFILE_UUID)",
         "SDKROOT": "macosx",
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS[config=AppStore]": "$(inherited) APP_STORE",
         "SWIFT_APPROACHABLE_CONCURRENCY": "YES",

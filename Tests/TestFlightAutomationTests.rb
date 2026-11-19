@@ -61,19 +61,23 @@ class TestFlightFixture < TestFlight
       query = URI.decode_www_form(uri.query).to_h
       assert(query['include'] == 'preReleaseVersion,buildUpload', 'Request marketing versions and upload relationships')
       assert(query.fetch('filter[app]') == 'app', 'Build query must be scoped to this app')
-      assert(query.fetch('filter[preReleaseVersion.platform]') == 'IOS', 'Build query must be scoped to iOS')
+      assert(!query.key?('filter[preReleaseVersion.platform]') || query['filter[preReleaseVersion.platform]'] == ENV.fetch('TESTFLIGHT_PLATFORM', 'IOS'), 'Build query must use the selected platform')
       if query['filter[version]']
+        assert(query.fetch('filter[preReleaseVersion.platform]') == ENV.fetch('TESTFLIGHT_PLATFORM', 'IOS'), 'Reconciliation must match the selected platform')
         assert(query['filter[version]'] == ENV.fetch('BUILD_NUMBER'), 'Must match the saved build number')
         assert(query['filter[preReleaseVersion.version]'] == '1.2.3', 'Must match marketing version too')
         return { 'data' => @processing.shift || [] }
       end
       records = @records
+      if query['filter[preReleaseVersion.platform]']
+        records = records.select { |build| build.dig('attributes', 'platform') == query['filter[preReleaseVersion.platform]'] }
+      end
       if query['filter[preReleaseVersion.version]']
         records = records.select { |build| build.dig('attributes', 'marketingVersion') == query['filter[preReleaseVersion.version]'] }
       end
       { 'data' => records, 'included' => records.map do |build|
         { 'type' => 'preReleaseVersions', 'id' => build.dig('relationships', 'preReleaseVersion', 'data', 'id'),
-          'attributes' => { 'version' => build.dig('attributes', 'marketingVersion') || '1.2.3' } }
+          'attributes' => { 'version' => build.dig('attributes', 'marketingVersion') || '1.2.3', 'platform' => build.dig('attributes', 'platform') } }
       end }
     when '/v1/apps/app/buildUploads'
       assert(URI.decode_www_form(uri.query).to_h['include'] == 'build', 'Request the upload/build relationship')
@@ -102,6 +106,7 @@ end
 ENV['RELEASE_VERSION'] = '1.2.3'
 ENV['BUILD_NUMBER'] = '42.2'
 ENV.delete('TESTFLIGHT_PUBLIC_GROUP')
+ENV.delete('TESTFLIGHT_PLATFORM')
 now = TestFlightFixture::NOW
 release = { 'draft' => false, 'published_at' => (now - 60).iso8601 }
 TestFlight.check_release_limit([release, release], now)
@@ -113,9 +118,9 @@ TestFlight.check_release_limit([{ 'published_at' => nil }], now)
 def build(id, time, audience = 'INTERNAL_ONLY', **attributes)
   { 'id' => id, 'type' => 'builds', 'attributes' => {
     'uploadedDate' => time.iso8601, 'buildAudienceType' => audience,
-    'processingState' => 'VALID', 'expired' => false, 'version' => '42.2'
+    'processingState' => 'VALID', 'expired' => false, 'version' => '42.2', 'platform' => 'IOS'
   }.merge(attributes.transform_keys(&:to_s)),
-    'relationships' => { 'preReleaseVersion' => { 'data' => { 'id' => attributes.fetch(:marketingVersion, '1.2.3') } } } }
+    'relationships' => { 'preReleaseVersion' => { 'data' => { 'id' => [attributes.fetch(:platform, 'IOS'), attributes.fetch(:marketingVersion, '1.2.3')].join('-') } } } }
 end
 
 api = TestFlightFixture.new
@@ -188,7 +193,7 @@ api.artifacts += [artifact('testflight-attempt-1-2', now), artifact('testflight-
 rejects('three public uploads') { api.check_public_limit }
 api.artifacts = [artifact('testflight-upload-1', now)]
 api.uploads = [upload('1', now, platform: 'MAC_OS')]
-api.check_public_limit
+rejects('Cannot determine the audience') { api.check_public_limit }
 
 api = TestFlightFixture.new
 api.artifacts = (1..2).map { |n| artifact("testflight-attempt-#{n}-1", now - 10) }
@@ -228,7 +233,7 @@ api.define_singleton_method(:system) do |*args|
   true
 end
 2.times do
-  assert(api.artifact_identity(legacy) == ['1.2.0', '42.2'], 'Read both versions from legacy intents')
+  assert(api.artifact_identity(legacy) == ['1.2.0', '42.2', 'IOS'], 'Read both versions from legacy intents')
 end
 assert(downloads == 1, 'Do not repeatedly download an intent while reconciling')
 
@@ -691,113 +696,117 @@ Dir.mktmpdir('release-toolchain.', '.test-scratch') do |scratch|
 end
 steps = workflow.fetch('jobs').fetch('testflight').fetch('steps')
 helper = File.expand_path('../.github/testflight.rb', __dir__)
-Dir.mktmpdir('testflight-workflow.', '.test-scratch') do |scratch|
-  Dir.chdir(scratch) do
-    FileUtils.mkdir_p(%w[bin script .build])
-    File.write('script/version', <<~'SH')
-      #!/bin/bash
-      echo 'MARKETING_VERSION = 1.2.3' >.build/Version.xcconfig
-    SH
-    File.write('script/testflight', <<~'SH')
-      #!/bin/bash
-      printf '%s %s\n' "${BUILD_NUMBER}" "$*" >>uploads
-      if [[ "$*" == '' ]]; then
-        [[ -f saved-intent ]] || exit 99
-        [[ "${APPLE_ACCEPTS:-1}" == 0 ]] || touch accepted
-      fi
-      exit "${UPLOAD_STATUS:-0}"
-    SH
-    File.write('bin/ruby', <<~'SH')
-      #!/bin/bash
-      case "$2" in
-        next-build-number) echo "${NEXT_NUMBER}" ;;
-        prepare-public) exit "${PREPARE_STATUS:-0}" ;;
-        plan-public)
-          [[ "${PLAN_STATUS:-0}" == 0 ]] || exit 1
-          if [[ -f accepted ]]; then echo 'needed=false'; else echo 'needed=true'; fi >>"${GITHUB_OUTPUT}"
-          ;;
-        record-public|resume-public) exec "${TEST_RUBY}" "${TEST_HELPER}" "$2" ;;
-        *) exit 99 ;;
-      esac
-    SH
-    FileUtils.chmod(0755, %w[script/version script/testflight bin/ruby])
-    env = {
-      'PATH' => "#{Dir.pwd}/bin:#{ENV.fetch('PATH')}",
-      'TEST_RUBY' => RbConfig.ruby, 'TEST_HELPER' => helper,
-      'GITHUB_SHA' => 'original-commit', 'GITHUB_RUN_ID' => '42',
-      'GITHUB_RUN_NUMBER' => '42', 'GITHUB_RUN_ATTEMPT' => '2',
-      'GITHUB_EVENT_NAME' => 'workflow_run', 'GITHUB_OUTPUT' => File.expand_path('outputs'),
-      'RELEASE_VERSION' => '1.2.3', 'BUILD_NUMBER' => '42.2', 'NEXT_NUMBER' => '44',
-      'UPLOAD_NEEDED' => ''
-    }
-    execute = lambda do |id|
-      File.write('outputs', '')
-      File.write('workflow-step.sh', steps.find { |item| item['id'] == id }.fetch('run'))
-      _out, err, status = Open3.capture3(env, 'bash', '-euo', 'pipefail', 'workflow-step.sh')
-      outputs = File.readlines('outputs', chomp: true).map { |line| line.split('=', 2) }.to_h
-      [status.success?, outputs, err]
+%w[IOS MAC_OS].each do |platform|
+  Dir.mktmpdir('testflight-workflow.', '.test-scratch') do |scratch|
+    Dir.chdir(scratch) do
+      FileUtils.mkdir_p(%w[bin script .build])
+      File.write('script/version', <<~'SH')
+        #!/bin/bash
+        echo 'MARKETING_VERSION = 1.2.3' >.build/Version.xcconfig
+      SH
+      File.write('script/testflight', <<~'SH')
+        #!/bin/bash
+        printf '%s %s\n' "${BUILD_NUMBER}" "$*" >>uploads
+        if [[ "$*" == '' ]]; then
+          [[ -f saved-intent ]] || exit 99
+          [[ "${APPLE_ACCEPTS:-1}" == 0 ]] || touch accepted
+        fi
+        exit "${UPLOAD_STATUS:-0}"
+      SH
+      File.write('bin/ruby', <<~'SH')
+        #!/bin/bash
+        case "$2" in
+          next-build-number) echo "${NEXT_NUMBER}" ;;
+          prepare-public) exit "${PREPARE_STATUS:-0}" ;;
+          plan-public)
+            [[ "${PLAN_STATUS:-0}" == 0 ]] || exit 1
+            if [[ -f accepted ]]; then echo 'needed=false'; else echo 'needed=true'; fi >>"${GITHUB_OUTPUT}"
+            ;;
+          record-public|resume-public) exec "${TEST_RUBY}" "${TEST_HELPER}" "$2" ;;
+          *) exit 99 ;;
+        esac
+      SH
+      FileUtils.chmod(0755, %w[script/version script/testflight bin/ruby])
+      env = {
+        'TESTFLIGHT_PLATFORM' => platform,
+        'PATH' => "#{Dir.pwd}/bin:#{ENV.fetch('PATH')}",
+        'TEST_RUBY' => RbConfig.ruby, 'TEST_HELPER' => helper,
+        'GITHUB_SHA' => 'original-commit', 'GITHUB_RUN_ID' => '42',
+        'GITHUB_RUN_NUMBER' => '42', 'GITHUB_RUN_ATTEMPT' => '2',
+        'GITHUB_EVENT_NAME' => 'workflow_run', 'GITHUB_OUTPUT' => File.expand_path('outputs'),
+        'RELEASE_VERSION' => '1.2.3', 'BUILD_NUMBER' => '42.2', 'NEXT_NUMBER' => '44',
+        'UPLOAD_NEEDED' => ''
+      }
+      execute = lambda do |id|
+        File.write('outputs', '')
+        File.write('workflow-step.sh', steps.find { |item| item['id'] == id }.fetch('run'))
+        _out, err, status = Open3.capture3(env, 'bash', '-euo', 'pipefail', 'workflow-step.sh')
+        outputs = File.readlines('outputs', chomp: true).map { |line| line.split('=', 2) }.to_h
+        [status.success?, outputs, err]
+      end
+      success, outputs, err = execute.call('prepare')
+      assert(success, err)
+      assert(outputs.fetch('build_number') == '44', 'Private retry must use a freshly allocated number')
+      assert(outputs.fetch('release_version') == '1.2.3', 'Prepare the private version without bootstrapping')
+      env['BUILD_NUMBER'] = outputs.fetch('build_number')
+      assert(execute.call('upload')[0], 'Private upload failed')
+      assert(File.read('uploads') == "44 --internal\n", 'Private upload must use the allocated number')
+      assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Private uploads must not create public intents')
+
+      env['GITHUB_EVENT_NAME'] = 'push'
+      success, outputs, err = execute.call('prepare')
+      assert(success && outputs.fetch('build_number') == '1', err)
+      env['BUILD_NUMBER'] = outputs.fetch('build_number')
+      assert(execute.call('upload')[0], 'Dry run failed')
+      assert(File.read('uploads').end_with?("1 --dry-run\n"), 'Dry runs must validate without uploading')
+      assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Dry runs must not create public intents')
+
+      env['GITHUB_EVENT_NAME'] = 'workflow_dispatch'
+      success, outputs, err = execute.call('prepare')
+      assert(success, err)
+      env['BUILD_NUMBER'] = outputs.fetch('build_number')
+      assert(outputs.fetch('fresh') == 'true', 'Save a new intent before uploading')
+      receipt = File.read(TestFlight::UPLOAD_RECORD)
+      assert(JSON.parse(receipt).fetch('TESTFLIGHT_PLATFORM') == platform, 'Persist the selected platform before uploading')
+      assert(!File.exist?('accepted'), 'Preparation must not upload to Apple')
+      File.write('saved-intent', receipt)
+      success, outputs, err = execute.call('plan')
+      assert(success && outputs.fetch('needed') == 'true', err)
+      env['UPLOAD_NEEDED'] = outputs.fetch('needed')
+      env['UPLOAD_STATUS'] = '1'
+      assert(!execute.call('upload')[0], 'Simulate failure after Apple accepted the upload')
+      uploaded = File.read('uploads')
+      assert(File.read('saved-intent') == receipt, 'Failed uploads must already have a durable recovery identity')
+
+      # A clean retry restores the pre-upload artefact and reconciles acceptance.
+      FileUtils.rm_rf('.test-scratch')
+      FileUtils.mkdir_p('.test-scratch')
+      FileUtils.cp('saved-intent', TestFlight::UPLOAD_RECORD)
+      env['NEXT_NUMBER'] = '46'
+      success, outputs, err = execute.call('prepare')
+      assert(success && outputs.fetch('build_number') == '44', err)
+      assert(!outputs.key?('fresh'), 'A retry must preserve the original intent')
+      success, outputs, err = execute.call('plan')
+      assert(success && outputs.fetch('needed') == 'false', err)
+      env['UPLOAD_NEEDED'] = outputs.fetch('needed')
+      assert(execute.call('upload')[0], 'An accepted upload must skip the failing upload command')
+      assert(File.read('uploads') == uploaded, 'Public retry must not upload another build')
+      assert(File.read(TestFlight::UPLOAD_RECORD) == receipt, 'Preserve the identity across clean retries')
+
+      env['GITHUB_SHA'] = 'another-commit'
+      assert(!execute.call('prepare')[0], 'Mismatched recovery must fail')
+      assert(File.read('uploads') == uploaded, 'Mismatched recovery must not upload')
+      env['GITHUB_SHA'] = 'original-commit'
+      FileUtils.rm_f('accepted')
+      success, outputs, err = execute.call('plan')
+      assert(success && outputs.fetch('needed') == 'true', 'Retry an intent only when both Apple endpoints are empty')
+      env['PLAN_STATUS'] = '1'
+      assert(!execute.call('plan')[0], 'Reconciliation API errors must fail closed')
+      FileUtils.rm_f(TestFlight::UPLOAD_RECORD)
+      env['PREPARE_STATUS'] = '1'
+      assert(!execute.call('prepare')[0], 'Failed preflight must stop preparation')
+      assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Do not create an intent when preparation fails')
     end
-    success, outputs, err = execute.call('prepare')
-    assert(success, err)
-    assert(outputs.fetch('build_number') == '44', 'Private retry must use a freshly allocated number')
-    assert(outputs.fetch('release_version') == '1.2.3', 'Prepare the private version without bootstrapping')
-    env['BUILD_NUMBER'] = outputs.fetch('build_number')
-    assert(execute.call('upload')[0], 'Private upload failed')
-    assert(File.read('uploads') == "44 --internal\n", 'Private upload must use the allocated number')
-    assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Private uploads must not create public intents')
-
-    env['GITHUB_EVENT_NAME'] = 'push'
-    success, outputs, err = execute.call('prepare')
-    assert(success && outputs.fetch('build_number') == '1', err)
-    env['BUILD_NUMBER'] = outputs.fetch('build_number')
-    assert(execute.call('upload')[0], 'Dry run failed')
-    assert(File.read('uploads').end_with?("1 --dry-run\n"), 'Dry runs must validate without uploading')
-    assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Dry runs must not create public intents')
-
-    env['GITHUB_EVENT_NAME'] = 'workflow_dispatch'
-    success, outputs, err = execute.call('prepare')
-    assert(success, err)
-    env['BUILD_NUMBER'] = outputs.fetch('build_number')
-    assert(outputs.fetch('fresh') == 'true', 'Save a new intent before uploading')
-    receipt = File.read(TestFlight::UPLOAD_RECORD)
-    assert(!File.exist?('accepted'), 'Preparation must not upload to Apple')
-    File.write('saved-intent', receipt)
-    success, outputs, err = execute.call('plan')
-    assert(success && outputs.fetch('needed') == 'true', err)
-    env['UPLOAD_NEEDED'] = outputs.fetch('needed')
-    env['UPLOAD_STATUS'] = '1'
-    assert(!execute.call('upload')[0], 'Simulate failure after Apple accepted the upload')
-    uploaded = File.read('uploads')
-    assert(File.read('saved-intent') == receipt, 'Failed uploads must already have a durable recovery identity')
-
-    # A clean retry restores the pre-upload artefact and reconciles acceptance.
-    FileUtils.rm_rf('.test-scratch')
-    FileUtils.mkdir_p('.test-scratch')
-    FileUtils.cp('saved-intent', TestFlight::UPLOAD_RECORD)
-    env['NEXT_NUMBER'] = '46'
-    success, outputs, err = execute.call('prepare')
-    assert(success && outputs.fetch('build_number') == '44', err)
-    assert(!outputs.key?('fresh'), 'A retry must preserve the original intent')
-    success, outputs, err = execute.call('plan')
-    assert(success && outputs.fetch('needed') == 'false', err)
-    env['UPLOAD_NEEDED'] = outputs.fetch('needed')
-    assert(execute.call('upload')[0], 'An accepted upload must skip the failing upload command')
-    assert(File.read('uploads') == uploaded, 'Public retry must not upload another build')
-    assert(File.read(TestFlight::UPLOAD_RECORD) == receipt, 'Preserve the identity across clean retries')
-
-    env['GITHUB_SHA'] = 'another-commit'
-    assert(!execute.call('prepare')[0], 'Mismatched recovery must fail')
-    assert(File.read('uploads') == uploaded, 'Mismatched recovery must not upload')
-    env['GITHUB_SHA'] = 'original-commit'
-    FileUtils.rm_f('accepted')
-    success, outputs, err = execute.call('plan')
-    assert(success && outputs.fetch('needed') == 'true', 'Retry an intent only when both Apple endpoints are empty')
-    env['PLAN_STATUS'] = '1'
-    assert(!execute.call('plan')[0], 'Reconciliation API errors must fail closed')
-    FileUtils.rm_f(TestFlight::UPLOAD_RECORD)
-    env['PREPARE_STATUS'] = '1'
-    assert(!execute.call('prepare')[0], 'Failed preflight must stop preparation')
-    assert(!File.exist?(TestFlight::UPLOAD_RECORD), 'Do not create an intent when preparation fails')
   end
 end
 # The real GitHub reader must inspect every page and ignore other workflows' identities.
@@ -813,13 +822,14 @@ Dir.mktmpdir('testflight-history.', '.test-scratch') do |scratch|
   run = { 'head_branch' => 'main', 'repository_id' => 1, 'head_repository_id' => 1 }
   intent = artifact('testflight-upload-50', now).merge('workflow_run' => run)
   attempt = artifact('testflight-attempt-50-1', now).merge('workflow_run' => run)
+  mac_intent = intent.merge('name' => 'testflight-macos-upload-50-v1.2.3')
   other_branch = intent.merge('workflow_run' => run.merge('head_branch' => 'feature'))
   fork = intent.merge('workflow_run' => run.merge('head_repository_id' => 2))
   unrelated = { 'name' => 'Mac app' }
   missing_run = intent.reject { |key, _| key == 'workflow_run' }
   null_run = intent.merge('workflow_run' => nil)
   File.write("#{scratch}/history.json", JSON.generate([
-    { 'artifacts' => [unrelated, missing_run, null_run, intent, other_branch] }, { 'artifacts' => [fork, attempt] }
+    { 'artifacts' => [unrelated, missing_run, null_run, intent, other_branch] }, { 'artifacts' => [fork, attempt, mac_intent] }
   ]))
   env = { 'PATH' => "#{File.expand_path(scratch)}/bin:#{ENV.fetch('PATH')}",
           'GITHUB_REPOSITORY' => 'test/repo', 'HISTORY_FILE' => File.expand_path("#{scratch}/history.json"),
@@ -827,10 +837,83 @@ Dir.mktmpdir('testflight-history.', '.test-scratch') do |scratch|
   command = [RbConfig.ruby, '-r', helper, '-e', 'puts JSON.generate(TestFlight.allocate.public_artifacts)']
   out, err, status = Open3.capture3(env, *command)
   assert(status.success?, err)
-  assert(JSON.parse(out) == [intent, attempt], 'Read all pages and trust only same-repository main upload records')
+  assert(JSON.parse(out) == [intent, attempt, mac_intent], 'Read both platforms on all pages and trust only same-repository main upload records')
   assert(File.read("#{scratch}/arguments").strip == 'api --paginate --slurp repos/test/repo/actions/artifacts?per_page=100',
          'Read quota records across workflow runs, with pagination')
   _out, err, status = Open3.capture3(env.merge('HISTORY_STATUS' => '1'), *command)
   assert(!status.success? && err.include?('Could not read GitHub'), 'History API errors must fail closed')
+end
+# Both platforms may reuse version/build numbers but never recovery identities.
+begin
+  ENV['TESTFLIGHT_PLATFORM'] = 'MAC_OS'
+  api = TestFlightFixture.new
+  api.records = [build('ios', now, version: '999'), build('mac', now, platform: 'MAC_OS', version: '50')]
+  api.uploads = [upload('999', now), upload('60', now, platform: 'MAC_OS')]
+  api.artifacts = [artifact('testflight-upload-1000', now),
+                   { 'name' => 'testflight-macos-upload-70-v1.2.3', 'created_at' => now.iso8601 }]
+  assert(api.next_build_number == '71', 'Allocate Mac numbers from Mac builds, uploads and intents only')
+
+  api = TestFlightFixture.new
+  api.uploads = [upload('42.2', now)]
+  assert(api.public_upload_needed?, 'An accepted iOS upload must not skip the Mac upload with the same version and number')
+  api.uploads << upload('42.2', now, platform: 'MAC_OS')
+  assert(!api.public_upload_needed?, 'Resume the accepted Mac upload with the saved version and number')
+
+  api = TestFlightFixture.new
+  api.records = %w[IOS MAC_OS].flat_map do |platform|
+    (1..22).map { |n| build("#{platform}-#{n}", now - n, platform: platform) }
+  end
+  api.retire_private
+  assert(api.writes.map { |w| w[1] }.sort == ['/v1/builds/MAC_OS-21', '/v1/builds/MAC_OS-22'],
+         'Mac retirement must preserve every iOS build')
+  api = TestFlightFixture.new
+  api.processing = [[build('current', now, platform: 'MAC_OS')]]
+  api.distribute('private')
+  assert(api.writes.empty?, 'Private Mac builds must not need public setup or submit for review')
+  api.processing = [[build('current', now, 'APP_STORE_ELIGIBLE', platform: 'MAC_OS')]]
+  api.distribute('public')
+  notes = api.writes.find { |write| write[1] == '/v1/betaBuildLocalizations' }[2].dig(:data, :attributes, :whatsNew)
+  assert(notes.include?('menu bar') && !notes.include?('iPhone'), 'Public Mac builds need Mac testing notes')
+
+  api = TestFlightFixture.new
+  api.records = [build('ios-public', now, 'APP_STORE_ELIGIBLE')]
+  api.prepare_public
+  api.records << build('mac-public', now, 'APP_STORE_ELIGIBLE', platform: 'MAC_OS')
+  api.artifacts = [{ 'name' => 'testflight-macos-attempt-42.2-v1.2.3-1', 'created_at' => (now - 60).iso8601 }]
+  api.check_public_limit
+  api.records << build('another-public', now, 'APP_STORE_ELIGIBLE', version: '43')
+  rejects('three public uploads') { api.check_public_limit }
+  api.records.pop
+  api.uploads = [upload('44', now, 'FAILED', platform: 'MAC_OS')]
+  api.artifacts << { 'name' => 'testflight-macos-upload-44-v1.2.3', 'created_at' => now.iso8601 }
+  rejects('three public uploads') { api.check_public_limit }
+
+  api = TestFlightFixture.new
+  api.records = [build('mac-public', now, 'APP_STORE_ELIGIBLE', platform: 'MAC_OS'),
+                 build('other-public', now, 'APP_STORE_ELIGIBLE', platform: 'MAC_OS', version: '43'),
+                 build('ios-private', now)]
+  api.uploads = [upload('42.2', now)]
+  api.check_public_limit
+  api.records.pop
+  rejects('Cannot determine the audience') { api.check_public_limit }
+
+  Dir.mktmpdir('testflight-platform.', '.test-scratch') do |scratch|
+    Dir.chdir(scratch) do
+      ENV['GITHUB_SHA'] = 'commit'
+      ENV['GITHUB_RUN_ID'] = '42'
+      TestFlight.record_public
+      assert(TestFlight.resume_public == '42.2', 'Resume the saved Mac build')
+      ENV['TESTFLIGHT_PLATFORM'] = 'IOS'
+      rejects('platform') { TestFlight.resume_public }
+      record = JSON.parse(File.read(TestFlight::UPLOAD_RECORD))
+      record.delete('TESTFLIGHT_PLATFORM')
+      File.write(TestFlight::UPLOAD_RECORD, JSON.generate(record))
+      assert(TestFlight.resume_public == '42.2', 'Legacy iOS recovery remains supported')
+      ENV['TESTFLIGHT_PLATFORM'] = 'MAC_OS'
+      rejects('platform') { TestFlight.resume_public }
+    end
+  end
+ensure
+  ENV.delete('TESTFLIGHT_PLATFORM')
 end
 puts 'TestFlight automation tests passed'
