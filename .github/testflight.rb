@@ -10,7 +10,13 @@ require 'tmpdir'
 
 class TestFlight
   UPLOAD_RECORD = '.test-scratch/testflight-upload.json'
-  PUBLIC_ARTIFACT = /\Atestflight-(upload|attempt)-([0-9]+(?:\.[0-9]+){0,2})(?:-v([0-9]+\.[0-9]+\.[0-9]+))?(?:-[0-9]+)?\z/
+  PUBLIC_ARTIFACT = /\Atestflight-(?:(?<platform>macos)-)?(?<kind>upload|attempt)-(?<number>[0-9]+(?:\.[0-9]+){0,2})(?:-v(?<version>[0-9]+\.[0-9]+\.[0-9]+))?(?:-[0-9]+)?\z/
+
+  def self.platform
+    value = ENV.fetch('TESTFLIGHT_PLATFORM', 'IOS')
+    raise 'TESTFLIGHT_PLATFORM must be IOS or MAC_OS' unless %w[IOS MAC_OS].include?(value)
+    value
+  end
 
   def self.check_release_limit(releases, now = Time.now)
     count = releases.count do |release|
@@ -21,11 +27,13 @@ class TestFlight
 
   def self.record_public
     FileUtils.mkdir_p(File.dirname(UPLOAD_RECORD))
-    File.write(UPLOAD_RECORD, JSON.generate(ENV.to_h.slice('BUILD_NUMBER', 'RELEASE_VERSION', 'GITHUB_SHA', 'GITHUB_RUN_ID')))
+    File.write(UPLOAD_RECORD, JSON.generate(ENV.to_h.slice('BUILD_NUMBER', 'RELEASE_VERSION', 'GITHUB_SHA', 'GITHUB_RUN_ID')
+                                              .merge('TESTFLIGHT_PLATFORM' => platform)))
   end
 
   def self.resume_public
     record = JSON.parse(File.read(UPLOAD_RECORD))
+    raise 'The saved TestFlight upload belongs to another platform' unless record.fetch('TESTFLIGHT_PLATFORM', 'IOS') == platform
     unless %w[RELEASE_VERSION GITHUB_SHA GITHUB_RUN_ID].all? { |key| record.fetch(key) == ENV.fetch(key) }
       raise 'The saved TestFlight upload does not match this release, commit or workflow run'
     end
@@ -49,13 +57,13 @@ class TestFlight
     end
   end
 
-  def build_uploads(deadline = nil)
+  def build_uploads(deadline = nil, all_platforms: false)
     @included_upload_builds = {}
     list("/v1/apps/#{@app.fetch('id')}/buildUploads", { 'include' => 'build' }, deadline) do |page|
       page.fetch('included', []).each do |build|
         @included_upload_builds[build.fetch('id')] = build if build['type'] == 'builds'
       end
-    end.select { |upload| upload.dig('attributes', 'platform') == 'IOS' }
+    end.select { |upload| all_platforms || upload.dig('attributes', 'platform') == self.class.platform }
   end
 
   def initialize
@@ -111,14 +119,15 @@ class TestFlight
     records
   end
 
-  def builds(query = {}, deadline = nil)
+  def builds(query = {}, deadline = nil, all_platforms: false)
+    query = query.merge('filter[preReleaseVersion.platform]' => self.class.platform) unless all_platforms
     list('/v1/builds', {
-      'filter[app]' => @app.fetch('id'), 'filter[preReleaseVersion.platform]' => 'IOS',
+      'filter[app]' => @app.fetch('id'),
       'sort' => '-uploadedDate', 'include' => 'preReleaseVersion,buildUpload'
     }.merge(query), deadline) do |page|
       @versions ||= {}
       page.fetch('included', []).each do |record|
-        @versions[record.fetch('id')] = record.dig('attributes', 'version') if record['type'] == 'preReleaseVersions'
+        @versions[record.fetch('id')] = record.fetch('attributes') if record['type'] == 'preReleaseVersions'
       end
     end
   end
@@ -126,7 +135,8 @@ class TestFlight
   def next_build_number
     versions = builds.map { |build| build.fetch('attributes').fetch('version') }
     versions.concat(build_uploads.map { |upload| upload.fetch('attributes').fetch('cfBundleVersion') })
-    versions.concat(public_artifacts.map { |artifact| PUBLIC_ARTIFACT.match(artifact.fetch('name'))[2] })
+    versions.concat(public_artifacts.select { |artifact| artifact_platform(artifact) == self.class.platform }
+                                   .map { |artifact| PUBLIC_ARTIFACT.match(artifact.fetch('name'))[:number] })
     major = versions.map do |version|
       raise "Invalid Apple build number: #{version.inspect}" unless version.match?(/\A[0-9]+(?:\.[0-9]+){0,2}\z/)
       version.split('.').first.to_i
@@ -146,7 +156,7 @@ class TestFlight
 
   def artifact_identity(artifact)
     match = PUBLIC_ARTIFACT.match(artifact.fetch('name'))
-    return [match[3], match[2]] if match[3]
+    return [match[:version], match[:number], artifact_platform(artifact)] if match[:version]
     # Older workflow runs saved the version only inside their intent.
     @intents ||= {}
     @intents[artifact.fetch('name')] ||= begin
@@ -158,29 +168,35 @@ class TestFlight
           raise 'Could not read the saved public upload identity'
         end
         record = JSON.parse(File.read(File.join(directory, 'testflight-upload.json')))
-        unless record.fetch('GITHUB_RUN_ID') == run && record.fetch('BUILD_NUMBER') == match[2]
+        unless record.fetch('GITHUB_RUN_ID') == run && record.fetch('BUILD_NUMBER') == match[:number] &&
+               record.fetch('TESTFLIGHT_PLATFORM', 'IOS') == artifact_platform(artifact)
           raise 'The saved public upload identity does not match its artefact'
         end
-        [record.fetch('RELEASE_VERSION'), record.fetch('BUILD_NUMBER')]
+        [record.fetch('RELEASE_VERSION'), record.fetch('BUILD_NUMBER'), artifact_platform(artifact)]
       end
     end
   end
 
+  def artifact_platform(artifact)
+    PUBLIC_ARTIFACT.match(artifact.fetch('name'))[:platform] == 'macos' ? 'MAC_OS' : 'IOS'
+  end
+
   def build_identity(build)
-    [@versions.fetch(build.dig('relationships', 'preReleaseVersion', 'data', 'id')),
-     build.fetch('attributes').fetch('version')]
+    version = @versions.fetch(build.dig('relationships', 'preReleaseVersion', 'data', 'id'))
+    [version.fetch('version'), build.fetch('attributes').fetch('version'), version.fetch('platform')]
   end
 
   def upload_identity(upload)
-    [upload.fetch('attributes').fetch('cfBundleShortVersionString'), upload.fetch('attributes').fetch('cfBundleVersion')]
+    [upload.fetch('attributes').fetch('cfBundleShortVersionString'), upload.fetch('attributes').fetch('cfBundleVersion'),
+     upload.fetch('attributes').fetch('platform')]
   end
 
-  def public_uploads(records, artifacts, now = Time.now)
+  def public_uploads(records, artifacts, now = Time.now, all_platforms: false)
     public_identities = records.select { |build| build.dig('attributes', 'buildAudienceType') == 'APP_STORE_ELIGIBLE' }
                                .map { |build| build_identity(build) }
     private_identities = records.select { |build| build.dig('attributes', 'buildAudienceType') == 'INTERNAL_ONLY' }
                                 .map { |build| build_identity(build) }
-    build_uploads.select do |upload|
+    build_uploads(nil, all_platforms: all_platforms).select do |upload|
       linked = @included_upload_builds[upload.dig('relationships', 'build', 'data', 'id')] || records.find do |build|
         build['id'] == upload.dig('relationships', 'build', 'data', 'id') ||
           build.dig('relationships', 'buildUpload', 'data', 'id') == upload.fetch('id')
@@ -191,7 +207,7 @@ class TestFlight
         identity = upload_identity(upload)
         next false if private_identities.include?(identity)
         known_public = public_identities.include?(identity) || artifacts.any? do |artifact|
-          PUBLIC_ARTIFACT.match(artifact.fetch('name'))[2] == identity[1] && artifact_identity(artifact) == identity
+          PUBLIC_ARTIFACT.match(artifact.fetch('name'))[:number] == identity[1] && artifact_identity(artifact) == identity
         end
         unless known_public
           timestamps = [upload.fetch('attributes').fetch('createdDate'), upload.dig('attributes', 'uploadedDate')].compact
@@ -224,9 +240,9 @@ class TestFlight
 
   def check_public_limit(now = Time.now)
     cutoff = now - 86_400
-    records = builds
+    records = builds({}, nil, all_platforms: true)
     artifacts = public_artifacts
-    accepted = public_uploads(records, artifacts, now)
+    accepted = public_uploads(records, artifacts, now, all_platforms: true)
     attempts = accepted.map do |upload|
       attributes = upload.fetch('attributes')
       { identity: upload_identity(upload), created: Time.iso8601(attributes.fetch('createdDate')),
@@ -250,7 +266,7 @@ class TestFlight
     end
     count = attempts.count { |attempt| attempt[:created] > cutoff || (attempt[:finished] && attempt[:finished] > cutoff) }
     # A retry's upload can only confirm the reservation for that attempt.
-    artifacts.select { |artifact| artifact.fetch('name').start_with?('testflight-attempt-') }
+    artifacts.select { |artifact| PUBLIC_ARTIFACT.match(artifact.fetch('name'))[:kind] == 'attempt' }
              .sort_by { |artifact| artifact.fetch('created_at') }
              .group_by { |artifact| artifact_identity(artifact) }.each do |identity, reservations|
       reservations.each_with_index do |artifact, index|
@@ -272,8 +288,8 @@ class TestFlight
   end
 
   def public_upload_needed?
-    return false unless builds('filter[version]' => ENV.fetch('BUILD_NUMBER'),
-                               'filter[preReleaseVersion.version]' => ENV.fetch('RELEASE_VERSION')).empty?
+    return false unless builds({ 'filter[version]' => ENV.fetch('BUILD_NUMBER'),
+                                'filter[preReleaseVersion.version]' => ENV.fetch('RELEASE_VERSION') }).empty?
     return false unless matching_uploads.empty?
     check_public_version(ENV.fetch('BUILD_NUMBER'))
     true
@@ -281,7 +297,7 @@ class TestFlight
 
   def matching_uploads(audience = 'public', deadline = nil)
     accepted = build_uploads(deadline).select do |upload|
-      upload_identity(upload) == [ENV.fetch('RELEASE_VERSION'), ENV.fetch('BUILD_NUMBER')]
+      upload_identity(upload) == [ENV.fetch('RELEASE_VERSION'), ENV.fetch('BUILD_NUMBER'), self.class.platform]
     end
     usable = accepted.reject { |upload| %w[FAILED AWAITING_UPLOAD].include?(upload.dig('attributes', 'state', 'state')) }
     return usable unless usable.empty?
@@ -350,7 +366,8 @@ class TestFlight
     when 'READY_FOR_BETA_SUBMISSION'
       locale = @app.fetch('attributes').fetch('primaryLocale')
       existing = list("/v1/builds/#{id}/betaBuildLocalizations").find { |item| item.dig('attributes', 'locale') == locale }
-      notes = "MinMaxCal #{ENV.fetch('RELEASE_VERSION')}. Please test calendar and reminder permissions, agenda updates, joining events and completing reminders on iPhone and Apple Watch."
+      features = self.class.platform == 'MAC_OS' ? 'the menu bar agenda, takeovers, meeting links, reminder Undo and optional coaching on Mac' : 'agenda updates, joining events and completing reminders on iPhone and Apple Watch'
+      notes = "MinMaxCal #{ENV.fetch('RELEASE_VERSION')}. Please test calendar and reminder permissions, #{features}."
       if existing
         request('PATCH', "/v1/betaBuildLocalizations/#{existing.fetch('id')}", data: {
           type: 'betaBuildLocalizations', id: existing.fetch('id'), attributes: { whatsNew: notes }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Archive and upload the iPhone and Watch apps, or validate a dry run.
+# Archive and upload the selected platform, or validate a dry run.
 set +x
 set -euo pipefail
 
@@ -14,6 +14,22 @@ destination=upload
 internal=false
 [[ "${1:-}" == --internal ]] && internal=true
 profiles=(IOS WATCHOS)
+scheme=MinMaxCal-iOS
+build_destination=generic/platform=iOS
+extension=ipa
+case "${TESTFLIGHT_PLATFORM:-IOS}" in
+  IOS) ;;
+  MAC_OS)
+    profiles=(MACOS)
+    scheme=MinMaxCal-AppStore
+    build_destination=generic/platform=macOS
+    extension=pkg
+    ;;
+  *)
+    echo 'TESTFLIGHT_PLATFORM must be IOS or MAC_OS' >&2
+    exit 1
+    ;;
+esac
 
 : "${RELEASE_VERSION:?}" "${BUILD_NUMBER:?}"
 : "${APP_STORE_KEY:?}" "${APP_STORE_KEY_ID:?}" "${APP_STORE_ISSUER_ID:?}"
@@ -50,7 +66,6 @@ plutil -create xml1 "${scratch}/export.plist"
   -c 'Add :manageAppVersionAndBuildNumber bool false' \
   -c "Add :testFlightInternalTestingOnly bool ${internal}" \
   -c 'Add :provisioningProfiles dict' "${scratch}/export.plist"
-
 profile_directory="${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
 mkdir -p "${profile_directory}"
 args=()
@@ -60,17 +75,23 @@ for platform in "${profiles[@]}"; do
   security cms -D -i "${scratch}/profile" >"${scratch}/profile.plist"
   bundle_id=com.mikemcquaid.MinMaxCal
   [[ "${platform}" == WATCHOS ]] && bundle_id+=.watchkitapp
-  application_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "${scratch}/profile.plist")"
+  identifier=application-identifier
+  profile_extension=mobileprovision
+  if [[ "${platform}" == MACOS ]]; then
+    identifier=com.apple.application-identifier
+    profile_extension=provisionprofile
+  fi
+  application_id="$(/usr/libexec/PlistBuddy -c "Print :Entitlements:${identifier}" "${scratch}/profile.plist")"
   if [[ "${application_id#*.}" != "${bundle_id}" ]]; then
     echo "Error: Provisioning profile targets ${application_id}; replace MINMAXCAL_${variable} with a profile for ${bundle_id}." >&2
     exit 1
   fi
   uuid="$(/usr/libexec/PlistBuddy -c 'Print UUID' "${scratch}/profile.plist")"
-  if [[ "${platform}" == IOS ]]; then
+  if [[ "${platform}" != WATCHOS ]]; then
     team_id="$(/usr/libexec/PlistBuddy -c 'Print TeamIdentifier:0' "${scratch}/profile.plist")"
     /usr/libexec/PlistBuddy -c "Add :teamID string ${team_id}" "${scratch}/export.plist"
   fi
-  profile="${profile_directory}/${uuid}.mobileprovision"
+  profile="${profile_directory}/${uuid}.${profile_extension}"
   if [[ ! -e "${profile}" ]]; then
     installed_profiles+=("${profile}")
     cp "${scratch}/profile" "${profile}"
@@ -87,9 +108,22 @@ security set-keychain-settings -lut 3600 "${keychain}"
 security unlock-keychain -p "${keychain_password}" "${keychain}"
 base64 --decode <<<"${APP_STORE_CERTIFICATES}" >"${scratch}/certificates.p12"
 security import "${scratch}/certificates.p12" -k "${keychain}" \
-  -P "${APP_STORE_CERTIFICATES_PASSWORD}" -T /usr/bin/codesign
+  -P "${APP_STORE_CERTIFICATES_PASSWORD}" -T /usr/bin/codesign \
+  -T /usr/bin/productbuild -T /usr/bin/productsign
 security set-key-partition-list -S apple-tool:,apple: -s \
   -k "${keychain_password}" "${keychain}" &>/dev/null
+if [[ "${TESTFLIGHT_PLATFORM:-IOS}" == MAC_OS ]]; then
+  security find-identity -v -p basic "${keychain}" >"${scratch}/identities"
+  installer_certificate="$(awk -v team="${team_id}" '
+    /"3rd Party Mac Developer Installer:/ && index($0, "(" team ")\"") { print $2; exit }
+  ' "${scratch}/identities")"
+  if [[ -z "${installer_certificate}" ]]; then
+    echo "Mac uploads require a valid Mac Installer Distribution certificate and private key for team ${team_id} in the certificate bundle, alongside Apple Distribution." >&2
+    exit 1
+  fi
+  /usr/libexec/PlistBuddy -c "Add :installerSigningCertificate string ${installer_certificate}" \
+    "${scratch}/export.plist"
+fi
 # Xcode export needs the signing identity in the live search list.
 security list-keychains -d user >"${scratch}/keychains"
 while read -r existing_keychain; do
@@ -101,8 +135,10 @@ printf '%s\n' "${APP_STORE_KEY}" >"${scratch}/key.p8"
 
 script/version
 
-xcodebuild -project MinMaxCal.xcodeproj -scheme MinMaxCal-iOS \
-  -configuration AppStore -destination 'generic/platform=iOS' \
+# New signature files must remain readable in the installed app.
+umask 022
+xcodebuild -project MinMaxCal.xcodeproj -scheme "${scheme}" \
+  -configuration AppStore -destination "${build_destination}" \
   -derivedDataPath .build/DerivedData -archivePath "${scratch}/MinMaxCal.xcarchive" \
   "DEVELOPMENT_TEAM=${team_id}" CODE_SIGN_STYLE=Manual \
   'CODE_SIGN_IDENTITY=Apple Distribution' "MARKETING_VERSION=${RELEASE_VERSION}" \
@@ -114,7 +150,7 @@ xcodebuild -exportArchive -archivePath "${scratch}/MinMaxCal.xcarchive" \
   -authenticationKeyIssuerID "${APP_STORE_ISSUER_ID}" -allowProvisioningUpdates
 
 if [[ "${destination}" == export ]]; then
-  xcrun altool --validate-app "${scratch}/export/MinMaxCal.ipa" \
+  xcrun altool --validate-app "${scratch}/export/MinMaxCal.${extension}" \
     --api-key "${APP_STORE_KEY_ID}" --api-issuer "${APP_STORE_ISSUER_ID}" \
     --p8-file-path "${scratch}/key.p8"
 fi
