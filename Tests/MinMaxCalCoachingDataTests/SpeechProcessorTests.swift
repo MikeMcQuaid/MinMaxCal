@@ -6,7 +6,7 @@ import Testing
     .enabled(if: ProcessInfo.processInfo.environment["MINMAXCAL_TEST_COACHING_MODELS"] == "1"),
     arguments: [0.0, 8.0, 3_599.0],
 )
-func `synthetic audio runs through both models`(offset: Double) async throws {
+func `synthetic audio preserves source timing through diarisation`(offset: Double) async throws {
     let processor = try await SpeechProcessor()
     for index in 0 ..< 12 {
         for microphone in [true, false] {

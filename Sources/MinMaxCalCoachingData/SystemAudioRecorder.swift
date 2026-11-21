@@ -35,7 +35,10 @@ public final class SystemAudioRecorder: MeetingRecorder {
         description.muteBehavior = .unmuted
         let processor = try await SpeechModels(directory: modelDirectory)
             .processor(reduceSpeakerEcho: reduceSpeakerEcho)
-        try Task.checkCancellation()
+        if Task.isCancelled {
+            await processor.cancel()
+            throw CancellationError()
+        }
         let frames = AsyncThrowingStream<
             AudioFrame,
             any Error,
@@ -62,6 +65,7 @@ public final class SystemAudioRecorder: MeetingRecorder {
                 updates.continuation.finish()
             } catch {
                 await updates.continuation.yield(processor.snapshot())
+                await processor.cancel()
                 updates.continuation.finish(throwing: error)
             }
         }
@@ -86,14 +90,23 @@ public final class SystemAudioRecorder: MeetingRecorder {
                 )
             }
             if #available(macOS 27, *) {
-                // swiftlint:disable:next no_magic_numbers - Microphone callback buffer size.
-                try input.installAudioTap(onBus: 0, bufferSize: 4_096, format: format) { buffer, time in
+                try input.installAudioTap(
+                    onBus: 0,
+                    // swiftlint:disable:next no_magic_numbers - Microphone callback buffer size.
+                    bufferSize: AVAudioFrameCount(format.sampleRate / 5),
+                    format: format,
+                ) { buffer, time in
                     receive(AVAudioPCMBuffer(copying: buffer), time)
                 }
             } else {
                 Self.installLegacyTap(on: input, format: format, receive: receive)
             }
             microphoneEngine = engine
+            if reduceSpeakerEcho {
+                let detector = MicrophoneVoiceDetector()
+                microphoneVoiceDetector = detector
+                try detector.start(output: output)
+            }
             let tap = SystemAudioTap()
             systemTap = tap
             try tap.start(
@@ -136,6 +149,7 @@ public final class SystemAudioRecorder: MeetingRecorder {
 
     // MARK: Private
 
+    private var microphoneVoiceDetector: MicrophoneVoiceDetector?
     private var microphoneEngine: AVAudioEngine?
     private var systemTap: SystemAudioTap?
     private var configurationObserver: NSObjectProtocol?
@@ -153,7 +167,7 @@ public final class SystemAudioRecorder: MeetingRecorder {
         receive: @escaping @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void,
     ) {
         // swiftlint:disable:next no_magic_numbers - Microphone callback buffer size.
-        input.installTap(onBus: 0, bufferSize: 4_096, format: format, block: receive)
+        input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(format.sampleRate / 5), format: format, block: receive)
     }
 
     private func stopCapture() {
@@ -161,6 +175,8 @@ public final class SystemAudioRecorder: MeetingRecorder {
             NotificationCenter.default.removeObserver(configurationObserver)
         }
         configurationObserver = nil
+        microphoneVoiceDetector?.stop()
+        microphoneVoiceDetector = nil
         microphoneEngine?.stop()
         microphoneEngine?.inputNode.removeTap(onBus: 0)
         microphoneEngine = nil

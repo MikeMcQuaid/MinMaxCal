@@ -5,7 +5,7 @@ import MinMaxCalCoachingDomain
 import Testing
 
 @Test(.enabled(if: ProcessInfo.processInfo.environment["MINMAXCAL_TEST_COACHING_TRANSCRIPTION"] == "1"))
-func `recorded speech produces a live transcript and flushes final words`() async throws {
+func `recorded speech produces a live transcript and flushes final words`() async throws { // swiftlint:disable:this function_body_length line_length - Complete live recognition fixture.
     let speech = try AudioConverter().resampleAudioFile(URL(
         filePath:
         // swiftlint:disable:next line_length - Keep this fixture path or displayed sentence intact.
@@ -29,11 +29,28 @@ func `recorded speech produces a live transcript and flushes final words`() asyn
             ))
         }
     }
-    let live = await processor.snapshot()
+    let deadline = ContinuousClock.now + .seconds(30)
+    var live = await processor.snapshot()
+    while live.transcript.count(where: { $0.source == .microphone }) <= 10
+        || live.transcript.count(where: { $0.source == .system }) <= 10
+    // swiftlint:disable:next opening_brace - SwiftFormat wraps multiline conditions.
+    {
+        guard ContinuousClock.now < deadline else {
+            break
+        }
+
+        try await Task.sleep(for: .milliseconds(100))
+        try await processor.accept(.init(
+            samples: [], time: 10 + Double(speech.count) / SpeechModels.sampleRate, isMicrophone: true,
+        ))
+        live = await processor.snapshot()
+    }
     #expect(live.transcript.count(where: { $0.source == .microphone }) > 10)
     #expect(live.transcript.count(where: { $0.source == .system }) > 10)
     let final = try await processor.finish()
     #expect(final.transcript.count >= live.transcript.count)
+    #expect(final.transcript.count(where: { $0.source == .microphone }) > 10)
+    #expect(final.transcript.count(where: { $0.source == .system }) > 10)
     #expect(final.transcript.allSatisfy { $0.start >= ($0.source == .microphone ? 10 : 5) })
     var meeting = Meeting(title: "Speech fixture")
     meeting.transcript = final.transcript

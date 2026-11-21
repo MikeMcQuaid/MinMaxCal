@@ -27,8 +27,8 @@ account. Optional calendar mirroring writes through those same accounts.
 - Mirror calendars for the coming month, copying titles, locations and
   links or using Busy or Travel titles. Preview with **Compare** before
   enabling **Sync**; originals are never changed.
-- Optional [meeting coaching](COACHING.md): transcribe meetings and
-  measure your speaking time with local speech models on Mac.
+- Optional [meeting coaching](COACHING.md): estimate your speaking
+  share and transcribe meetings with on-device speech models on Mac.
 - Use the [iPhone preview](#-iphone-preview) to browse your agenda, join
   calls and complete reminders with Undo, or the
   [Apple Watch preview](#-apple-watch-preview) for a read-only agenda.

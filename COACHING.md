@@ -24,8 +24,11 @@ Use the clear button beside **Other person** for a group call; clearing
 the suggested name keeps remote speakers separate.
 
 Recording always captures all system audio alongside your microphone,
-including other tabs and unrelated audio. Echo reduction is enabled
-automatically.
+including other tabs and unrelated audio. Apple's echo-aware voice
+activity detection and recognised English words confirm your speaking
+time. FluidAudio identifies remote speakers. Analysis stays on device;
+**Download Speech Models** installs FluidAudio's remote-speaker model
+and Apple's English recognition assets. Apple manages its speech assets.
 
 Upcoming meetings use the same today-and-tomorrow agenda as Events.
 Every event with a **Join** button appears and can be selected,
@@ -58,15 +61,19 @@ but no screen images or video are captured. Use **Enable Notifications**
 in Coaching settings for silent start-time prompts and coaching cues.
 Denying notifications leaves recording and inline cues usable.
 
-Missing or late playback reference marks microphone speech
-**Unverified microphone**, hides affected shares and suspends coaching
-until uncertainty leaves the five-minute window. Silent system audio
-cannot be distinguished from a capture problem. Your call app’s mute
-button does not mute MinMaxCal’s microphone capture.
+Speaking shares are estimates for noticing conversation balance, not
+precise measurements. Word confirmation rejects many non-speech sounds,
+but speaker playback coinciding with a grunt or noise can still count as
+your speech. Headphones reduce this ambiguity. Your microphone must
+support Apple's voice activity detection. Your call app's mute button
+does not mute MinMaxCal's microphone capture.
 
 Live statistics show speaking shares, current turns and longest turns
-for you and remote speakers. Shares exclude silence; overlapping voices
-each count. Turns end when another voice speaks or a pause exceeds
+for you and remote speakers. Your confirmed share updates after words
+are finalised, usually within several seconds; it can take longer.
+Remote speakers continue updating while word confirmation catches up.
+Shares exclude silence; overlapping voices each count. Turns end when
+another voice speaks or a pause exceeds
 0.75 seconds. Silent cues need a new target crossing and are at least
 two minutes apart.
 
@@ -94,11 +101,13 @@ text before sharing.
 Models and history persist inside
 `~/Library/Containers/com.mikemcquaid.MinMaxCal/Data/Library`:
 
-- Models: `Application Support/FluidAudio/Models`
+- Remote-speaker model: `Application Support/FluidAudio/Models`
 - History: `Application Support/MinMaxCal/Meetings`
 
-App sandboxes are separate. Models and history in another app’s container
-remain intact and are not reused automatically.
+Apple manages its speech assets separately. App sandboxes are separate;
+FluidAudio models and history in another app's container remain intact
+and are not reused automatically. Previously downloaded transcription,
+echo reduction and voice detection models are no longer loaded.
 
 End drains processing and saves the summary. Closing the panel continues
 recording; Quit and disabling coaching stop and save. Checkpoints every
@@ -112,7 +121,7 @@ inline **Delete** confirmation; **Cancel** leaves it intact.
 The speech model has a one-hour speaker session. The detector resets
 hourly and recording continues in the same meeting with fresh
 remote-speaker labels. Earlier names and transcript timestamps stay
-intact. Microphone capture, echo reduction and transcription continue
+intact. Microphone capture, voice detection and transcription continue
 through resets. A countdown beside the recording indicator shows when
 the next reset is due. Real audio routes and permission prompts need
 testing in the host GUI session.
