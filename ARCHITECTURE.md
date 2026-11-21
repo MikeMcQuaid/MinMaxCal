@@ -327,7 +327,7 @@ dependency graphs. System frameworks are confined (P3):
 | CoreGraphics (calendar colours) | MinMaxCalData |
 | AppKit | MinMaxCalData (`NSWorkspace`), MinMaxCalAgenda (notes), Features and CoachingFeatures (UI) |
 | AudioToolbox, UniformTypeIdentifiers | MinMaxCalFeatures (the takeover sound) |
-| Core Audio, AVFoundation, CoreML, FluidAudio | MinMaxCalCoachingData (macOS only) |
+| Core Audio, AVFoundation, Speech, CoreML, FluidAudio | MinMaxCalCoachingData (macOS only) |
 | UserNotifications | MinMaxCalCoachingData (the shared notification delegate) |
 | SwiftUI | MinMaxCalAgenda, MinMaxCalFeatures, MinMaxCalCoachingFeatures and the app shells |
 | UIKit | the iOS app shell and shared notes importer on iOS |
@@ -781,17 +781,32 @@ the microphone, with no screen or video capture. Capture always uses all
 system audio; no app enumeration or audio-source selection is needed.
 macOS 27 uses the read-only audio tap; a macOS 26-only wrapper suppresses
 old tap API deprecation while keeping compiler checks elsewhere. The
-existing bounded sample buffers, LocalVQE echo reduction, Silero VAD,
-LS-EEND diarisation and Parakeet English transcription pipeline is
-retained. Separate actors for speech inference, echo reduction,
-transcription, model setup and history serialise mutable model/file state
-outside the UI actor. These
-are the additional actors justified by the audio pipeline. C callbacks
-copy samples before returning. Unsafe Core Audio operations are confined
-to Data. Capture errors preserve partial summaries; Quit drains capture
-and saves. The remote diarizer finalises and resets its state at hourly
-boundaries, retaining the loaded model. Frames spanning a boundary are
-split without losing samples. Microphone VAD, echo reduction and ASR
+bounded sample buffers feed Apple's on-device SpeechAnalyzer for English
+transcription and FluidAudio's LS-EEND for remote diarisation. Core Audio
+HAL voice activity detection records echo-aware microphone intervals
+on a dedicated serial queue, independently of UI work;
+only activity overlapping finalised microphone word timings counts as
+"me". This is approximate: coincident speaker leakage and microphone
+noise can still pass both checks. Shares may lag by several seconds.
+When echo reduction is disabled, the immediate speaking indicator uses
+the microphone level; speaking time still requires recognised words.
+No LocalVQE, Silero or Parakeet models are loaded. Recognition runs
+asynchronously at utility priority with bounded audio queues, outside
+the remote diarizer's processing loop. Both audio sources retain their
+shared capture clock; converted recognition buffers use contiguous
+sample timing after the first timestamp to avoid resampling overlaps.
+End drains the audio converters before finalising recognition. Finalised
+words survive failures from either source, and a recognition timeout
+keeps its specific error after cancellation and cleanup. Failure recovery
+stops the analyser and drains its published results before returning;
+only explicit teardown cancels the result reader.
+Separate actors own speech inference, transcription, model setup and
+history. C callbacks copy samples before returning. Unsafe Core Audio
+operations are confined to Data. Capture errors preserve partial
+summaries; Quit drains capture and saves. The remote diarizer finalises
+and resets its state at hourly boundaries, retaining the loaded model.
+Frames spanning a boundary are
+split without losing samples. Microphone voice detection and ASR
 continue uninterrupted. Remote speaker IDs include a session suffix,
 so saved names never carry to a different model session accidentally.
 The recording header counts down to the next speaker reset using audio
@@ -805,9 +820,13 @@ End never offers restart. Delete Summary uses an inline confirmation in
 the panel, avoiding a separate popover presentation. Deleting a failed
 meeting also clears its matching capture warning.
 
-Models live in MinMaxCal's sandbox Application Support/FluidAudio/Models,
-never in a checkout or bundle. Coaching history is atomically written per
-meeting in Application Support/MinMaxCal/Meetings, including 15-second
+The remote diarisation model lives in MinMaxCal's sandbox Application
+Support/FluidAudio/Models, never in a checkout or bundle. Apple manages
+the English recognition assets. Download Speech Models installs missing
+assets explicitly after checking Apple speech support; readiness and
+recording never download them.
+Coaching history is atomically written per meeting in Application
+Support/MinMaxCal/Meetings, including 15-second
 checkpoints, transcript words and meeting-local speaker names. This is
 user-created recording history, not a persisted agenda cache.
 Saved meetings expire 48 hours after recording ends by default; Settings

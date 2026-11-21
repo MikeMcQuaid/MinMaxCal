@@ -1,6 +1,7 @@
 import FluidAudio
 import Foundation
 import MinMaxCalCoachingDomain
+import Speech
 
 public actor SpeechModels: SpeechModelStore {
     // MARK: Lifecycle
@@ -22,8 +23,8 @@ public actor SpeechModels: SpeechModelStore {
         }
 
         do {
-            _ = try await processor(reduceSpeakerEcho: true)
-            return true
+            _ = try LSEENDSession(modelDirectory: directory)
+            return await AppleSpeechAssets.isInstalled()
         } catch {
             return false
         }
@@ -31,37 +32,7 @@ public actor SpeechModels: SpeechModelStore {
 
     @preconcurrency
     public func download(progress: @Sendable (String) async -> Void) async throws {
-        await progress("Downloading voice detection model (1 of 4)…")
-        try await ModelHub.download(
-            .vad,
-            to: directory,
-        )
-        try Task.checkCancellation()
-        await progress("Downloading speaker identification model (2 of 4)…")
-        try await ModelHub.download(
-            .lseendDihard3,
-            subdirectory: Self.diarizerPath,
-            to: directory.appending(path: Repo.lseendDihard3.folderName),
-        )
-        try Task.checkCancellation()
-        await progress("Downloading echo reduction model (3 of 4)…")
-        try await ModelHub.download(
-            .localVqe,
-            to: directory,
-            variant: ModelNames.LocalVQE.variantKey(
-                variant: LocalVqeConfig.default.variant,
-                chunk: LocalVqeConfig.default.chunk,
-            ),
-        )
-        try Task.checkCancellation()
-        await progress("Downloading transcription model (4 of 4)…")
-        try await ModelHub.download(
-            .parakeetUnified,
-            to: directory,
-            additionalModelNames: [ModelNames.ParakeetUnified.streamingEncoderFile(precision: .int8)],
-        )
-        try Task.checkCancellation()
-        await progress("Checking downloaded models…")
+        try await download(progress: progress, transcriber: AppleSpeechAssets.transcriber)
     }
 
     // MARK: Internal
@@ -72,6 +43,24 @@ public actor SpeechModels: SpeechModelStore {
     \(Repo.lseendDihard3.subPath ?? "")/\
     \(ModelNames.LSEEND.Variant.dihard3.fileName(forStep: .step100ms))
     """
+
+    func download(
+        progress: @Sendable (String) async -> Void,
+        transcriber: @Sendable () async throws -> SpeechTranscriber,
+    ) async throws {
+        let module = try await transcriber()
+        await progress("Downloading remote-speaker model (1 of 2)…")
+        try await ModelHub.download(
+            .lseendDihard3,
+            subdirectory: Self.diarizerPath,
+            to: directory.appending(path: Repo.lseendDihard3.folderName),
+        )
+        try Task.checkCancellation()
+        await progress("Downloading Apple's English speech model (2 of 2)…")
+        try await AppleSpeechAssets.download(for: module)
+        try Task.checkCancellation()
+        await progress("Checking downloaded models…")
+    }
 
     func processor(reduceSpeakerEcho: Bool) async throws -> SpeechProcessor {
         try await SpeechProcessor(reduceSpeakerEcho: reduceSpeakerEcho, transcribe: true, modelDirectory: directory)

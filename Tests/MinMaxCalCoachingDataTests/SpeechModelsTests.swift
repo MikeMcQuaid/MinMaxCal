@@ -20,13 +20,16 @@ func `missing models do not trigger an implicit download`() async throws {
     }
     #expect(FileManager.default.fileExists(atPath: directory.path(percentEncoded: false)) == false)
 
-    let encoder = directory.appending(path: Repo.parakeetUnified.folderName)
-        .appending(path: ModelNames.ParakeetUnified.streamingEncoderFile(precision: .int8))
+    let model = directory.appending(path: Repo.lseendDihard3.folderName)
+        .appending(path: SpeechModels.diarizerPath)
     try FileManager.default.createDirectory(
-        at: encoder,
+        at: model,
         withIntermediateDirectories: true,
     )
-    try Data("incomplete download".utf8).write(to: encoder.appending(path: "coremldata.bin"))
+    try Data("incomplete download".utf8).write(to: model.appending(path: "coremldata.bin"))
+    #expect(throws: (any Error).self) {
+        _ = try LSEENDSession(modelDirectory: directory)
+    }
     #expect(await models.isReady() == false)
     #expect(await SpeechModels(directory: directory).isReady() == false)
 }

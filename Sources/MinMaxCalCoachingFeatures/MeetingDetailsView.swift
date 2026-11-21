@@ -16,9 +16,9 @@ struct MeetingDetailsView: View {
                 Label(model.speakerStatus, systemImage: "waveform")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                if model.reduceSpeakerEcho, model.hasMeetingAudio == false {
+                if model.hasMeetingAudio == false {
                     Label(
-                        "Waiting for system audio. Microphone speech cannot yet be attributed to you.",
+                        "Waiting for system audio. Speaking shares may change when other voices are heard.",
                         systemImage: "speaker.wave.2",
                     )
                     .font(.caption)

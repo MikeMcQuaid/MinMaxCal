@@ -1,5 +1,3 @@
-import CoreML
-@unsafe @preconcurrency import FluidAudio
 import Foundation
 
 enum RecordingError: LocalizedError {
@@ -8,11 +6,27 @@ enum RecordingError: LocalizedError {
     case invalidAudioFormat
     case microphoneDenied
     case noMicrophone
+    case recognitionTimedOut
+    case speechModelsMissing
+    case speechUnavailable
+    case voiceDetectionUnavailable
 
     // MARK: Internal
 
     var errorDescription: String? {
         switch self {
+        case .voiceDetectionUnavailable:
+            "Apple voice detection is unavailable for this microphone. Select another input in System Settings → Sound."
+
+        case .speechUnavailable:
+            "Apple's on-device English speech recognition is unavailable on this Mac."
+
+        case .speechModelsMissing:
+            "Download Speech Models in Coaching settings before starting a recording."
+
+        case .recognitionTimedOut:
+            "Speech recognition did not finish in time. The partial summary has been kept."
+
         case .microphoneDenied:
             "Allow MinMaxCal microphone access in System Settings → Privacy & Security → Microphone."
 
