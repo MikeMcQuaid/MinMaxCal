@@ -12,7 +12,6 @@ public struct MeetingView: View {
         turnLimit: Double,
         joinLink: JoinLink? = nil,
         recordsMeeting: Bool = false,
-        joinEnabled: Bool = true,
         onJoin: ((JoinLink) -> Void)? = nil,
     ) {
         self.model = model
@@ -21,7 +20,6 @@ public struct MeetingView: View {
         self.joinLink = joinLink
         self.onJoin = onJoin
         self.recordsMeeting = recordsMeeting
-        self.joinEnabled = joinEnabled
     }
 
     // MARK: Public
@@ -39,7 +37,6 @@ public struct MeetingView: View {
                         Spacer()
                         if let joinLink, let onJoin {
                             JoinButton(link: joinLink, isPrimary: false, recordsMeeting: recordsMeeting, action: onJoin)
-                                .disabled(joinEnabled == false)
                         }
                     }
                     .id("top")
@@ -106,5 +103,4 @@ public struct MeetingView: View {
     private let joinLink: JoinLink?
     private let onJoin: ((JoinLink) -> Void)?
     private let recordsMeeting: Bool
-    private let joinEnabled: Bool
 }

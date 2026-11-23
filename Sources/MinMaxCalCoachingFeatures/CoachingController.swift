@@ -41,12 +41,7 @@ public final class CoachingController {
 
     /// Whether Join actions advertise recording in the opted-in feature.
     public var recordsJoins: Bool {
-        enabled && recordOnJoin
-    }
-
-    /// Whether the selected Join action is ready, including an existing recording.
-    public var canJoin: Bool {
-        recordsJoins == false || canRecord || model?.phase == .recording
+        enabled && recordOnJoin && model?.phase == .idle
     }
 
     /// Whether setup is ready for an explicit recording choice.
@@ -70,13 +65,12 @@ public final class CoachingController {
         using open: (JoinLink) -> Void,
         refresh: () async -> Void,
     ) async {
-        guard let link = item.joinLink, canJoin else {
+        guard let link = item.joinLink else {
             return
         }
 
-        let shouldRecord = recordsJoins && model?.phase == .idle
         open(link)
-        if shouldRecord {
+        if recordsJoins {
             await refresh()
             await record(item)
         }

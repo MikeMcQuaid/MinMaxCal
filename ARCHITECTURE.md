@@ -767,9 +767,11 @@ lives in Coaching settings and changes the default Join action in both
 agenda panels and the takeover. Turning it off keeps explicit Join and
 Record available on the takeover and leaves any current recording
 running. Agenda joins create no capture or explicit calendar refresh
-when coaching is disabled or the join preference is off. Recording joins
-refresh and revalidate the event, allowing explicit recording before its
-scheduled start.
+when coaching is disabled or the join preference is off. In both agenda
+panels, Join opens the call regardless of recording readiness. When
+recording is requested, the controller then refreshes and revalidates
+the event, allowing recording before its scheduled start. Setup and
+capture failures appear on Record.
 The inline clear button switches to a group call and preserves the empty
 name override when calendar suggestions refresh.
 Start/End controls remain in the footer. Echo reduction is enabled by

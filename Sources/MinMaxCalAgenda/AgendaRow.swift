@@ -14,7 +14,6 @@ public struct AgendaRow: View {
         onUncomplete: @escaping () -> Void = {},
         joinIsPrimary: Bool = false,
         recordsMeeting: Bool = false,
-        joinEnabled: Bool = true,
     ) {
         self.item = item
         self.style = style
@@ -23,7 +22,6 @@ public struct AgendaRow: View {
         self.onComplete = onComplete
         self.onUncomplete = onUncomplete
         self.recordsMeeting = recordsMeeting
-        self.joinEnabled = joinEnabled
     }
 
     // MARK: Public
@@ -123,7 +121,6 @@ public struct AgendaRow: View {
     private let onUncomplete: () -> Void
     private let onJoin: ((JoinLink) -> Void)?
     private let recordsMeeting: Bool
-    private let joinEnabled: Bool
 
     private var timeFont: Font {
         if style == .agenda {
@@ -194,7 +191,6 @@ public struct AgendaRow: View {
             )
         } else if let link = item.joinLink, let onJoin {
             JoinButton(link: link, isPrimary: joinIsPrimary, recordsMeeting: recordsMeeting, action: onJoin)
-                .disabled(joinEnabled == false)
         } else {
             Color.clear
         }
