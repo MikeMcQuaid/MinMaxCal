@@ -101,6 +101,35 @@ func `explicit join and record revalidates the event and starts once`(
 }
 
 @Test
+func `join opens the call and explains missing recording models`() async throws {
+    let now = Date.now
+    let item = AgendaItem.Sample.zoomEvent.item(now: now)
+    let link = try #require(item.joinLink)
+    let events = AgendaMeetingCalendar.meetings(in: Agenda(
+        items: [item],
+        horizon: DateInterval(start: now, duration: 86_400),
+    ))
+    let recorder = Recorder()
+    let models = Models(ready: false)
+    let suite = "MinMaxCalCoaching-\(UUID())"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let controller = CoachingController(defaults: defaults, makeModel: {
+        MeetingModel(recorder: recorder, store: Store(), speechModels: models, calendar: CalendarSource(events: events))
+    })
+    await controller.setEnabled(true)
+    await controller.waitForAgenda()
+    var opened = [JoinLink]()
+    await controller.join(item, using: { opened.append($0) }, refresh: { #expect(opened == [link]) })
+    #expect(opened == [link])
+    #expect(controller.showingMeeting)
+    #expect(controller.model?.displayedError?.contains("Download speech models") == true)
+    #expect(recorder.starts == 0)
+    #expect(await models.downloads == 0)
+    await controller.setEnabled(false)
+}
+
+@Test
 func `join and record does not capture a deleted event`() async throws {
     let now = Date.now
     let item = try AgendaItem(

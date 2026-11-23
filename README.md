@@ -94,8 +94,8 @@ Settings opens from the agenda's footer or Cmd-, and controls:
   and other links, including Luma and Linux Foundation meeting links.
 - **Matching**: generic titles to merge and home terms to omit from
   locations.
-- **Coaching**: optional Mac-only recording, model downloads, speaking
-  targets, transcripts and the Record when joining preference.
+- **Coaching**: Mac recording, model downloads, targets and transcripts.
+  **Record when joining** opens the call even if models are missing.
 - **General**: launch at login, title length and permissions.
 
 Direct downloads start at login by default; App Store builds require

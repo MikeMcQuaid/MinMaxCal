@@ -41,9 +41,10 @@ confirmation. Meetings already underway appear without a late prompt.
 Changed or deleted events are rechecked before recording. **Record when
 joining** is on by default while coaching is enabled. Untick it in
 Coaching settings for ordinary Join buttons; turning it off does not
-stop a recording already running. The Join button’s label and help
-identify whether it will record. Joining before the scheduled start can
-still start recording explicitly.
+stop a recording already running. The red dot marks a request to record.
+Both panels open the call immediately. If recording cannot start,
+the Record panel shows the reason. Joining before the scheduled start
+can still start recording explicitly.
 
 Event takeovers default to **Join and Record** when coaching is enabled
 and idle and Record when joining is on. It is the blue primary action,

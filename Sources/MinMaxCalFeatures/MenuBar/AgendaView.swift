@@ -29,7 +29,6 @@ public struct AgendaView: View {
                     turnLimit: meeting.turnLimit,
                     joinLink: item?.joinLink,
                     recordsMeeting: coaching.recordsJoins,
-                    joinEnabled: coaching.canJoin,
                     onJoin: { _ in
                         if let item {
                             join(item)
@@ -147,7 +146,6 @@ public struct AgendaView: View {
                         model: model,
                         expanded: $expanded,
                         recordsMeeting: coaching?.recordsJoins == true,
-                        joinEnabled: coaching?.canJoin ?? true,
                         onJoin: { _ in join(item) },
                         onPreview: { model.preview(item) },
                     )
