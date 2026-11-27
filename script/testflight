@@ -144,6 +144,15 @@ xcodebuild -project MinMaxCal.xcodeproj -scheme "${scheme}" \
   'CODE_SIGN_IDENTITY=Apple Distribution' "MARKETING_VERSION=${RELEASE_VERSION}" \
   "CURRENT_PROJECT_VERSION=${BUILD_NUMBER}" "${args[@]}" archive
 
+if [[ "${internal}" == true && "${GITHUB_EVENT_NAME:-}" == workflow_run ]]; then
+  main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+  if [[ "${main_sha}" != "$(git rev-parse HEAD)" ]]; then
+    echo "Skipping private upload because main has moved to ${main_sha}."
+    echo "superseded=true" >>"${GITHUB_OUTPUT}"
+    exit 0
+  fi
+fi
+
 xcodebuild -exportArchive -archivePath "${scratch}/MinMaxCal.xcarchive" \
   -exportOptionsPlist "${scratch}/export.plist" -exportPath "${scratch}/export" \
   -authenticationKeyPath "${scratch}/key.p8" -authenticationKeyID "${APP_STORE_KEY_ID}" \

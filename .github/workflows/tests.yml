@@ -18,6 +18,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  testflight-changes:
+    if: github.event_name == 'push'
+    # Stop a private archive as soon as main moves, even before CI finishes.
+    concurrency:
+      group: private-testflight-${{ github.event.before }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check the push for Swift source or dependency changes
+        id: swift
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          git diff --name-only --no-renames "${BEFORE}" "${GITHUB_SHA}" -- Package.swift Package.resolved \
+            'App/*.swift' 'Sources/*.swift' 'iOSApp/*.swift' 'watchOSApp/*.swift' > testflight-swift-changes
+          if [[ -s testflight-swift-changes ]]; then
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Record Swift changes for TestFlight
+        if: steps.swift.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: testflight-swift-changes
+          path: testflight-swift-changes
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
+
   style:
     runs-on: macos-latest
     timeout-minutes: 15

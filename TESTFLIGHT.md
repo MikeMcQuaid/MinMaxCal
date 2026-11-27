@@ -76,7 +76,7 @@ App Store screenshots and categories are not prerequisites for the first externa
 
 ## Public build and invitation
 
-First test the private Mac build: with Mac signing secrets and the internal group's automatic distribution configured, merge the workflow changes. Successful CI on `main` uploads private Mac and iPhone builds. Install TestFlight on the Mac and use your existing internal invitation. No external group setup or beta review is needed for this private upload.
+To test the private Mac build, configure the Mac signing secrets and automatic distribution for the internal group. Wait for CI to pass on a current `main` push that changes app Swift code or Swift package dependencies. It uploads private Mac and iPhone builds. Install TestFlight on the Mac and use your existing internal invitation. No external group setup or beta review is needed for this private upload.
 
 When ready for public Mac testing, use the configured external group (**Public Beta** by default, or the name in `TESTFLIGHT_PUBLIC_GROUP`), update the fields above and dispatch **Release** from `main` with a fresh version. The workflow assigns both eligible platform builds to that group and submits them for beta review before publishing the GitHub release. Internal-only builds from routine `main` commits cannot be used for external testing. A paired release uses two of the three public upload slots allowed in 24 hours.
 

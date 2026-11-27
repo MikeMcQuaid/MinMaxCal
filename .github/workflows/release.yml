@@ -8,7 +8,7 @@ on:
         description: Bare MAJOR.MINOR.PATCH version, for example 0.1.0
         required: true
         type: string
-  workflow_run: # zizmor: ignore[dangerous-triggers] successful same-repository main pushes only; see testflight.if
+  workflow_run: # zizmor: ignore[dangerous-triggers] successful same-repository main pushes only; see private-build.if
     workflows: [GitHub Actions CI]
     types: [completed]
     branches: [main]
@@ -41,7 +41,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.event_name == 'push' && format('minmaxcal-release-dry-run-{0}', github.ref) || 'minmaxcal-release' }}
+  # Group both private platform jobs under the tested SHA so a new push cancels both.
+  group: >-
+    ${{ github.event_name == 'push' && format('minmaxcal-release-dry-run-{0}', github.ref) ||
+        github.event_name == 'workflow_dispatch' && 'minmaxcal-release' ||
+        format('private-testflight-{0}', github.event.workflow_run.head_sha) }}
   cancel-in-progress: false
   queue: max
 
@@ -211,7 +215,11 @@ jobs:
           kill -0 "${pid}"
 
   release:
-    if: github.event_name == 'workflow_dispatch'
+    # A dispatch skips the private-build ancestor of testflight.
+    if: >-
+      !cancelled() && github.event_name == 'workflow_dispatch' &&
+      needs.build.result == 'success' && needs.smoke-test.result == 'success' &&
+      needs.testflight.result == 'success'
     needs: [build, smoke-test, testflight]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -241,20 +249,45 @@ jobs:
           gh release create "${VERSION}" --repo "${GITHUB_REPOSITORY}" --verify-tag --generate-notes \
             ".build/MinMaxCal-${VERSION}.zip"
 
+  private-build:
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+    steps:
+      - name: Check for a current push with Swift changes
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          if [[ "${main}" == "${CI_SHA}" ]]; then
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}/artifacts?name=testflight-swift-changes" \
+              --jq '"eligible=\(.artifacts | length > 0)"' >> "${GITHUB_OUTPUT}"
+          fi
+
   testflight:
     name: TestFlight (${{ matrix.name }})
-    # Only successful push CI from this repository's main may supply code
-    # to the privileged workflow_run job. PR workflows never upload.
     if: >-
-      !cancelled() && (
-        (github.event_name == 'workflow_run' &&
-         github.event.workflow_run.event == 'push' &&
-         github.event.workflow_run.head_branch == 'main' &&
-         github.event.workflow_run.head_repository.full_name == github.repository &&
-         github.event.workflow_run.conclusion == 'success') ||
+      !cancelled() && (needs.private-build.outputs.eligible == 'true' ||
         (github.event_name != 'workflow_run' && github.actor != 'dependabot[bot]' &&
          needs.build.result == 'success' && needs.smoke-test.result == 'success'))
-    needs: [build, smoke-test]
+    needs: [build, smoke-test, private-build]
+    concurrency:
+      # Official releases already hold minmaxcal-release for the whole workflow.
+      group: ${{ github.event_name == 'workflow_run' && 'minmaxcal-release' || github.run_id }}
+      queue: max
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -369,6 +402,7 @@ jobs:
           RELEASE_VERSION: ${{ steps.prepare.outputs.release_version }}
           BUILD_NUMBER: ${{ steps.prepare.outputs.build_number }}
           UPLOAD_NEEDED: ${{ steps.plan.outputs.needed }}
+          GH_TOKEN: ${{ github.token }}
           APP_STORE_KEY: ${{ secrets.NOTARIZATION_KEY }}
           APP_STORE_KEY_ID: ${{ secrets.NOTARIZATION_KEY_ID }}
           APP_STORE_ISSUER_ID: ${{ secrets.NOTARIZATION_ISSUER_ID }}
@@ -387,7 +421,7 @@ jobs:
           fi
 
       - name: Distribute TestFlight build
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.upload.outputs.superseded != 'true'
         env:
           RELEASE_VERSION: ${{ steps.prepare.outputs.release_version }}
           BUILD_NUMBER: ${{ steps.prepare.outputs.build_number }}
