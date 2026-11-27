@@ -635,6 +635,70 @@ workflow = YAML.load_file('.github/workflows/release.yml')
   assert(workflow.fetch('on', workflow[true]).dig('push', 'paths').include?(path), "Release dry runs must cover #{path}")
 end
 
+ci = YAML.load_file('.github/workflows/tests.yml')
+change_steps = ci.dig('jobs', 'testflight-changes', 'steps')
+Dir.mktmpdir('testflight-changes.', '.test-scratch') do |scratch|
+  Dir.chdir(scratch) do
+    system('git', 'init', '-q', exception: true)
+    snapshot = lambda do
+      system('git', 'add', '-A', exception: true)
+      `git write-tree`.strip
+    end
+    File.write('Package.resolved', 'old package pin')
+    base = snapshot.call
+    %w[README.md .github/workflows/ci.yml Tests/Test.swift Tools/Tool.swift App/Info.plist].each do |path|
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, 'changed')
+    end
+    docs = snapshot.call
+    FileUtils.mkdir_p('Sources/Feature')
+    File.write('Sources/Feature/App.swift', 'struct App {}')
+    swift = snapshot.call
+    File.write('README.md', 'more changes')
+    tip = snapshot.call
+    File.write('Package.resolved', 'updated package pin')
+    dependencies = snapshot.call
+    FileUtils.mkdir_p('watchOSApp')
+    File.write('watchOSApp/Agenda.swift', 'struct Agenda {}')
+    watch = snapshot.call
+
+    diff = change_steps.find { |step| step['id'] == 'swift' }.fetch('run')
+    marker = change_steps.last.fetch('with').fetch('path')
+    [[base, docs, []], [docs, tip, ['Sources/Feature/App.swift']], [swift, tip, []],
+     [tip, dependencies, ['Package.resolved']], [dependencies, watch, ['watchOSApp/Agenda.swift']],
+     [watch, dependencies, ['watchOSApp/Agenda.swift']]].each do |before, tested, paths|
+      File.write('output', '')
+      env = { 'GITHUB_OUTPUT' => File.expand_path('output'), 'BEFORE' => before, 'GITHUB_SHA' => tested }
+      _out, err, status = Open3.capture3(env, 'bash', '-euo', 'pipefail', '-c', diff)
+      assert(status.success?, err)
+      assert(File.readlines(marker, chomp: true) == paths, 'Record the qualifying paths across the whole push')
+      assert(File.read('output').strip == (paths.empty? ? '' : 'changed=true'), 'Only upload a marker for qualifying changes')
+    end
+
+    File.write('gh', <<~'SH')
+      #!/bin/bash
+      set -eu
+      case "$2" in
+        repos/test/repo/git/ref/heads/main) echo "${TEST_MAIN}" ;;
+        "repos/test/repo/actions/runs/42/artifacts?name=${MARKER}") jq -r "$4" <<<"${ARTIFACTS}" ;;
+        *) exit 1 ;;
+      esac
+    SH
+    File.chmod(0755, 'gh')
+    gate = workflow.dig('jobs', 'private-build', 'steps').first.fetch('run')
+    env = { 'PATH' => "#{Dir.pwd}:#{ENV.fetch('PATH')}", 'GITHUB_OUTPUT' => File.expand_path('output'),
+            'CI_RUN_ID' => '42', 'CI_SHA' => tip, 'GITHUB_REPOSITORY' => 'test/repo',
+            'MARKER' => change_steps.last.fetch('with').fetch('name') }
+    [[tip, [{}], 'eligible=true'], [tip, [], 'eligible=false'], [watch, [{}], '']].each do |main, artifacts, expected|
+      File.write('output', '')
+      _out, err, status = Open3.capture3(env.merge('TEST_MAIN' => main, 'ARTIFACTS' => JSON.generate(artifacts: artifacts)),
+                                         'bash', '-euo', 'pipefail', '-c', gate)
+      assert(status.success?, err)
+      assert(File.read('output').strip == expected, 'Require the current main tip and the triggering run’s marker')
+    end
+  end
+end
+
 Dir.mktmpdir('release-toolchain.', '.test-scratch') do |scratch|
   File.write("#{scratch}/find", <<~'SH')
     #!/bin/bash
@@ -664,7 +728,7 @@ Dir.mktmpdir('release-toolchain.', '.test-scratch') do |scratch|
   env = { 'PATH' => "#{File.expand_path(scratch)}:#{ENV.fetch('PATH')}",
           'TOOLCHAIN_DIRECTORY' => File.expand_path(scratch), 'XCODE_VERSION' => '27.10',
           'XCODE_PATHS' => "/Applications/Xcode_27.0.app\n/Applications/Xcode_27.10.app\n/Applications/Xcode_27.2.app" }
-  [[workflow, %w[build testflight]], [YAML.load_file('.github/workflows/tests.yml'), %w[tests analyze]]].each do |config, jobs|
+  [[workflow, %w[build testflight]], [ci, %w[tests analyze]]].each do |config, jobs|
     jobs.each do |name|
       job = config.fetch('jobs').fetch(name)
       select = job.fetch('steps').find { |step| step.fetch('name', '').start_with?('Select Xcode') }

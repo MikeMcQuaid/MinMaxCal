@@ -1103,15 +1103,20 @@ Developer ID and notarisation path for direct downloads.
 
 The Release workflow uploads the Mac and iPhone with bundled Watch to
 TestFlight before pushing the GitHub tag or publishing release binaries.
-After successful push CI on `main`, the same workflow checks out that
-exact tested commit and uploads internal-only builds for both platforms.
-Pull requests, failed CI and workflows from other repositories cannot
-trigger uploads. CI preserves every push run; Release queues up to 100
-runs in one shared concurrency group, serialising live uploads and
-publication. Its platform matrix also runs serially and attempts both
-platforms after a failure. Push dry runs use separate per-ref queues and
-cannot delay live releases. New uploads allocate a build number inside
-that queue, immediately before archiving. It exceeds all build and
+Only successful push CI from this repository's `main` can trigger
+private builds. CI compares both ends of the push and records an
+artefact for changes to `Package.swift`, `Package.resolved` or Swift
+sources in `App/`, `Sources/`, `iOSApp/` or `watchOSApp/`.
+Each push cancels private work for the `main` commit it replaces, even
+when it only changes CI. The release checks the triggering CI run for
+that artefact and confirms the tested commit is still at the tip of
+`main`. Each platform checks the tip again immediately before uploading.
+
+An official release holds the live release queue through publication.
+Each private platform job takes that same queue before allocating its
+build number. The platform matrix runs serially and attempts both
+platforms after a failure. Dry runs use separate per-ref queues.
+Each new upload's build number exceeds all build and
 upload numbers Apple reports for that platform, including dotted numbers
 and uploads still processing. Rerunning an older workflow therefore
 cannot reuse its old run number.
@@ -1342,10 +1347,12 @@ the same main bundle ID and tester groups.
    it selected and add yourself. An internal group must exist before you
    create the external group in Step 7. Keep any accepted invitation and
    installed TestFlight apps; existing testers need not repeat setup.
-   Each successful push CI on `main` now uploads private builds for Mac
-   and iPhone with Watch. Install TestFlight on your Mac and open the
-   existing invitation to install the native Mac build. Public testing
-   setup can wait until this private build works.
+   Once CI passes for a current `main` push that changes Swift sources
+   or package dependencies, it uploads private Mac and iPhone builds
+   with the Watch app bundled on iPhone.
+   Install TestFlight on your Mac and open the existing invitation to
+   install the native Mac build. Public testing setup can wait until
+   this private build works.
 6. In **TestFlight → Additional → Test Information**, complete the beta
    description, feedback email and beta review contact details. Say no
    sign-in is required if applicable. Ensure any required agreements and

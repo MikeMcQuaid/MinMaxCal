@@ -6,12 +6,21 @@ cd "$(dirname "$0")/.."
 ruby -ryaml <<'WORKFLOW'
 workflow = YAML.load_file('.github/workflows/release.yml')
 jobs = workflow.fetch('jobs')
+def enabled?(job, values)
+  expression = job.fetch('if').gsub(/\s+/, ' ')
+  values.each { |key, value| expression = expression.gsub(key, value.inspect) }
+  eval(expression)
+end
 release = jobs.fetch('release')
 unless Array(release['needs']).include?('testflight')
   abort 'GitHub publication can run before TestFlight succeeds'
 end
-if release.fetch('if', '').match?(/\b(always|failure|cancelled)\s*\(/)
-  abort 'GitHub publication bypasses successful dependencies'
+results = %w[success skipped failure cancelled]
+%w[workflow_dispatch push workflow_run].product(results, results, results, [false, true]).each do |event, build, smoke, upload, cancelled|
+  values = { 'github.event_name' => event, 'cancelled()' => cancelled, 'needs.build.result' => build,
+             'needs.smoke-test.result' => smoke, 'needs.testflight.result' => upload }
+  expected = !cancelled && event == 'workflow_dispatch' && [build, smoke, upload].all? { |result| result == 'success' }
+  abort 'GitHub publication must require successful release jobs' unless enabled?(release, values) == expected
 end
 testflight = jobs.fetch('testflight')
 matrix = testflight.dig('strategy', 'matrix', 'include')
@@ -29,9 +38,32 @@ end
 if testflight['continue-on-error'] || testflight.fetch('steps').any? { |step| step['continue-on-error'] }
   abort 'TestFlight failures can be ignored'
 end
-unless workflow.dig('concurrency', 'queue') == 'max' && workflow.dig('concurrency', 'group') == "${{ github.event_name == 'push' && format('minmaxcal-release-dry-run-{0}', github.ref) || 'minmaxcal-release' }}"
-  abort 'Releases and private uploads must share a serial queue'
+trigger = workflow.fetch(true).fetch('workflow_run')
+unless trigger.fetch('types') == ['completed'] && trigger.fetch('branches') == ['main'] &&
+       trigger.fetch('workflows') == ['GitHub Actions CI']
+  abort 'Only completed main CI may trigger private publishing'
 end
+ci = YAML.load_file('.github/workflows/tests.yml').dig('jobs', 'testflight-changes')
+unless ci.fetch('if') == "github.event_name == 'push'" &&
+       ci.fetch('concurrency') == { 'group' => 'private-testflight-${{ github.event.before }}', 'cancel-in-progress' => true } &&
+       ci.fetch('steps').last.fetch('if') == "steps.swift.outputs.changed == 'true'"
+  abort 'Each push must supersede the previous tip and record eligible changes'
+end
+unless workflow.dig('concurrency', 'queue') == 'max' && testflight.dig('concurrency', 'queue') == 'max'
+  abort 'Live uploads and official releases must queue'
+end
+groups = workflow.dig('concurrency', 'group').delete_prefix('${{').delete_suffix('}}').gsub(/\s+/, ' ').gsub('{0}', '%s')
+upload_group = testflight.dig('concurrency', 'group').delete_prefix('${{').delete_suffix('}}')
+{ 'workflow_run' => ['private-testflight-tested', 'minmaxcal-release'], 'workflow_dispatch' => ['minmaxcal-release', 'run'],
+  'push' => ['minmaxcal-release-dry-run-refs/heads/main', 'run'] }.each do |event, expected|
+  actual = [groups, upload_group].map do |expr|
+    eval(expr.gsub('github.event_name', event.inspect).gsub('github.ref', "'refs/heads/main'")
+             .gsub('github.event.workflow_run.head_sha', "'tested'").gsub('github.run_id', "'run'"))
+  end
+  abort "Unexpected release queues for #{event}: #{actual}" unless actual == expected
+end
+candidate = jobs.fetch('private-build')
+abort 'TestFlight must wait for the Swift change check' unless testflight.fetch('needs').include?('private-build')
 %w[workflow_run workflow_dispatch push].product(%w[push pull_request], %w[main feature],
   %w[local foreign], %w[success failure cancelled skipped], %w[success failure skipped],
   %w[success failure skipped], %w[maintainer dependabot[bot]], [false, true]).each do |event, cause, branch, repo, conclusion, build, smoke, actor, cancelled|
@@ -42,14 +74,14 @@ end
     'github.event.workflow_run.conclusion' => conclusion, 'github.actor' => actor,
     'needs.build.result' => build, 'needs.smoke-test.result' => smoke, 'cancelled()' => cancelled
   }
-  expression = testflight.fetch('if').gsub(/\s+/, ' ')
-  values.each { |key, value| expression = expression.gsub(key, value.inspect) }
-  expected = !cancelled && if event == 'workflow_run'
-    cause == 'push' && branch == 'main' && repo == 'local' && conclusion == 'success'
-  else
-    actor != 'dependabot[bot]' && build == 'success' && smoke == 'success'
+  trusted = event == 'workflow_run' && cause == 'push' && branch == 'main' && repo == 'local' && conclusion == 'success'
+  abort "Unsafe private candidate: #{values}" unless enabled?(candidate, values) == trusted
+  %w[true false].each do |changed|
+    values['needs.private-build.outputs.eligible'] = trusted ? changed : ''
+    expected = !cancelled && (trusted && changed == 'true' ||
+      event != 'workflow_run' && actor != 'dependabot[bot]' && build == 'success' && smoke == 'success')
+    abort "Unsafe TestFlight trigger: #{values}" unless enabled?(testflight, values) == expected
   end
-  abort "Unsafe TestFlight trigger: #{values}" unless eval(expression) == expected
 end
 build_steps = jobs.fetch('build').fetch('steps')
 quota = build_steps.index { |step| step.fetch('run', '').include?('check-release-limit') }
@@ -68,6 +100,9 @@ end
 steps = testflight.fetch('steps')
 upload = steps.find { |step| step['id'] == 'upload' }
 abort 'Upload step needs outputs for distribution recovery' unless upload
+unless steps.last.fetch('if').include?("steps.upload.outputs.superseded != 'true'")
+  abort 'A superseded private upload must skip Apple processing'
+end
 %w[IOS MAC_OS].product([false, 'mac-bundle'], [false, 'mac-password']).each do |platform, bundle, password|
   values = {
     'matrix.platform' => platform, 'secrets.MINMAXCAL_APP_STORE_MACOS_CERTIFICATES' => bundle,
@@ -366,6 +401,36 @@ for TESTFLIGHT_PLATFORM in IOS MAC_OS; do
       done
     done
   done
+done
+# Simulate main moving while Xcode archives the private build.
+cat >"${scratch}/bin/gh" <<'GITHUB'
+#!/bin/bash
+set -euo pipefail
+[[ "$*" == 'api repos/test/repo/git/ref/heads/main --jq .object.sha' ]]
+[[ "$(cat "${TESTFLIGHT_TEST_DIRECTORY}/calls")" == archive ]]
+[[ "${TEST_MAIN}" != unavailable ]]
+echo "${TEST_MAIN}"
+GITHUB
+chmod +x "${scratch}/bin/gh"
+tested="$(git rev-parse HEAD)"
+for TEST_MAIN in "${tested}" newer unavailable; do
+  export TEST_MAIN
+  rm -f "${scratch}/calls"
+  : >"${scratch}/output"
+  if GITHUB_SHA=event-default-sha GITHUB_REPOSITORY=test/repo GITHUB_EVENT_NAME=workflow_run GITHUB_OUTPUT="${scratch}/output" \
+    TESTFLIGHT_TEST_FAILURE=none script/testflight --internal >"${scratch}/run.log" 2>&1; then
+    [[ "${TEST_MAIN}" != unavailable ]]
+  else
+    [[ "${TEST_MAIN}" == unavailable ]] || exit 1
+  fi
+  if [[ "${TEST_MAIN}" == "${tested}" ]]; then
+    [[ "$(cat "${scratch}/calls")" == $'archive\nupload' ]]
+  else
+    [[ "$(cat "${scratch}/calls")" == archive ]]
+  fi
+  if [[ "${TEST_MAIN}" == newer ]]; then
+    grep -qx 'superseded=true' "${scratch}/output"
+  fi
 done
 unset TESTFLIGHT_PLATFORM
 echo 'TestFlight script tests passed'

@@ -118,16 +118,16 @@ See [AGENTS.md](AGENTS.md) for the conventions and
 
 ### TestFlight releases
 
-Successful CI on `main` uploads private Mac, iPhone and Watch betas,
-keeping the newest 20 per platform. Official releases add both builds to
-the configured external group (**Public Beta** by default), request
-beta review and publish the GitHub release; approval is asynchronous.
-Both releases and public uploads are capped at three per 24 hours.
+Private Mac, iPhone and Watch betas require passing CI and a change to
+app Swift code or Swift package dependencies on `main`. Each push
+cancels the previous private build. We keep 20 per platform. Releases
+submit both builds for review (**Public Beta** by default) and publish
+on GitHub. Releases and public uploads are capped at three per 24 hours.
 Install [TestFlight](https://apps.apple.com/app/testflight/id899247664)
-and [join the public beta][testflight-beta] for available builds.
-No App Store Connect account is needed. See [setup][testflight-setup]
-and [beta copy](TESTFLIGHT.md). Dispatch **Release** from `main` with
-a new bare version; dry runs never upload.
+and [join the public beta][testflight-beta]. No App Store Connect
+account is needed. See [setup][testflight-setup] and
+[beta copy](TESTFLIGHT.md). Dispatch **Release** from `main` with a new
+bare version. Dry runs never upload.
 
 [testflight-beta]: https://testflight.apple.com/join/XhQqMckH
 [testflight-setup]: ARCHITECTURE.md#set-up-testflight-releases
